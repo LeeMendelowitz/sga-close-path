@@ -103,6 +103,7 @@ AC_CONFIG_FILES([Makefile
 		SuffixTools/Makefile
         GraphDiff/Makefile
         Scaffold/Makefile
-		SGA/Makefile])
+		SGA/Makefile
+        TEST/Makefile])
 
 AC_OUTPUT

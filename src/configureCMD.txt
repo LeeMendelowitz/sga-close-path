@@ -1,0 +1,1 @@
+./configure --with-sparsehash=/cbcb/software/Linux-x86_64/packages/sparsehash-1.12 --with-bamtools=/cbcb/software/Linux-x86_64/packages/bamtools

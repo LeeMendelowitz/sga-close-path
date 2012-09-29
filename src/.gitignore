@@ -9,3 +9,10 @@ depcomp
 install-sh
 missing
 build*
+
+
+# ignore compiled units
+*.o
+*.a
+*.deps
+*.Po
