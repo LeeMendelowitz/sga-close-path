@@ -1,6 +1,6 @@
-bin_PROGRAMS = helloWorld
+bin_PROGRAMS = testGraphSearch
 
-helloWorld_CPPFLAGS = \
+testGraphSearch_CPPFLAGS = \
     -I$(top_srcdir)/Util \
     -I$(top_srcdir)/Bigraph \
     -I$(top_srcdir)/SuffixTools \
@@ -10,9 +10,10 @@ helloWorld_CPPFLAGS = \
     -I$(top_srcdir)/SQG \
     -I$(top_srcdir)/Scaffold \
     -I$(top_srcdir)/GraphDiff \
+    -I$(top_srcdir)/GraphSearch \
     -I$(top_srcdir)/Thirdparty
 
-helloWorld_LDADD = \
+testGraphSearch_LDADD = \
     $(top_builddir)/Scaffold/libscaffold.a \
     $(top_builddir)/GraphDiff/libgraphdiff.a \
     $(top_builddir)/StringGraph/libstringgraph.a \
@@ -22,8 +23,9 @@ helloWorld_LDADD = \
     $(top_builddir)/Bigraph/libbigraph.a \
     $(top_builddir)/Util/libutil.a \
     $(top_builddir)/SQG/libsqg.a \
-    $(top_builddir)/Thirdparty/libthirdparty.a
+    $(top_builddir)/GraphSearch/libgraphsearch.a \
+    $(top_builddir)/Thirdparty/libthirdparty.a 
 
 
-
-helloWorld_SOURCES = helloWorld.cpp
+testGraphSearch_SOURCES = testGraphSearch.cpp \
+                          testUtils.cpp

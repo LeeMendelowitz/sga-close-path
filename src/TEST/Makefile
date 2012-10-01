@@ -32,7 +32,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = helloWorld$(EXEEXT)
+bin_PROGRAMS = testGraphSearch$(EXEEXT)
 subdir = TEST
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -45,9 +45,11 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_helloWorld_OBJECTS = helloWorld-helloWorld.$(OBJEXT)
-helloWorld_OBJECTS = $(am_helloWorld_OBJECTS)
-helloWorld_DEPENDENCIES = $(top_builddir)/Scaffold/libscaffold.a \
+am_testGraphSearch_OBJECTS =  \
+	testGraphSearch-testGraphSearch.$(OBJEXT) \
+	testGraphSearch-testUtils.$(OBJEXT)
+testGraphSearch_OBJECTS = $(am_testGraphSearch_OBJECTS)
+testGraphSearch_DEPENDENCIES = $(top_builddir)/Scaffold/libscaffold.a \
 	$(top_builddir)/GraphDiff/libgraphdiff.a \
 	$(top_builddir)/StringGraph/libstringgraph.a \
 	$(top_builddir)/Concurrency/libconcurrency.a \
@@ -55,6 +57,7 @@ helloWorld_DEPENDENCIES = $(top_builddir)/Scaffold/libscaffold.a \
 	$(top_builddir)/SuffixTools/libsuffixtools.a \
 	$(top_builddir)/Bigraph/libbigraph.a \
 	$(top_builddir)/Util/libutil.a $(top_builddir)/SQG/libsqg.a \
+	$(top_builddir)/GraphSearch/libgraphsearch.a \
 	$(top_builddir)/Thirdparty/libthirdparty.a
 DEFAULT_INCLUDES = -I. -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -65,8 +68,8 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(helloWorld_SOURCES)
-DIST_SOURCES = $(helloWorld_SOURCES)
+SOURCES = $(testGraphSearch_SOURCES)
+DIST_SOURCES = $(testGraphSearch_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -80,7 +83,7 @@ AWK = mawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -O3
-CPPFLAGS =  -fopenmp  -I/home/lee/packages/bamtools/include -I/home/lee/packages/bamtools/include/bamtools
+CPPFLAGS =  -fopenmp  -I/home/lee/packages/bamtools//include -I/home/lee/packages/bamtools//include/bamtools
 CXX = g++
 CXXCPP = g++ -E
 CXXDEPMODE = depmode=gcc3
@@ -99,7 +102,7 @@ INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
-LDFLAGS =  -Wl,-rpath,/home/lee/packages/bamtools/lib -L/home/lee/packages/bamtools/lib -Wl,-rpath,/home/lee/packages/bamtools/lib/bamtools -L/home/lee/packages/bamtools/lib/bamtools 
+LDFLAGS =  -Wl,-rpath,/home/lee/packages/bamtools//lib -L/home/lee/packages/bamtools//lib -Wl,-rpath,/home/lee/packages/bamtools//lib/bamtools -L/home/lee/packages/bamtools//lib/bamtools 
 LIBOBJS = 
 LIBS = -lgomp -lrt -lz  -lbamtools
 LTLIBOBJS = 
@@ -162,7 +165,7 @@ target_alias =
 top_build_prefix = ../
 top_builddir = ..
 top_srcdir = ..
-helloWorld_CPPFLAGS = \
+testGraphSearch_CPPFLAGS = \
     -I$(top_srcdir)/Util \
     -I$(top_srcdir)/Bigraph \
     -I$(top_srcdir)/SuffixTools \
@@ -172,9 +175,10 @@ helloWorld_CPPFLAGS = \
     -I$(top_srcdir)/SQG \
     -I$(top_srcdir)/Scaffold \
     -I$(top_srcdir)/GraphDiff \
+    -I$(top_srcdir)/GraphSearch \
     -I$(top_srcdir)/Thirdparty
 
-helloWorld_LDADD = \
+testGraphSearch_LDADD = \
     $(top_builddir)/Scaffold/libscaffold.a \
     $(top_builddir)/GraphDiff/libgraphdiff.a \
     $(top_builddir)/StringGraph/libstringgraph.a \
@@ -184,9 +188,12 @@ helloWorld_LDADD = \
     $(top_builddir)/Bigraph/libbigraph.a \
     $(top_builddir)/Util/libutil.a \
     $(top_builddir)/SQG/libsqg.a \
-    $(top_builddir)/Thirdparty/libthirdparty.a
+    $(top_builddir)/GraphSearch/libgraphsearch.a \
+    $(top_builddir)/Thirdparty/libthirdparty.a 
 
-helloWorld_SOURCES = helloWorld.cpp
+testGraphSearch_SOURCES = testGraphSearch.cpp \
+                          testUtils.cpp
+
 all: all-am
 
 .SUFFIXES:
@@ -258,9 +265,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-helloWorld$(EXEEXT): $(helloWorld_OBJECTS) $(helloWorld_DEPENDENCIES) $(EXTRA_helloWorld_DEPENDENCIES) 
-	@rm -f helloWorld$(EXEEXT)
-	$(CXXLINK) $(helloWorld_OBJECTS) $(helloWorld_LDADD) $(LIBS)
+testGraphSearch$(EXEEXT): $(testGraphSearch_OBJECTS) $(testGraphSearch_DEPENDENCIES) $(EXTRA_testGraphSearch_DEPENDENCIES) 
+	@rm -f testGraphSearch$(EXEEXT)
+	$(CXXLINK) $(testGraphSearch_OBJECTS) $(testGraphSearch_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -268,7 +275,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-include ./$(DEPDIR)/helloWorld-helloWorld.Po
+include ./$(DEPDIR)/testGraphSearch-testGraphSearch.Po
+include ./$(DEPDIR)/testGraphSearch-testUtils.Po
 
 .cpp.o:
 	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -284,19 +292,33 @@ include ./$(DEPDIR)/helloWorld-helloWorld.Po
 #	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
 #	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-helloWorld-helloWorld.o: helloWorld.cpp
-	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(helloWorld_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT helloWorld-helloWorld.o -MD -MP -MF $(DEPDIR)/helloWorld-helloWorld.Tpo -c -o helloWorld-helloWorld.o `test -f 'helloWorld.cpp' || echo '$(srcdir)/'`helloWorld.cpp
-	$(am__mv) $(DEPDIR)/helloWorld-helloWorld.Tpo $(DEPDIR)/helloWorld-helloWorld.Po
-#	source='helloWorld.cpp' object='helloWorld-helloWorld.o' libtool=no \
+testGraphSearch-testGraphSearch.o: testGraphSearch.cpp
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT testGraphSearch-testGraphSearch.o -MD -MP -MF $(DEPDIR)/testGraphSearch-testGraphSearch.Tpo -c -o testGraphSearch-testGraphSearch.o `test -f 'testGraphSearch.cpp' || echo '$(srcdir)/'`testGraphSearch.cpp
+	$(am__mv) $(DEPDIR)/testGraphSearch-testGraphSearch.Tpo $(DEPDIR)/testGraphSearch-testGraphSearch.Po
+#	source='testGraphSearch.cpp' object='testGraphSearch-testGraphSearch.o' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
-#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(helloWorld_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o helloWorld-helloWorld.o `test -f 'helloWorld.cpp' || echo '$(srcdir)/'`helloWorld.cpp
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o testGraphSearch-testGraphSearch.o `test -f 'testGraphSearch.cpp' || echo '$(srcdir)/'`testGraphSearch.cpp
 
-helloWorld-helloWorld.obj: helloWorld.cpp
-	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(helloWorld_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT helloWorld-helloWorld.obj -MD -MP -MF $(DEPDIR)/helloWorld-helloWorld.Tpo -c -o helloWorld-helloWorld.obj `if test -f 'helloWorld.cpp'; then $(CYGPATH_W) 'helloWorld.cpp'; else $(CYGPATH_W) '$(srcdir)/helloWorld.cpp'; fi`
-	$(am__mv) $(DEPDIR)/helloWorld-helloWorld.Tpo $(DEPDIR)/helloWorld-helloWorld.Po
-#	source='helloWorld.cpp' object='helloWorld-helloWorld.obj' libtool=no \
+testGraphSearch-testGraphSearch.obj: testGraphSearch.cpp
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT testGraphSearch-testGraphSearch.obj -MD -MP -MF $(DEPDIR)/testGraphSearch-testGraphSearch.Tpo -c -o testGraphSearch-testGraphSearch.obj `if test -f 'testGraphSearch.cpp'; then $(CYGPATH_W) 'testGraphSearch.cpp'; else $(CYGPATH_W) '$(srcdir)/testGraphSearch.cpp'; fi`
+	$(am__mv) $(DEPDIR)/testGraphSearch-testGraphSearch.Tpo $(DEPDIR)/testGraphSearch-testGraphSearch.Po
+#	source='testGraphSearch.cpp' object='testGraphSearch-testGraphSearch.obj' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
-#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(helloWorld_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o helloWorld-helloWorld.obj `if test -f 'helloWorld.cpp'; then $(CYGPATH_W) 'helloWorld.cpp'; else $(CYGPATH_W) '$(srcdir)/helloWorld.cpp'; fi`
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o testGraphSearch-testGraphSearch.obj `if test -f 'testGraphSearch.cpp'; then $(CYGPATH_W) 'testGraphSearch.cpp'; else $(CYGPATH_W) '$(srcdir)/testGraphSearch.cpp'; fi`
+
+testGraphSearch-testUtils.o: testUtils.cpp
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT testGraphSearch-testUtils.o -MD -MP -MF $(DEPDIR)/testGraphSearch-testUtils.Tpo -c -o testGraphSearch-testUtils.o `test -f 'testUtils.cpp' || echo '$(srcdir)/'`testUtils.cpp
+	$(am__mv) $(DEPDIR)/testGraphSearch-testUtils.Tpo $(DEPDIR)/testGraphSearch-testUtils.Po
+#	source='testUtils.cpp' object='testGraphSearch-testUtils.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o testGraphSearch-testUtils.o `test -f 'testUtils.cpp' || echo '$(srcdir)/'`testUtils.cpp
+
+testGraphSearch-testUtils.obj: testUtils.cpp
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT testGraphSearch-testUtils.obj -MD -MP -MF $(DEPDIR)/testGraphSearch-testUtils.Tpo -c -o testGraphSearch-testUtils.obj `if test -f 'testUtils.cpp'; then $(CYGPATH_W) 'testUtils.cpp'; else $(CYGPATH_W) '$(srcdir)/testUtils.cpp'; fi`
+	$(am__mv) $(DEPDIR)/testGraphSearch-testUtils.Tpo $(DEPDIR)/testGraphSearch-testUtils.Po
+#	source='testUtils.cpp' object='testGraphSearch-testUtils.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(testGraphSearch_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o testGraphSearch-testUtils.obj `if test -f 'testUtils.cpp'; then $(CYGPATH_W) 'testUtils.cpp'; else $(CYGPATH_W) '$(srcdir)/testUtils.cpp'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

@@ -105,6 +105,7 @@ AC_CONFIG_FILES([Makefile
         GraphDiff/Makefile
         Scaffold/Makefile
 		SGA/Makefile
+        GraphSearch/Makefile
         TEST/Makefile])
 
 AC_OUTPUT
