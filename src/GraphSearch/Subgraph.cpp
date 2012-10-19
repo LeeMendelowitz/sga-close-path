@@ -28,6 +28,7 @@ void Subgraph::copyVertexToSubgraph(StringGraph* pSubgraph, const Vertex* pVerte
     }
 }
 
+// Add a copy of the edge and its twin to the subgraph
 void Subgraph::addEdgeToSubgraph(StringGraph* pSubGraph, const Edge* pEdge)
 {
     Vertex * pX = pEdge->getStart();
@@ -49,7 +50,7 @@ void Subgraph::copyEdgesToSubgraph(StringGraph * pSubGraph, StringGraph * pGraph
         Edge * pTwinEdge = pEdge->getTwin();
         if (pEdge->getColor() != GC_BLACK) {
             addEdgeToSubgraph(pSubGraph, pEdge);
-            addEdgeToSubgraph(pSubGraph, pTwinEdge);
+            //addEdgeToSubgraph(pSubGraph, pTwinEdge);
             pEdge->setColor(GC_BLACK);
             pTwinEdge->setColor(GC_BLACK);
         }

@@ -7,9 +7,6 @@
 #include "testUtils.h"
 #include "Subgraph.h"
 
-// TODO: Make sure the graph search results make sense!
-
-// Write code to make a subgraph from double sided BFS between source and target
 
 int main()
 {
@@ -23,15 +20,19 @@ int main()
     // Do BFS for one of the vertexes
     VertexID vId = "contig-1138";
     Vertex * pVertex = pGraph->getVertex(vId);
-    EdgePtrVec eVec = boundedBFS(pVertex, ED_SENSE, 1000, 500);
-    cout << "Found " << eVec.size() << " edges." << endl;
-//    printEdgePtrVec(eVec);
+    //EdgePtrVec eVec = boundedBFS(pVertex, ED_SENSE, 1000, 500);
+    //cout << "Found " << eVec.size() << " edges." << endl;
+    //printEdgePtrVec(eVec);
 
     // Create subgraph from edges
     VertexID yId = "contig-900";
     Vertex * pY = pGraph->getVertex(yId);
-    makePathGraph(pGraph, pVertex, ED_SENSE, pY, ED_ANTISENSE, 500);
 
+    cout << "*******************************************"
+         << "\n\n\n\n\n\n\n";
+    StringGraph * pSubgraph = makePathGraph(pGraph, pVertex, ED_SENSE, pY, ED_ANTISENSE, 0);
+    pSubgraph->stats();
+    pSubgraph->writeASQG("test.asqg.gz");
 
     /*
     cout << "Creating Subgraph..." << endl;
@@ -47,5 +48,6 @@ int main()
     */
 
     delete pGraph;
+    delete pSubgraph;
     return 0;
 }
