@@ -70,6 +70,33 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
     return !searchTree.wasSearchAborted();
 }
 
+// Find all the walks between pX and pY that are within maxDistance
+// If the exhaustive flag is set, only return walks if all the possible
+// solutions have been found. If exhaustive is false, any walks found will be
+// returned in outWalks even if the search is aborted.
+// Returns true if all the possible walks were found.
+bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir, EdgeDir goalDir,
+                         int maxDistance, int minDistance, bool allowGoalRepeat,
+                         bool goalOriented, bool minDistanceEnforced, size_t maxNodes, bool exhaustive, SGWalkVector& outWalks)
+{
+    SGSearchTree searchTree(pX, pY, initialDir, goalDir, maxDistance, minDistance, allowGoalRepeat, goalOriented, 
+                            minDistanceEnforced, maxNodes);
+
+    // Iteravively perform the BFS using the search tree.
+    while(searchTree.stepOnce()) { }
+
+    // If the search was aborted, do not return any walks
+    // because we do not know if there are more valid paths from pX
+    // to pY that we could not find because the search space was too large
+    if(!searchTree.wasSearchAborted() || !exhaustive)
+    {
+        // Extract the walks from the graph as a vector of edges
+        SGWalkBuilder builder(outWalks, false);
+        searchTree.buildWalksToGoal(builder);
+    }
+    return !searchTree.wasSearchAborted();
+}
+
 // Search the graph for a set of walks that represent alternate
 // versions of the same sequence. Theese walks are found by searching
 // the graph for a set of walks that start/end at a common vertex and cover

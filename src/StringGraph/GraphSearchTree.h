@@ -70,10 +70,24 @@ class GraphSearchTree
 
     public:
 
+        // "Default" Constructor. Ignores options for min. distance to goal and orientation of goal.
         GraphSearchTree(VERTEX* pStartVertex, 
                      VERTEX* pEndVertex,
                      EdgeDir searchDir,
                      int64_t distanceLimit,
+                     size_t nodeLimit);
+
+        // Full Constructor, requiring specification of all options.
+        // If goalDir is ED_SENSE, we enter the goal on the 5' end.
+        GraphSearchTree(VERTEX* pStartVertex, 
+                     VERTEX* pEndVertex,
+                     EdgeDir searchDir,
+                     EdgeDir goalDir,
+                     int64_t distanceLimit,
+                     int64_t minDistance,
+                     bool allowGoalRepeat,
+                     bool goalOriented,
+                     bool minDistanceEnforced,
                      size_t nodeLimit);
 
         ~GraphSearchTree();
@@ -148,6 +162,13 @@ class GraphSearchTree
         int64_t m_distanceLimit;
         size_t m_nodeLimit;
 
+        // Optional arguments to refine graph search
+        bool m_allowGoalRepeat; // Allow the goal vertex to be repeated on a walk
+        bool m_goalOriented; // Require orientation of the goal vertex
+        bool m_minDistanceEnforced; // Require a minimum distance to goal
+        EdgeDir m_goalDir; // Orientation of the goal vertex
+        int64_t m_minDistance; // Minimum distance to goal
+
         // Flag indicating the search was aborted
         bool m_searchAborted;
 
@@ -179,6 +200,8 @@ GraphSearchNode<VERTEX,EDGE,DISTANCE>::GraphSearchNode(VERTEX* pVertex,
         m_distance = m_pParent->m_distance + distance;
     }
 }
+
+
 
 // Delete this node and decrement the number of children
 // in the parent node. All children of a node must
@@ -222,6 +245,7 @@ int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodePtrDequ
 //
 // GraphSearchTree
 //
+
 template<typename VERTEX, typename EDGE, typename DISTANCE>
 GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(VERTEX* pStartVertex, 
                                                        VERTEX* pEndVertex, 
@@ -230,6 +254,38 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(VERTEX* pStartVertex,
                                                        size_t nodeLimit) : m_pGoalVertex(pEndVertex),
                                                                            m_distanceLimit(distanceLimit),
                                                                            m_nodeLimit(nodeLimit),
+                                                                           m_allowGoalRepeat(false),
+                                                                           m_goalOriented(false),
+                                                                           m_minDistanceEnforced(false),
+                                                                           m_searchAborted(false)
+{
+    // Create the root node of the search tree
+    m_pRootNode = new GraphSearchNode<VERTEX, EDGE, DISTANCE>(pStartVertex, searchDir, NULL, NULL, 0);
+
+    // add the root to the expand queue
+    m_expandQueue.push_back(m_pRootNode);
+
+    m_totalNodes = 1;
+}
+
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(VERTEX* pStartVertex, 
+                                                       VERTEX* pEndVertex, 
+                                                       EdgeDir searchDir,
+                                                       EdgeDir goalDir,
+                                                       int64_t distanceLimit,
+                                                       int64_t minDistance,
+                                                       bool allowGoalRepeat,
+                                                       bool goalOriented,
+                                                       bool minDistanceEnforced,
+                                                       size_t nodeLimit) : m_pGoalVertex(pEndVertex),
+                                                                           m_distanceLimit(distanceLimit),
+                                                                           m_nodeLimit(nodeLimit),
+                                                                           m_allowGoalRepeat(allowGoalRepeat),
+                                                                           m_goalOriented(goalOriented),
+                                                                           m_minDistanceEnforced(minDistanceEnforced),
+                                                                           m_goalDir(goalDir),
+                                                                           m_minDistance(minDistance),
                                                                            m_searchAborted(false)
 {
     // Create the root node of the search tree
@@ -306,9 +362,28 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
         
         if(pNode->getVertex() == m_pGoalVertex)
         {
-            // This node represents the goal, add it to the goal queue
-            m_goalQueue.push_back(pNode);
-            continue;
+            bool minDistanceOK = true;
+            bool orientationOK = true;
+
+            // Minimum distance to goal check
+            if (m_minDistanceEnforced && pNode->getDistance() < m_minDistance) 
+                minDistanceOK = false;
+
+            // Goal Orientation check
+            if (m_goalOriented)
+            {
+                EdgeDir goalOrientation = !(pNode->getEdgeFromParent()->getTwin()->getDir());
+                orientationOK = (goalOrientation == m_goalDir);
+            }
+
+            // If we've reached the goal and pass all requirements, add it to the goalQueue
+            if (minDistanceOK && orientationOK)
+            {
+                m_goalQueue.push_back(pNode);
+                if (!m_allowGoalRepeat)
+                    continue;
+            }
+
         }
 
         if(pNode->getDistance() > m_distanceLimit)

@@ -61,6 +61,20 @@ namespace SGSearch
                    bool exhaustive,
                    SGWalkVector& outWalks);
 
+    // Find all walks, with criteria on minimum distance to goal
+    bool findWalks(Vertex* pX,
+                   Vertex* pY,
+                   EdgeDir initialDir,
+                   EdgeDir goalDir,
+                   int maxDistance,
+                   int minDistance,
+                   bool allowGoalRepeat,
+                   bool goalOriented,
+                   bool minDistanceEnforced,
+                   size_t maxNodes,
+                   bool exhaustive,
+                   SGWalkVector& outWalks);
+
     void findVariantWalks(Vertex* pX, 
                           EdgeDir initialDir, 
                           int maxDistance,

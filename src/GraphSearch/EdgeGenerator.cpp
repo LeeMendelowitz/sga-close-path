@@ -10,8 +10,8 @@
 #include <limits>
 
 
-#define PATHS_DEBUG 1
-#define BFS_DEBUG 1
+#define PATHS_DEBUG 0
+#define BFS_DEBUG 0
 
 using namespace std;
 
@@ -245,6 +245,7 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     VertexPtrSet::const_iterator ib = pSet1->begin();
     VertexPtrSet::const_iterator ie = pSet1->end();
     pSubgraph->setColors(GC_BLACK);
+    // Set those nodes in the intersection to WHITE
     for(; ib != ie; ib++) {
         Vertex * pVertex = *ib;
         if (pSet2->count(pVertex)==1)
