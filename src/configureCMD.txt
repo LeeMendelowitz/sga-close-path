@@ -1,1 +1,2 @@
 ./configure --with-sparsehash=/cbcb/software/Linux-x86_64/packages/sparsehash-1.12 --with-bamtools=/cbcb/software/Linux-x86_64/packages/bamtools
+./configure --with-sparsehash=/home/lee/packages/sparsehash-2.0.2 --with-bamtools=/home/lee/packages/bamtools

@@ -52,7 +52,11 @@ void ScaffoldSearch::findVariantWalks(ScaffoldVertex* pX,
                                       ScaffoldWalkVector& outWalks)
 {
     (void)maxWalks;
-    ScaffoldSearchTree searchTree(pX, NULL, initialDir, maxDistance, 10000);
+
+    ScaffoldSearchParams params(pX, NULL, initialDir, maxDistance);
+    params.nodeLimit = 10000;
+    ScaffoldSearchTree searchTree(params);
+
     // Iteravively perform the BFS using the search tree. After each step
     // we check if the search has collapsed to a single vertex.
     bool done = false;
@@ -108,7 +112,9 @@ void ScaffoldSearch::findPrimaryWalks(ScaffoldVertex* pX,
                                       size_t maxNodes, 
                                       ScaffoldWalkVector& outWalks)
 {
-    ScaffoldSearchTree searchTree(pX, pY, initialDir, maxDistance, maxNodes);
+    ScaffoldSearchParams params(pX, pY, initialDir, maxDistance);
+    params.nodeLimit = maxNodes;
+    ScaffoldSearchTree searchTree(params);
 
     // Iteravively perform the BFS using the search tree.
     while(searchTree.stepOnce()) { }

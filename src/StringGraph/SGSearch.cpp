@@ -10,6 +10,9 @@
 #include "SGSearch.h"
 #include <queue>
 
+#define SGSEARCH_DEBUG 1
+#include <iostream>
+
 //
 SGWalkBuilder::SGWalkBuilder(SGWalkVector& outWalks, bool bIndexWalk) : m_outWalks(outWalks), m_pCurrWalk(NULL), m_bIndexWalk(bIndexWalk)
 {
@@ -53,7 +56,18 @@ void SGWalkBuilder::finishCurrentWalk()
 bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
                          int maxDistance, size_t maxNodes, bool exhaustive, SGWalkVector& outWalks)
 {
-    SGSearchTree searchTree(pX, pY, initialDir, maxDistance, maxNodes);
+
+    SGSearchParams params(pX, pY, initialDir, maxDistance);
+    params.nodeLimit = maxNodes;
+
+    ///////////////////////////////////////////////////
+    // DEBUG
+    std::cout << "Making SGSearchTree with params:\n";
+    params.print();
+    ///////////////////////////////////////////////////
+
+
+    SGSearchTree searchTree(params);
 
     // Iteravively perform the BFS using the search tree.
     while(searchTree.stepOnce()) { }
@@ -75,12 +89,15 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
 // solutions have been found. If exhaustive is false, any walks found will be
 // returned in outWalks even if the search is aborted.
 // Returns true if all the possible walks were found.
-bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir, EdgeDir goalDir,
-                         int maxDistance, int minDistance, bool allowGoalRepeat,
-                         bool goalOriented, bool minDistanceEnforced, size_t maxNodes, bool exhaustive, SGWalkVector& outWalks)
+bool SGSearch::findWalks(const SGSearchParams& params, bool exhaustive, SGWalkVector& outWalks)
 {
-    SGSearchTree searchTree(pX, pY, initialDir, goalDir, maxDistance, minDistance, allowGoalRepeat, goalOriented, 
-                            minDistanceEnforced, maxNodes);
+    ///////////////////////////////////////////////////
+    // DEBUG
+    std::cout << "Making SGSearchTree with params:\n";
+    params.print();
+    ///////////////////////////////////////////////////
+
+    SGSearchTree searchTree(params);
 
     // Iteravively perform the BFS using the search tree.
     while(searchTree.stepOnce()) { }
@@ -189,7 +206,9 @@ void SGSearch::findCollapsedWalks(Vertex* pX, EdgeDir initialDir,
                                   int maxDistance, size_t maxNodes, 
                                   SGWalkVector& outWalks)
 {
-    SGSearchTree searchTree(pX, NULL, initialDir, maxDistance, maxNodes);
+    SGSearchParams params(pX, NULL, initialDir, maxDistance);
+    params.nodeLimit = maxNodes;
+    SGSearchTree searchTree(params);
 
     // Iteravively perform the BFS using the search tree. After each step
     // we check if the search has collapsed to a single vertex.

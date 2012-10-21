@@ -17,6 +17,62 @@
 #include "SGWalk.h"
 #include <deque>
 #include <queue>
+#include <iostream>
+
+// Parameters guiding a GraphSearchTree Search
+// This structure sets a default for optional search parameters
+template<typename VERTEX>
+class GraphSearchParams
+{
+
+    public:
+
+    // Basic constructor sets the basic parameters. All other parameters should be set by hand.
+    GraphSearchParams(VERTEX * start, VERTEX * end, EdgeDir dir, int64_t maxDist) :
+        pStartVertex(start),
+        pEndVertex(end),
+        searchDir(dir),
+        goalDir(ED_SENSE),
+        startDistance(0),
+        maxDistance(maxDist),
+        minDistance(-1),
+        allowGoalRepeat(false),
+        goalOriented(false),
+        minDistanceEnforced(false),
+        maxDistanceEnforced(false),
+        nodeLimit(10000)
+        {};
+
+    VERTEX* pStartVertex; 
+    VERTEX* pEndVertex; // The goal vertex.
+    EdgeDir searchDir; // Search from the start vertex in this direction.
+    EdgeDir goalDir; // If goalDir is ED_SENSE, we enter the goal on the 5' end.
+    int64_t startDistance;  // The distance of the initial node.
+    int64_t maxDistance; // The max distance to search. The GraphSearchTree will not expand
+                         // a node with distance > maxDistance.
+    int64_t minDistance; // The minimum distance to the goal vertex.
+    bool allowGoalRepeat; // Allow a goal vertex to be repeated on a walk.
+    bool goalOriented; // Only accept the goal if it has orientation goalDir.
+    bool minDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at least minDistance.
+    bool maxDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at most maxDistanceEnforced.
+    size_t nodeLimit; // The maximum number of nodes allowed in the GraphSearchTree.
+
+    void print() const
+    {
+        std::cout << "Start: " << pStartVertex->getID() << "\n"
+             << "End: "   << ((pEndVertex==NULL) ? "NULL" : pEndVertex->getID().c_str()) << "\n"
+             << "SearchDir: " << searchDir << "\n"
+             << "GoalDir: " << goalDir << "\n"
+             << "startDistance: " << startDistance << "\n"
+             << "maxDistance: " << maxDistance << "\n"
+             << "minDistance: " << minDistance << "\n"
+             << "allowGoalRepeat: " << allowGoalRepeat << "\n"
+             << "goalOriented: " << goalOriented << "\n"
+             << "minDistanceEnforced: " << minDistanceEnforced << "\n"
+             << "maxDistanceEnforced: " << maxDistanceEnforced << "\n"
+             << "nodeLimit: " << nodeLimit << std::endl;
+    }
+};
 
 template<typename VERTEX, typename EDGE, typename DISTANCE>
 class GraphSearchNode
@@ -60,6 +116,7 @@ class GraphSearchTree
 {
     // typedefs
     typedef GraphSearchNode<VERTEX,EDGE,DISTANCE> _SearchNode;
+    typedef GraphSearchParams<VERTEX> _SearchParams;
     typedef typename _SearchNode::GraphSearchNodePtrDeque _SearchNodePtrDeque;
     typedef typename std::set<_SearchNode*> _SearchNodePtrSet;
     typedef std::vector<EDGE*> WALK; // list of edges defines a walk through the graph
@@ -70,25 +127,7 @@ class GraphSearchTree
 
     public:
 
-        // "Default" Constructor. Ignores options for min. distance to goal and orientation of goal.
-        GraphSearchTree(VERTEX* pStartVertex, 
-                     VERTEX* pEndVertex,
-                     EdgeDir searchDir,
-                     int64_t distanceLimit,
-                     size_t nodeLimit);
-
-        // Full Constructor, requiring specification of all options.
-        // If goalDir is ED_SENSE, we enter the goal on the 5' end.
-        GraphSearchTree(VERTEX* pStartVertex, 
-                     VERTEX* pEndVertex,
-                     EdgeDir searchDir,
-                     EdgeDir goalDir,
-                     int64_t distanceLimit,
-                     int64_t minDistance,
-                     bool allowGoalRepeat,
-                     bool goalOriented,
-                     bool minDistanceEnforced,
-                     size_t nodeLimit);
+        GraphSearchTree(const _SearchParams& params);
 
         ~GraphSearchTree();
 
@@ -126,6 +165,10 @@ class GraphSearchTree
         // Check whether the search was aborted or not
         bool wasSearchAborted() const { return m_searchAborted; }
 
+        // Count the number of search nodes in the goal queue. This gives the number 
+        // of walks found thus far from the start node to the goal.
+        size_t countWalksToGoal() const {return m_goalQueue.size();}
+
     private:
 
         // Search the branch from pNode to the root for pX.  
@@ -144,30 +187,21 @@ class GraphSearchTree
         // print the branch sequence
         void printBranch(_SearchNode* pNode) const;
 
-        // We keep the pointers to the search nodes
-        // in one of three queues. 
+        // We keep the pointers to the search nodes in queues.
         // The goal queue contains the nodes representing the vertex we are searching for.
         // The expand queue contains nodes that have not yet been explored.
         // The done queue contains non-goal nodes that will not be expanded further.
         // Together, they represent all leaves of the tree
+        // NOTE: Each node in the qoal queue is duplicated in either the expand queue or
+        // done queue. This depends on whether we allow a goal vertex to be repeated
+        // on a walk from start to goal (controlled by m_searchParams.allowGoalRepeat).
         _SearchNodePtrDeque m_goalQueue;
         _SearchNodePtrDeque m_expandQueue;
         _SearchNodePtrDeque m_doneQueue;
         size_t m_totalNodes; // The total number of nodes in the search tree
     
         _SearchNode* m_pRootNode;
-        VERTEX* m_pGoalVertex;
-        EdgeDir m_initialDir;
-
-        int64_t m_distanceLimit;
-        size_t m_nodeLimit;
-
-        // Optional arguments to refine graph search
-        bool m_allowGoalRepeat; // Allow the goal vertex to be repeated on a walk
-        bool m_goalOriented; // Require orientation of the goal vertex
-        bool m_minDistanceEnforced; // Require a minimum distance to goal
-        EdgeDir m_goalDir; // Orientation of the goal vertex
-        int64_t m_minDistance; // Minimum distance to goal
+        _SearchParams m_searchParams;
 
         // Flag indicating the search was aborted
         bool m_searchAborted;
@@ -245,22 +279,16 @@ int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodePtrDequ
 //
 // GraphSearchTree
 //
-
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(VERTEX* pStartVertex, 
-                                                       VERTEX* pEndVertex, 
-                                                       EdgeDir searchDir,
-                                                       int64_t distanceLimit,
-                                                       size_t nodeLimit) : m_pGoalVertex(pEndVertex),
-                                                                           m_distanceLimit(distanceLimit),
-                                                                           m_nodeLimit(nodeLimit),
-                                                                           m_allowGoalRepeat(false),
-                                                                           m_goalOriented(false),
-                                                                           m_minDistanceEnforced(false),
-                                                                           m_searchAborted(false)
+GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(const _SearchParams& params) :
+    m_searchParams(params),
+    m_searchAborted(false)
 {
+
     // Create the root node of the search tree
-    m_pRootNode = new GraphSearchNode<VERTEX, EDGE, DISTANCE>(pStartVertex, searchDir, NULL, NULL, 0);
+    m_pRootNode = new GraphSearchNode<VERTEX, EDGE, DISTANCE>(m_searchParams.pStartVertex,
+                                                              m_searchParams.searchDir, NULL, NULL,
+                                                              m_searchParams.startDistance);
 
     // add the root to the expand queue
     m_expandQueue.push_back(m_pRootNode);
@@ -268,34 +296,6 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(VERTEX* pStartVertex,
     m_totalNodes = 1;
 }
 
-template<typename VERTEX, typename EDGE, typename DISTANCE>
-GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(VERTEX* pStartVertex, 
-                                                       VERTEX* pEndVertex, 
-                                                       EdgeDir searchDir,
-                                                       EdgeDir goalDir,
-                                                       int64_t distanceLimit,
-                                                       int64_t minDistance,
-                                                       bool allowGoalRepeat,
-                                                       bool goalOriented,
-                                                       bool minDistanceEnforced,
-                                                       size_t nodeLimit) : m_pGoalVertex(pEndVertex),
-                                                                           m_distanceLimit(distanceLimit),
-                                                                           m_nodeLimit(nodeLimit),
-                                                                           m_allowGoalRepeat(allowGoalRepeat),
-                                                                           m_goalOriented(goalOriented),
-                                                                           m_minDistanceEnforced(minDistanceEnforced),
-                                                                           m_goalDir(goalDir),
-                                                                           m_minDistance(minDistance),
-                                                                           m_searchAborted(false)
-{
-    // Create the root node of the search tree
-    m_pRootNode = new GraphSearchNode<VERTEX, EDGE, DISTANCE>(pStartVertex, searchDir, NULL, NULL, 0);
-
-    // add the root to the expand queue
-    m_expandQueue.push_back(m_pRootNode);
-
-    m_totalNodes = 1;
-}
 
 template<typename VERTEX, typename EDGE, typename DISTANCE>
 GraphSearchTree<VERTEX,EDGE,DISTANCE>::~GraphSearchTree()
@@ -339,8 +339,13 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
     if(m_expandQueue.empty())
         return false;
 
-    if(m_totalNodes > m_nodeLimit)
+    if(m_totalNodes > m_searchParams.nodeLimit)
     {
+
+        std::cout << "Aborting Graph Search!! "
+                  << " NodeLimit: " << m_searchParams.nodeLimit
+                  << " TotalNodes: " << m_totalNodes << std::endl;
+
         // Move all nodes in the expand queue to the done queue
         m_doneQueue.insert(m_doneQueue.end(), m_expandQueue.begin(), m_expandQueue.end());
         m_expandQueue.clear();
@@ -360,33 +365,41 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
         _SearchNode* pNode = m_expandQueue.front();
         m_expandQueue.pop_front();
         
-        if(pNode->getVertex() == m_pGoalVertex)
+        if(pNode->getVertex() == m_searchParams.pEndVertex)
         {
             bool minDistanceOK = true;
             bool orientationOK = true;
+            bool maxDistanceOK = true;
 
-            // Minimum distance to goal check
-            if (m_minDistanceEnforced && pNode->getDistance() < m_minDistance) 
+            // Check minimum distance to goal
+            if (m_searchParams.minDistanceEnforced && pNode->getDistance() < m_searchParams.minDistance) 
                 minDistanceOK = false;
 
+            // Check maximum distance to goal
+            if (m_searchParams.maxDistanceEnforced && pNode->getDistance() > m_searchParams.maxDistance) 
+                maxDistanceOK = false;
+
             // Goal Orientation check
-            if (m_goalOriented)
+            if (m_searchParams.goalOriented)
             {
                 EdgeDir goalOrientation = !(pNode->getEdgeFromParent()->getTwin()->getDir());
-                orientationOK = (goalOrientation == m_goalDir);
+                orientationOK = (goalOrientation == m_searchParams.goalDir);
             }
 
             // If we've reached the goal and pass all requirements, add it to the goalQueue
-            if (minDistanceOK && orientationOK)
+            if (minDistanceOK && orientationOK && maxDistanceOK)
             {
                 m_goalQueue.push_back(pNode);
-                if (!m_allowGoalRepeat)
+                if (!m_searchParams.allowGoalRepeat)
+                {
+                    m_doneQueue.push_back(pNode);
                     continue;
+                }
             }
 
         }
 
-        if(pNode->getDistance() > m_distanceLimit)
+        if(pNode->getDistance() > m_searchParams.maxDistance)
         {
             // Path to this node is too long, expand it no further
             m_doneQueue.push_back(pNode);
@@ -445,7 +458,7 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::hasSearchConverged(VERTEX*& pConverg
             }
         }
     
-        // search has converted
+        
         if(isInAllBranches)
         {
             pConvergedVertex = pNode->getVertex();
@@ -567,7 +580,6 @@ template<typename VERTEX, typename EDGE, typename DISTANCE>
 void GraphSearchTree<VERTEX,EDGE,DISTANCE>::_makeFullLeafQueue(_SearchNodePtrDeque& completeQueue) const
 {
     completeQueue.insert(completeQueue.end(), m_expandQueue.begin(), m_expandQueue.end());
-    completeQueue.insert(completeQueue.end(), m_goalQueue.begin(), m_goalQueue.end());
     completeQueue.insert(completeQueue.end(), m_doneQueue.begin(), m_doneQueue.end());
 }
 

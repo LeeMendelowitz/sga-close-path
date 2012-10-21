@@ -50,7 +50,6 @@ void Subgraph::copyEdgesToSubgraph(StringGraph * pSubGraph, StringGraph * pGraph
         Edge * pTwinEdge = pEdge->getTwin();
         if (pEdge->getColor() != GC_BLACK) {
             addEdgeToSubgraph(pSubGraph, pEdge);
-            //addEdgeToSubgraph(pSubGraph, pTwinEdge);
             pEdge->setColor(GC_BLACK);
             pTwinEdge->setColor(GC_BLACK);
         }

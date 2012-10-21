@@ -15,6 +15,9 @@
 
 using namespace std;
 
+
+// Information about a vertex found on BFS
+// Stores the orientation of the vertex, and it's starting position
 class SearchEntry
 {
     public:
@@ -53,11 +56,27 @@ ostream& operator<<(ostream& os, EdgePtrVec& evec)
     return os;
 }
 
-// Perform a bounded BFS to collect edges starting from pVertex in direction dir.
-// The end of pVertex is considered to be offset 0.
+
+// Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.                                                                              
+// NOTE: This search differs from the search functionality provided in SGSearch.
+// Search distance is measured from the end of a vertex:
+// |----------> A
+//            | 
+//            0
+//
+//          <-----| B
+//               |------>   C
+// Distance 0 is at the end of the start vertex A
+// A vertex reachable from A is measured as the distance between 0 and the start of that vertex.
+// B has a negative distance since it overlaps with A.
+// C has a positive distance since there a gap between end of A and start of C.
+
 // If dir == ED_SENSE, looking for path that exits 3' end
-// If dir == ED_ANTISENSE, looking ofr path that exits 5' end
-EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, size_t maxNodes, int maxDistance)
+// If dir == ED_ANTISENSE, looking for path that exits 5' end
+// The end of pVertex is considered to be offset 0.
+// If dir == ED_SENSE, then the 3' end is at offset 0.
+// If dir == ED_ANTISENSE, then the 5' end is at offset 0.
+EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
 {
     
     EdgePtrVec edges;
@@ -76,7 +95,6 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, size_t maxNodes, int maxDis
     vQueue.push(SearchEntry(pVertex, dir, -pVertex->getSeqLen()));
     seen.insert(VDirPair(pVertex, dir));
 
-    //while ( !vQueue.empty() && seen.size() < maxNodes) {
     while ( !vQueue.empty() ) {
 
         size_t N = vQueue.size();
@@ -102,27 +120,34 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, size_t maxNodes, int maxDis
                 assert(pEdge->getStart() == pVertex);
                 Vertex * pNextVertex = pEdge->getEnd();
                 int nextStartPos = endPos - pEdge->getMatchLength();
+                int nextStartPos2 = se.startPos + pEdge->getTwin()->getSeqLen();
+                assert(nextStartPos2 == nextStartPos);
 
-                // Example of edge direction:
+                // Example of vertex direction inferred from edges:
+                // Say A & B have this relative orientation:
                 // A |------>
                 //        <-----| B
-
                 // The edge A->B has directon: ED_SENSE
                 // The edge B->A has direction: ED_SENSE
-
-                // So, if we take the edge A->B, then B is ED_ANTISENSE! We figure this out
+                // If we take the edge A->B, then node B is ED_ANTISENSE! We figure this out
                 // by negating the direction of edge B->A
                             
                 EdgeDir nextDir = !pEdge->getTwinDir();
                 SearchEntry se(pNextVertex, nextDir, nextStartPos);
-                VDirPair nextVertexOrientation(pNextVertex, nextDir);
+                VDirPair nextVertexDir(pNextVertex, nextDir);
 
-                bool alreadySeen = (seen.count(nextVertexOrientation)>0);
+                bool alreadySeen = (seen.count(nextVertexDir)>0);
                 bool tooFar = (nextStartPos > maxDistance);
-                if ( !alreadySeen && !tooFar ) {
-                     seen.insert(nextVertexOrientation);
+
+                if (!tooFar)
+                {
+                    seen.insert(nextVertexDir);
+                    edges.push_back(pEdge);
+                }
+
+                if ( !alreadySeen && !tooFar) {
+                     // Explore the successors of this vertex in the next round
                      vQueue.push(se);
-                     edges.push_back(pEdge);
                      #if BFS_DEBUG != 0
                      cout << "Adding edge from " << pVertex->getID()
                           << ": " << se  << endl;
@@ -141,7 +166,10 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, size_t maxNodes, int maxDis
 }
 
 
-// Make a subgraph of nodes that are on paths from Vertex pX to pY, distance less than maxDistance
+// Make a subgraph of nodes that are on gauranteed to be on paths from Vertex pX to pY
+// with distance less than maxDistance.
+// See description for boundedBFS for how distance is measured.
+
 // dX: direction of edge out of pX on walk to pY.
 // dY: direction of edge out of pY on walk to pX.
 // Case 1: pX Forward, pY Reverse, then dX = ED_SENSE, dY = ED_SENSE |--->.......<----|
@@ -164,14 +192,14 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
 
     EdgePtrVec xEdges, yEdges, xyEdges;
     // Search from pX
-    xyEdges = boundedBFS(pX, dX, maxNodes, maxDistance_2);
+    xyEdges = boundedBFS(pX, dX, maxDistance_2);
     #if PATHS_DEBUG!=0
     cout << "X Edges: " << xyEdges.size() << endl;
     cout << xyEdges << endl;
     #endif
 
     // Search from pY
-    yEdges = boundedBFS(pY, dY, maxNodes, maxDistance_2);
+    yEdges = boundedBFS(pY, dY, maxDistance_2);
     #if PATHS_DEBUG!=0
     cout << "Y Edges: " << yEdges.size() << endl;
     cout << yEdges << endl;
@@ -202,8 +230,8 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     // Remove any nodes that are not on a path from pX to pY
     pX = pSubgraph->getVertex(xId);
     pY = pSubgraph->getVertex(yId);
-    xEdges = boundedBFS(pX, dX, maxNodes, maxDistance);
-    yEdges = boundedBFS(pY, dY, maxNodes, maxDistance);
+    xEdges = boundedBFS(pX, dX, maxDistance);
+    yEdges = boundedBFS(pY, dY, maxDistance);
     #if PATHS_DEBUG!=0
     cout << " Searching predecessors/successors: \n"
          << " x successors: "
@@ -213,7 +241,6 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
          << yEdges
          << endl;
     #endif
-    cout << yEdges << endl;
 
     typedef set<Vertex *> VertexPtrSet;
     VertexPtrSet xVertexSet, yVertexSet, xyVertexSet;
@@ -254,9 +281,9 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
         }
     }
     pSubgraph->sweepVertices(GC_BLACK);
-    cout << "Subgraph nodes removed:" << endl;
 
     #if PATHS_DEBUG!=0
+    cout << "Subgraph nodes removed:" << endl;
     pSubgraph->stats();
     #endif
   

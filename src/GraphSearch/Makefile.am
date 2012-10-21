@@ -14,5 +14,6 @@ libgraphsearch_a_CPPFLAGS = \
 
 libgraphsearch_a_SOURCES = \
    EdgeGenerator.h EdgeGenerator.cpp \
-   Subgraph.h Subgraph.cpp
+   Subgraph.h Subgraph.cpp \
+   PCSearch.h PCSearch.cpp
 
