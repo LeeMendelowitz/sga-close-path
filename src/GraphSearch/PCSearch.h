@@ -15,6 +15,7 @@ namespace PCSearch
 {
     // Find walks between two vertexes with constraints on the allowed gap
     // size between two vertexes.
+    // The params should contain the maxDistance and minDistance for the gap size.
     bool findWalks(StringGraph * pGraph,
                    SGSearchParams params,
                    bool exhaustive,

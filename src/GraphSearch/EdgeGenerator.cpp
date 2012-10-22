@@ -57,25 +57,25 @@ ostream& operator<<(ostream& os, EdgePtrVec& evec)
 }
 
 
-// Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.                                                                              
+// Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
 // NOTE: This search differs from the search functionality provided in SGSearch.
-// Search distance is measured from the end of a vertex:
+// Search distance is measured from the beginning of the starting vertex.
 // |----------> A
-//            | 
-//            0
+// 
+// | 
+// 0
 //
 //          <-----| B
-//               |------>   C
-// Distance 0 is at the end of the start vertex A
+// |<------>| distance from A to B.
+//
+// Distance 0 is at the start of vertex A
 // A vertex reachable from A is measured as the distance between 0 and the start of that vertex.
-// B has a negative distance since it overlaps with A.
-// C has a positive distance since there a gap between end of A and start of C.
 
 // If dir == ED_SENSE, looking for path that exits 3' end
 // If dir == ED_ANTISENSE, looking for path that exits 5' end
-// The end of pVertex is considered to be offset 0.
-// If dir == ED_SENSE, then the 3' end is at offset 0.
-// If dir == ED_ANTISENSE, then the 5' end is at offset 0.
+// The start of pVertex is considered to be offset 0.
+// If dir == ED_SENSE, then the 5' end is at offset 0.
+// If dir == ED_ANTISENSE, then the 3' end is at offset 0.
 EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
 {
     
@@ -92,7 +92,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
     SearchQueue vQueue;
 
     // Add the first vertex to the queue
-    vQueue.push(SearchEntry(pVertex, dir, -pVertex->getSeqLen()));
+    vQueue.push(SearchEntry(pVertex, dir, 0));
     seen.insert(VDirPair(pVertex, dir));
 
     #if BFS_DEBUG!=0
@@ -181,64 +181,85 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
 // Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
 // Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
-StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Vertex * pY, EdgeDir dY, int maxDistance)
+StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Vertex * pY, EdgeDir dY, int maxDistanceX)
 {
     using namespace std;
 
     StringGraph * pSubgraph = Subgraph::copyGraph(pGraph); // Make empty subgraph
 
-    // Note: If maxDistance is negative (implying overlap), the overlap cannot be longer than pX or pY!
-    int maxDistance_2 = (maxDistance + 1)/2;
-    if (maxDistance < 0)
+    // |-----------> X          Y  <------------|
+    // |<-------------------------------------->| startToEnd
+    // |<------------------------->| maxDistanceX
+    // |<------------>| halfDistanceX
+    //                |<----------------------->| halfDistanceY
+    //             |<---------------------------| maxDistanceY
+
+    if (maxDistanceX <= 0)
     {
-        int maxL = max(pX->getSeqLen(), pY->getSeqLen());
-        if (maxDistance < -maxL)
-        {
-            #if PATHS_DEBUG!=0
-            cout << "Warning: maxDistance is too negative! Cannot be less than the shortest contig."
-                 << " maxDistance: " << maxDistance << " contigL: " << maxL << endl;
-            #endif
-            maxDistance = -maxL;
-        }
-        maxDistance_2 = maxDistance;
+        #if PATHS_DEBUG!=0
+        cout << "Warning: maxDistanceX must be >= 0. Returning empty subgraph" << endl;
+        #endif
+        return pSubgraph;
     }
+
+    // Avoid a situation where we are detecting a path from X to Y which implies
+    // the containment of Y by X:
+    // e.g:
+    // |---------------------> X
+    //           <---| Y
+    if (maxDistanceX + pY->getSeqLen() < pX->getSeqLen())
+    {
+        #if PATHS_DEBUG!=0
+        cout << "Warning: PathGraph implies containment. Returning empty subgraph" << endl;
+        #endif
+        return pSubgraph;
+
+    }
+
+    int startToEnd = maxDistanceX + pY->getSeqLen();
+    int maxDistanceY = startToEnd - pX->getSeqLen();
+    int maxDistance_2 = (maxDistanceX+1)/2;
+    int halfDistanceX = maxDistance_2; // Half the distance from start of X to start of Y
+    int halfDistanceY =  startToEnd - halfDistanceX; // Half the distance from start of Y
+
+    assert(maxDistanceY >= 0);
+    assert(halfDistanceY >= 0);
 
     VertexID xId = pX->getID();
     VertexID yId = pY->getID();
-
-    //size_t maxNodes = numeric_limits<set::size_type>::max();
-    size_t maxNodes = 10000;
 
     ///////////////////////////////////////////////////////////////
     // Create subgraph using BFS from pX and pY
 
     EdgePtrVec xEdges, yEdges, xyEdges;
     // Search from pX
-    xyEdges = boundedBFS(pX, dX, maxDistance_2);
+    xEdges = boundedBFS(pX, dX, halfDistanceX);
     #if PATHS_DEBUG!=0
-    cout << "X Edges: " << xyEdges.size() << endl;
-    cout << xyEdges << endl;
+    cout << "X Edges: " << xEdges.size() << endl;
+    cout << xEdges << endl;
     #endif
 
     // Search from pY
-    yEdges = boundedBFS(pY, dY, maxDistance_2);
+    yEdges = boundedBFS(pY, dY, halfDistanceY);
     #if PATHS_DEBUG!=0
     cout << "Y Edges: " << yEdges.size() << endl;
     cout << yEdges << endl;
     #endif
 
     
-    if ( xyEdges.size() == 0 || 
+    if ( xEdges.size() == 0 || 
          yEdges.size() == 0 )
     {
         // This means that either pX or pY is an island.
         // Return an empty subgraph
         #if PATHS_DEBUG!=0
-        cout << "X Edges or Y Edges is empty. Returning empty subgraph." << endl;
+        cout << "Warning: X Edges or Y Edges is empty. Returning empty subgraph." << endl;
         #endif
         return pSubgraph;
     }
 
+    // Copy the edges found into xyEdges
+    xyEdges.insert(xyEdges.end(), xEdges.begin(), xEdges.end());
     xyEdges.insert(xyEdges.end(), yEdges.begin(), yEdges.end());
 
     #if PATHS_DEBUG!=0
@@ -258,8 +279,8 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     // Remove any nodes that are not on a path from pX to pY
     pX = pSubgraph->getVertex(xId); assert(pX);
     pY = pSubgraph->getVertex(yId); assert(pY);
-    xEdges = boundedBFS(pX, dX, maxDistance);
-    yEdges = boundedBFS(pY, dY, maxDistance);
+    xEdges = boundedBFS(pX, dX, maxDistanceX);
+    yEdges = boundedBFS(pY, dY, maxDistanceY);
     #if PATHS_DEBUG!=0
     cout << " Searching predecessors/successors: \n"
          << " x successors: "

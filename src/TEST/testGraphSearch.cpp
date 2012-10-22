@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <algorithm>
 
 //SGA Includes
 #include "SGUtil.h"
@@ -13,20 +14,53 @@
 #include "PCSearch.h"
 #include "bundle.h"
 
+using namespace std;
+
+void writeClosures(ostream& os, StringGraph * pGraph, const Bundle& b, const SGWalkVector& walks) 
+{
+    // We must trim the entire sequence of the walk.
+    // Use the read locations within the bundle to determine the trim points.
+    size_t d1Max = (size_t) *max_element(b.d1List.begin(), b.d1List.end());
+    size_t d2Max = (size_t) *max_element(b.d2List.begin(), b.d2List.end());
+    Vertex * pX = pGraph->getVertex(b.vertex1ID);
+    Vertex * pY = pGraph->getVertex(b.vertex2ID);
+    size_t lX = pX->getSeqLen();
+    size_t lY = pY->getSeqLen();
+    assert(d1Max <= lX);
+    assert(d2Max <= lY);
+    size_t trimLeft = lX - d1Max;
+    size_t trimRight = lY - d2Max;
+
+    size_t numWalks = walks.size();
+    for(size_t i = 0; i < numWalks; i++)
+    {
+        string seq = walks[i].getString(SGWT_START_TO_END);
+        int lClosure = seq.size() - trimLeft - trimRight;
+        assert(lClosure >= 0);
+        string seqClosure = seq.substr(trimLeft, lClosure);
+        size_t seqClosureL = seqClosure.size();
+
+        os << ">" << b.toString() << "-" << i << " " << seqClosureL << "\n"
+           << seqClosure << "\n";
+    }
+}
+
+
 void test()
 {
-
     using namespace std;
     unsigned int minOverlap = 40;
 
     string asqgFile = "assemble.K27.X2.m70-graph.asqg.gz";
-    string bundleFileName = "assemble.K27.X2.m70.bundles";
+    string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
     //string bundleFileName = "trouble.bundles";
 
 
     std::cout << "Reading Graph: " << asqgFile << std::endl;
     StringGraph * pGraph = SGUtil::loadASQG(asqgFile, minOverlap);
     pGraph->stats();
+
+    ofstream closureFasta("closures.fasta");
 
     // Read the bundle file
     cout << "Reading Bundle File: " << bundleFileName << endl;
@@ -42,25 +76,42 @@ void test()
 
         Bundle& b = bundles[i];
 
-        cout << "*****************************\n";
-        cout << "V1: " << b.vertex1ID << " V2: " << b.vertex2ID << " Gap: " << b.gap << " std: " << b.std << "\n";
 
         Vertex * pX = pGraph->getVertex(b.vertex1ID);
         Vertex * pY = pGraph->getVertex(b.vertex2ID);
         assert(pX);
         assert(pY);
-        int64_t maxDistance = b.gap + maxStd*b.std;
-        int64_t minDistance = b.gap - maxStd*b.std;
+
+        int64_t maxGap = b.gap + maxStd*b.std;
+        int64_t minGap = b.gap - maxStd*b.std;
+        int64_t lX = pX->getSeqLen();
+        int64_t lY = pY->getSeqLen();
+
+        cout << "*****************************\n";
+        cout << " V1: " << b.vertex1ID << " Length: " << lX
+             << " V2: " << b.vertex2ID << " Length: " << lY
+             << " Gap: " << b.gap << " std: " << b.std
+             << " maxGap: " << maxGap << " minGap: " << minGap << "\n";
+
+        // Skip this search if the maximum allowed gap implies too large of an overlap
+        if ( (maxGap < 0) && (-maxGap >= lX))
+        {
+            cout << "Skipping due to too large of an overlap!";
+            continue;
+        }
 
         // Create search params
-        SGSearchParams params(pX, pY, b.dir1, maxDistance);
+        SGSearchParams params(pX, pY, b.dir1, 0);
         params.goalDir = !b.dir2;
-        params.maxDistance = maxDistance;
-        params.minDistance = minDistance;
+        params.maxDistance = maxGap + lX;
+        params.minDistance = max(minGap + lX, (int64_t) 0);
         params.allowGoalRepeat = true;
         params.goalOriented = true;
         params.minDistanceEnforced = true;
         params.maxDistanceEnforced = true;
+        params.print();
+        assert(params.maxDistance > 0);
+        assert(params.minDistance < params.maxDistance);
 
         SGWalkVector walks;
         bool foundAll = PCSearch::findWalks(pGraph, params, exhaustive, walks);
@@ -71,7 +122,12 @@ void test()
             cout << "\n"
                  << " End2Start Dist: " << walks[i].getEndToStartDistance() << "\n";
         }
+        
+        //write closures to a fasta
+        writeClosures(closureFasta, pGraph, b, walks);
     }
+
+    closureFasta.close();
 }
 
 
