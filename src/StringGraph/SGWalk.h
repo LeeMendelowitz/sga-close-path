@@ -49,6 +49,7 @@ class SGWalk
         bool isFinished() const;
 
         VertexPtrVec getVertices() const;
+        EdgePtrVec getEdges() const;
         Vertex* getStartVertex() const;
         Vertex* getLastVertex() const;
 

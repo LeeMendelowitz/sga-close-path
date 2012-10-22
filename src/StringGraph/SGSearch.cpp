@@ -10,7 +10,7 @@
 #include "SGSearch.h"
 #include <queue>
 
-#define SGSEARCH_DEBUG 1
+#define SGSEARCH_DEBUG 0
 #include <iostream>
 
 //
@@ -93,8 +93,10 @@ bool SGSearch::findWalks(const SGSearchParams& params, bool exhaustive, SGWalkVe
 {
     ///////////////////////////////////////////////////
     // DEBUG
+    #if SGSEARCH_DEBUG > 0
     std::cout << "Making SGSearchTree with params:\n";
     params.print();
+    #endif
     ///////////////////////////////////////////////////
 
     SGSearchTree searchTree(params);

@@ -50,7 +50,8 @@ libgraphsearch_a_LIBADD =
 am_libgraphsearch_a_OBJECTS =  \
 	libgraphsearch_a-EdgeGenerator.$(OBJEXT) \
 	libgraphsearch_a-Subgraph.$(OBJEXT) \
-	libgraphsearch_a-PCSearch.$(OBJEXT)
+	libgraphsearch_a-PCSearch.$(OBJEXT) \
+	libgraphsearch_a-bundle.$(OBJEXT)
 libgraphsearch_a_OBJECTS = $(am_libgraphsearch_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -178,7 +179,8 @@ libgraphsearch_a_CPPFLAGS = \
 libgraphsearch_a_SOURCES = \
    EdgeGenerator.h EdgeGenerator.cpp \
    Subgraph.h Subgraph.cpp \
-   PCSearch.h PCSearch.cpp
+   PCSearch.h PCSearch.cpp \
+   bundle.h bundle.cpp
 
 all: all-am
 
@@ -231,6 +233,7 @@ distclean-compile:
 include ./$(DEPDIR)/libgraphsearch_a-EdgeGenerator.Po
 include ./$(DEPDIR)/libgraphsearch_a-PCSearch.Po
 include ./$(DEPDIR)/libgraphsearch_a-Subgraph.Po
+include ./$(DEPDIR)/libgraphsearch_a-bundle.Po
 
 .cpp.o:
 	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -287,6 +290,20 @@ libgraphsearch_a-PCSearch.obj: PCSearch.cpp
 #	source='PCSearch.cpp' object='libgraphsearch_a-PCSearch.obj' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
 #	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgraphsearch_a_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o libgraphsearch_a-PCSearch.obj `if test -f 'PCSearch.cpp'; then $(CYGPATH_W) 'PCSearch.cpp'; else $(CYGPATH_W) '$(srcdir)/PCSearch.cpp'; fi`
+
+libgraphsearch_a-bundle.o: bundle.cpp
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgraphsearch_a_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT libgraphsearch_a-bundle.o -MD -MP -MF $(DEPDIR)/libgraphsearch_a-bundle.Tpo -c -o libgraphsearch_a-bundle.o `test -f 'bundle.cpp' || echo '$(srcdir)/'`bundle.cpp
+	$(am__mv) $(DEPDIR)/libgraphsearch_a-bundle.Tpo $(DEPDIR)/libgraphsearch_a-bundle.Po
+#	source='bundle.cpp' object='libgraphsearch_a-bundle.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgraphsearch_a_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o libgraphsearch_a-bundle.o `test -f 'bundle.cpp' || echo '$(srcdir)/'`bundle.cpp
+
+libgraphsearch_a-bundle.obj: bundle.cpp
+	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgraphsearch_a_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT libgraphsearch_a-bundle.obj -MD -MP -MF $(DEPDIR)/libgraphsearch_a-bundle.Tpo -c -o libgraphsearch_a-bundle.obj `if test -f 'bundle.cpp'; then $(CYGPATH_W) 'bundle.cpp'; else $(CYGPATH_W) '$(srcdir)/bundle.cpp'; fi`
+	$(am__mv) $(DEPDIR)/libgraphsearch_a-bundle.Tpo $(DEPDIR)/libgraphsearch_a-bundle.Po
+#	source='bundle.cpp' object='libgraphsearch_a-bundle.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libgraphsearch_a_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o libgraphsearch_a-bundle.obj `if test -f 'bundle.cpp'; then $(CYGPATH_W) 'bundle.cpp'; else $(CYGPATH_W) '$(srcdir)/bundle.cpp'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

@@ -11,15 +11,85 @@
 #include "testUtils.h"
 #include "Subgraph.h"
 #include "PCSearch.h"
+#include "bundle.h"
+
+void test()
+{
+
+    using namespace std;
+    unsigned int minOverlap = 40;
+
+    string asqgFile = "assemble.K27.X2.m70-graph.asqg.gz";
+    string bundleFileName = "assemble.K27.X2.m70.bundles";
+    //string bundleFileName = "trouble.bundles";
+
+
+    std::cout << "Reading Graph: " << asqgFile << std::endl;
+    StringGraph * pGraph = SGUtil::loadASQG(asqgFile, minOverlap);
+    pGraph->stats();
+
+    // Read the bundle file
+    cout << "Reading Bundle File: " << bundleFileName << endl;
+    BundleVec bundles = readBundles(bundleFileName);
+    cout << "Read " << bundles.size() << " bundles!" << endl;
+
+    const int maxStd = 5;
+    bool exhaustive = true;
+
+    // Loop over bundles and identify paths
+    for (size_t i = 0; i < bundles.size(); i++)
+    {
+
+        Bundle& b = bundles[i];
+
+        cout << "*****************************\n";
+        cout << "V1: " << b.vertex1ID << " V2: " << b.vertex2ID << " Gap: " << b.gap << " std: " << b.std << "\n";
+
+        Vertex * pX = pGraph->getVertex(b.vertex1ID);
+        Vertex * pY = pGraph->getVertex(b.vertex2ID);
+        assert(pX);
+        assert(pY);
+        int64_t maxDistance = b.gap + maxStd*b.std;
+        int64_t minDistance = b.gap - maxStd*b.std;
+
+        // Create search params
+        SGSearchParams params(pX, pY, b.dir1, maxDistance);
+        params.goalDir = !b.dir2;
+        params.maxDistance = maxDistance;
+        params.minDistance = minDistance;
+        params.allowGoalRepeat = true;
+        params.goalOriented = true;
+        params.minDistanceEnforced = true;
+        params.maxDistanceEnforced = true;
+
+        SGWalkVector walks;
+        bool foundAll = PCSearch::findWalks(pGraph, params, exhaustive, walks);
+        cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
+        for (size_t i=0; i < walks.size(); i++)
+        {
+            walks[i].print();
+            cout << "\n"
+                 << " End2Start Dist: " << walks[i].getEndToStartDistance() << "\n";
+        }
+    }
+}
+
+
 
 int main()
 {
+
+    test();
+    return 0;
+
+
     using namespace std;
     unsigned int minOverlap = 40;
     string asqgFile = "test.asqg";
     std::cout << "Reading Graph: " << asqgFile << std::endl;
     StringGraph * pGraph = SGUtil::loadASQG(asqgFile, minOverlap);
     pGraph->stats();
+
 
     // Do BFS for one of the vertexes
     VertexID vId = "contig-1138";
@@ -57,44 +127,6 @@ int main()
     SGSearchParams params3(params2);
     params2.goalDir = ED_ANTISENSE;
 
-    // Search with "default" settings
-    /*
-    cout << "\n\nparams1\n";
-    bool foundAll = SGSearch::findWalks(params1, exhaustive, walks1);
-    cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks1.size() << " walks: \n";
-    for (size_t i=0; i < walks1.size(); i++)
-        walks1[i].print();
-   
-    // Impose the correct orientation for goal
-    walks1.clear();
-    cout << "\n\nparams2\n";
-    foundAll = SGSearch::findWalks(params2, exhaustive, walks1);
-    cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks1.size() << " walks: \n";
-    cout << "Found " << walks1.size() << " walks:\n";
-    for (size_t i=0; i < walks1.size(); i++)
-        walks1[i].print();
-
-    // Impose the incorrect orientation for goal
-    walks1.clear();
-    cout << "\n\nparams3\n";
-    foundAll = SGSearch::findWalks(params3, exhaustive, walks1);
-    cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks1.size() << " walks: \n";
-    cout << "Found " << walks1.size() << " walks:\n";
-    for (size_t i=0; i < walks1.size(); i++)
-        walks1[i].print();
-    */
-
-    // Create subgraph
-    /*
-    StringGraph * pSubgraph = makePathGraph(pGraph, pX, ED_SENSE, pY, ED_ANTISENSE, 0);
-    Vertex * pX_new = pSubgraph->getVertex(vId);
-    Vertex * pY_new = pSubgraph->getVertex(yId); 
-    params1.pStartVertex = pX_new;
-    params1.pEndVertex = pY_new;
-    params2.pStartVertex = pX_new;
-    params2.pEndVertex = pY_new;
-    params3.pStartVertex = pX_new;
-    params3.pEndVertex = pY_new;*/
 
     // Find walks in subgraph
     cout << "*******************************************\n";

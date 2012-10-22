@@ -8,7 +8,7 @@
 #include <cassert>
 #include <iostream>
 #include <limits>
-
+#include <algorithm>
 
 #define PATHS_DEBUG 0
 #define BFS_DEBUG 0
@@ -95,6 +95,11 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
     vQueue.push(SearchEntry(pVertex, dir, -pVertex->getSeqLen()));
     seen.insert(VDirPair(pVertex, dir));
 
+    #if BFS_DEBUG!=0
+    cout << "*************************************\n"
+         << "BFS: pVertex: " << pVertex->getID() << " dir: " << dir << " maxDist: " << maxDistance << endl;
+    #endif
+    
     while ( !vQueue.empty() ) {
 
         size_t N = vQueue.size();
@@ -180,10 +185,27 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
 {
     using namespace std;
 
+    StringGraph * pSubgraph = Subgraph::copyGraph(pGraph); // Make empty subgraph
+
+    // Note: If maxDistance is negative (implying overlap), the overlap cannot be longer than pX or pY!
+    int maxDistance_2 = (maxDistance + 1)/2;
+    if (maxDistance < 0)
+    {
+        int maxL = max(pX->getSeqLen(), pY->getSeqLen());
+        if (maxDistance < -maxL)
+        {
+            #if PATHS_DEBUG!=0
+            cout << "Warning: maxDistance is too negative! Cannot be less than the shortest contig."
+                 << " maxDistance: " << maxDistance << " contigL: " << maxL << endl;
+            #endif
+            maxDistance = -maxL;
+        }
+        maxDistance_2 = maxDistance;
+    }
+
     VertexID xId = pX->getID();
     VertexID yId = pY->getID();
 
-    int maxDistance_2 = (maxDistance + 1)/2;
     //size_t maxNodes = numeric_limits<set::size_type>::max();
     size_t maxNodes = 10000;
 
@@ -205,20 +227,26 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     cout << yEdges << endl;
     #endif
 
+    
+    if ( xyEdges.size() == 0 || 
+         yEdges.size() == 0 )
+    {
+        // This means that either pX or pY is an island.
+        // Return an empty subgraph
+        #if PATHS_DEBUG!=0
+        cout << "X Edges or Y Edges is empty. Returning empty subgraph." << endl;
+        #endif
+        return pSubgraph;
+    }
+
     xyEdges.insert(xyEdges.end(), yEdges.begin(), yEdges.end());
+
     #if PATHS_DEBUG!=0
     cout << "XY Edges: " << xyEdges.size() << endl;
     cout << xyEdges << endl;
     #endif
 
     // Create a subgraph with these edges
-    StringGraph * pSubgraph = Subgraph::copyGraph(pGraph); // Make empty subgraph
-    #if PATHS_DEBUG!=0
-    cout << "Subgraph Created:" << endl;
-    pSubgraph->stats();
-    #endif
-
-    // Only add unique edges
     Subgraph::copyEdgesToSubgraph(pSubgraph, pGraph, xyEdges);
 
     #if PATHS_DEBUG!=0
@@ -228,8 +256,8 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
 
     ///////////////////////////////////////////////////////////////
     // Remove any nodes that are not on a path from pX to pY
-    pX = pSubgraph->getVertex(xId);
-    pY = pSubgraph->getVertex(yId);
+    pX = pSubgraph->getVertex(xId); assert(pX);
+    pY = pSubgraph->getVertex(yId); assert(pY);
     xEdges = boundedBFS(pX, dX, maxDistance);
     yEdges = boundedBFS(pY, dY, maxDistance);
     #if PATHS_DEBUG!=0

@@ -3,6 +3,12 @@
 #include <queue>
 //#include <iostream>
 
+#define PCSEARCH_DEBUG 0
+
+// Declarations
+Vertex * getOrigVertex(const StringGraph * pGraph, const Vertex * pNewVertex);
+Edge * getOrigEdge(const StringGraph * pGraph, const Edge * pNewEdge);
+SGWalk convertWalk(const StringGraph * pGraph, const SGWalk& walkIn);
 
 // TO DO: 
 // We must convert any walks discovered to point to the nodes in the original string graph,
@@ -18,8 +24,10 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
 {
     ///////////////////////////////////////////////////
     // DEBUG
+    #if PCSEARCH_DEBUG > 0
     std::cout << "PCSearch with params:\n";
     params.print();
+    #endif
     ///////////////////////////////////////////////////
 
     // Create a subgraph with nodes that are gauranteed to be on a path satisfying the gap constraints
@@ -27,6 +35,14 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     VertexID pXid = pX->getID();
     Vertex * pY = params.pEndVertex;
     VertexID pYid = pY->getID();
+
+    // TODO: Need to correctly handle the case if pX == pY. For now, return nothing.
+    if( pX == pY)
+    {
+        return true;
+    }
+
+
 
     // Note: params.maxDistance is the gap between pX and pY. A negative gap implies an overlap.
     StringGraph * pSubgraph = makePathGraph(pGraph, pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
@@ -49,14 +65,58 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     size_t lY = pY->getSeqLen();
     sgParams.minDistance = params.minDistance + lY;
     sgParams.maxDistance = params.maxDistance + lY;
+    sgParams.startDistance = 0;
     /*
     sgParams.allowGoalRepeat = true;
     sgParams.goalOriented = true;
     sgParams.minDistanceEnforced = true;
     sgParams.maxDistanceEnforced = true;
     */
-    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, outWalks);
+    SGWalkVector subgraphWalks;
+    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, subgraphWalks);
+
+    // Convert the subgraph walks to walks on the original graph
+    for(size_t i=0; i < subgraphWalks.size(); i++)
+        outWalks.push_back( convertWalk(pGraph, subgraphWalks[i]) );
 
     delete pSubgraph;
     return searchComplete;
+}
+
+// Helper functions to recover the vertex/edge from original graph
+// using the vertex/edge in subgraph
+
+Vertex * getOrigVertex(const StringGraph * pGraph, const Vertex * pNewVertex)
+{
+    VertexID id = pNewVertex->getID();
+    return pGraph->getVertex(id);
+}
+
+Edge * getOrigEdge(const StringGraph * pGraph, const Edge * pNewEdge)
+{
+    Vertex * pStartNew = pNewEdge->getStart();
+    Vertex * pEndNew = pNewEdge->getEnd();
+    Vertex * pStartOrig = getOrigVertex(pGraph, pStartNew);
+    Vertex * pEndOrig = getOrigVertex(pGraph, pEndNew);
+
+    // Update the description of the edge by replacing the pointer to the ending Vertex
+    EdgeDesc desc = pNewEdge->getDesc();
+    desc.pVertex = pEndOrig;
+
+    // Find the edge in the original starting Vertex
+    Edge * newEdge = pStartOrig->getEdge(desc);
+    return newEdge;
+}
+
+// Convert a walk on the subgraph to a walk in the original graph
+SGWalk convertWalk(const StringGraph * pGraph, const SGWalk& walkIn)
+{
+    EdgePtrVec newEdges = walkIn.getEdges();
+    EdgePtrVec origEdges(newEdges);
+    for(size_t i = 0; i < newEdges.size(); i++)
+    {
+        origEdges[i] = getOrigEdge(pGraph, newEdges[i]);
+    }
+    SGWalk origWalk = SGWalk(origEdges, walkIn.isIndexed());
+    return origWalk;
 }

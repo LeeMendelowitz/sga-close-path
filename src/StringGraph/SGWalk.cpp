@@ -517,6 +517,12 @@ VertexPtrVec SGWalk::getVertices() const
     return out;
 }
 
+//
+EdgePtrVec SGWalk::getEdges() const
+{
+    return m_edges;
+}
+
 // Return a string describing this path
 std::string SGWalk::pathSignature() const
 {
