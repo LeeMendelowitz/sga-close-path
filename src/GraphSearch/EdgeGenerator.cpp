@@ -16,6 +16,11 @@
 using namespace std;
 
 
+// Declaration
+bool pruneGraph(StringGraph * pSubgraph,
+              VertexID xId, EdgeDir dirX, int maxDistanceX,
+              VertexID yId, EdgeDir dirY, int maxDistanceY);
+
 // Information about a vertex found on BFS
 // Stores the orientation of the vertex, and it's starting position
 class SearchEntry
@@ -275,66 +280,109 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     pSubgraph->stats();
     #endif
 
-    ///////////////////////////////////////////////////////////////
-    // Remove any nodes that are not on a path from pX to pY
-    pX = pSubgraph->getVertex(xId); assert(pX);
-    pY = pSubgraph->getVertex(yId); assert(pY);
-    xEdges = boundedBFS(pX, dX, maxDistanceX);
-    yEdges = boundedBFS(pY, dY, maxDistanceY);
-    #if PATHS_DEBUG!=0
-    cout << " Searching predecessors/successors: \n"
-         << " x successors: "
-         << xEdges
-         << "\n"
-         << " y predecssors: "
-         << yEdges
-         << endl;
-    #endif
-
-    typedef set<Vertex *> VertexPtrSet;
-    VertexPtrSet xVertexSet, yVertexSet, xyVertexSet;
-    VertexPtrSet * pSet1, * pSet2;
-    for(unsigned int i=0; i < xEdges.size(); i++)
+    int numPruneRounds = 0;
+    while (true)
     {
-        Edge * pEdge = xEdges[i];
-        xVertexSet.insert(pEdge->getStart()); // Add starting node of the edge
-        xVertexSet.insert(pEdge->getEnd()); // Add ending node of the edge
+        bool graphModified = pruneGraph(pSubgraph, xId, dX, maxDistanceX, yId, dY, maxDistanceY);
+        numPruneRounds++;
+        if (!graphModified) break;
     }
-    for(unsigned int i=0; i < yEdges.size(); i++)
-    {
-        Edge * pEdge = yEdges[i];
-        yVertexSet.insert(pEdge->getStart()); // Add the starting node of the edge
-        yVertexSet.insert(pEdge->getEnd()); // Add the ending node of the edge
-    }
-    assert(xVertexSet.count(pX)==1);
-    assert(yVertexSet.count(pY)==1);
-
-    if (xVertexSet.size() < yVertexSet.size() ) {
-        pSet1 = &xVertexSet;
-        pSet2 = &yVertexSet;
-    } else {
-        pSet1 = &yVertexSet;
-        pSet2 = &xVertexSet;
-    }
-
-    // Remove any nodes that are not in both the xVertexSet and yVertexSet.
-    VertexPtrSet::const_iterator ib = pSet1->begin();
-    VertexPtrSet::const_iterator ie = pSet1->end();
-    pSubgraph->setColors(GC_BLACK);
-    // Set those nodes in the intersection to WHITE
-    for(; ib != ie; ib++) {
-        Vertex * pVertex = *ib;
-        if (pSet2->count(pVertex)==1)
-        {
-            pVertex->setColor(GC_WHITE);
-        }
-    }
-    pSubgraph->sweepVertices(GC_BLACK);
 
     #if PATHS_DEBUG!=0
+    cout << "Number of prune rounds: " << numPruneRounds << endl;
     cout << "Subgraph nodes removed:" << endl;
     pSubgraph->stats();
     #endif
   
     return pSubgraph;
+}
+
+// Given a StringGraph, remove any edges that are either unreachable from X within distance maxDistanceX
+// or unreachable from Y within distance minDistanceY.
+// Remove any vertexes that become islands as a result of the edge removal.
+// Return true if the graph was modified.
+bool pruneGraph(StringGraph * pSubgraph,
+              VertexID xId, EdgeDir dirX, int maxDistanceX,
+              VertexID yId, EdgeDir dirY, int maxDistanceY)
+{
+
+    ///////////////////////////////////////////////////////////////
+    // Remove any nodes that are not on a path from pX to pY
+    Vertex * pX = pSubgraph->getVertex(xId);
+    Vertex * pY = pSubgraph->getVertex(yId);
+
+    if( (pX == NULL) || (pY == NULL) )
+    {
+        // Remove all nodes & edges in the graph!
+        int numRemoved = 0;
+        pSubgraph->setColors(GC_BLACK);
+        numRemoved += pSubgraph->sweepEdges(GC_BLACK);
+        numRemoved += pSubgraph->sweepVertices(GC_BLACK);
+        return (numRemoved > 0);
+    }
+
+    assert(pX != NULL); assert(pY != NULL);
+    EdgePtrVec xEdges = boundedBFS(pX, dirX, maxDistanceX);
+    EdgePtrVec yEdges = boundedBFS(pY, dirY, maxDistanceY);
+    #if PATHS_DEBUG!=0
+    cout << " Searching predecessors/successors: \n"
+         << " x successors:\n"
+         << xEdges
+         << "\n"
+         << " y predecssors:\n"
+         << yEdges
+         << endl;
+    #endif
+
+    typedef set<Edge *> EdgePtrSet;
+    EdgePtrSet xEdgeSet, yEdgeSet, xyEdgeSet;
+    EdgePtrSet * pSet1, * pSet2;
+    for(unsigned int i=0; i < xEdges.size(); i++)
+    {
+        Edge * pEdge = xEdges[i];
+        xEdgeSet.insert(pEdge);
+        xEdgeSet.insert(pEdge->getTwin());
+    }
+    for(unsigned int i=0; i < yEdges.size(); i++)
+    {
+        Edge * pEdge = yEdges[i];
+        yEdgeSet.insert(pEdge);
+        yEdgeSet.insert(pEdge->getTwin());
+    }
+
+    if (xEdgeSet.size() < yEdgeSet.size() ) {
+        pSet1 = &xEdgeSet;
+        pSet2 = &yEdgeSet;
+    } else {
+        pSet1 = &yEdgeSet;
+        pSet2 = &xEdgeSet;
+    }
+
+    // Remove any edges that are not in both the xEdgeSet and yEdgeSet.
+    // Remove any nodes that become islands.
+    EdgePtrSet::const_iterator ib = pSet1->begin();
+    EdgePtrSet::const_iterator ie = pSet1->end();
+    pSubgraph->setColors(GC_BLACK);
+    EdgePtrVec xyEdges2;
+    // Set those nodes in the intersection to WHITE
+    for(; ib != ie; ib++) {
+        Edge * pEdge = *ib;
+        if (pSet2->count(pEdge)==1)
+        {
+            xyEdges2.push_back(pEdge);
+            pEdge->setColor(GC_WHITE);
+            pEdge->getStart()->setColor(GC_WHITE);
+            pEdge->getEnd()->setColor(GC_WHITE);
+        }
+    }
+    int numRemoved = 0;
+    numRemoved  += pSubgraph->sweepEdges(GC_BLACK);
+    numRemoved  += pSubgraph->sweepVertices(GC_BLACK);
+    bool graphModified = (numRemoved > 0);
+    #if PATHS_DEBUG!=0
+    cout << " xy edges intersection: \n"
+         << xyEdges2
+         << endl;
+    #endif
+    return graphModified;
 }

@@ -53,8 +53,9 @@ void test()
 
     string asqgFile = "assemble.K27.X2.m70-graph.asqg.gz";
     //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
-    string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles.same";
+    //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles.same";
     //string bundleFileName = "trouble.bundles";
+    string bundleFileName = "repetative.bundles";
 
 
     std::cout << "Reading Graph: " << asqgFile << std::endl;
@@ -110,6 +111,7 @@ void test()
         params.goalOriented = true;
         params.minDistanceEnforced = true;
         params.maxDistanceEnforced = true;
+        params.nodeLimit = 10000;
         params.print();
         assert(params.maxDistance > 0);
         assert(params.minDistance < params.maxDistance);

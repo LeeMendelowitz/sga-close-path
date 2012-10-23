@@ -48,6 +48,10 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     // |-----------> X               Y <----------------|
     // |<----------------------------->| maxDistance
     StringGraph * pSubgraph = makePathGraph(pGraph, pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
+    #if PCSEARCH_DEBUG > 0
+    std::cout << "Writing subgraph to file: temp.asqg.gz\n";
+    pSubgraph->writeASQG("temp.asqg.gz");
+    #endif
 
     // Modify the search tree parameters to operate on the subgraph
     SGSearchParams sgParams(params);
