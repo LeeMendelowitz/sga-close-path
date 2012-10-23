@@ -19,6 +19,8 @@
 #include <queue>
 #include <iostream>
 
+#define GRAPHSEARCH_DEBUG 0
+
 // Parameters guiding a GraphSearchTree Search
 // This structure sets a default for optional search parameters
 template<typename VERTEX>
@@ -364,7 +366,11 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
     {
         _SearchNode* pNode = m_expandQueue.front();
         m_expandQueue.pop_front();
-        
+
+        #if GRAPHSEARCH_DEBUG > 0
+        std::cout << "GraphSearchTree: Touched node " << pNode->getVertex()->getID() << std::endl;
+        #endif
+
         if(pNode->getVertex() == m_searchParams.pEndVertex)
         {
             bool minDistanceOK = true;
@@ -382,13 +388,25 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
             // Goal Orientation check
             if (m_searchParams.goalOriented)
             {
-                EdgeDir goalOrientation = !(pNode->getEdgeFromParent()->getTwin()->getDir());
-                orientationOK = (goalOrientation == m_searchParams.goalDir);
+                orientationOK = false;
+                EDGE * parentEdge = pNode->getEdgeFromParent();
+
+                // If the starting vertex and ending vertex are the same, it is possible that
+                // this node is the root of the search tree and therefore there is no parent edge
+                if (parentEdge != NULL)
+                {
+                    EdgeDir goalOrientation = !parentEdge->getTwin()->getDir();
+                    orientationOK = (goalOrientation == m_searchParams.goalDir);
+                }
             }
 
             // If we've reached the goal and pass all requirements, add it to the goalQueue
             if (minDistanceOK && orientationOK && maxDistanceOK)
             {
+                #if GRAPHSEARCH_DEBUG > 0
+                std::cout << "GraphSearchTree: Reached goal and satisfied requirements! node " << pNode->getVertex()->getID() << std::endl;
+                #endif
+
                 m_goalQueue.push_back(pNode);
                 if (!m_searchParams.allowGoalRepeat)
                 {
@@ -408,6 +426,12 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
         {
             // Add the children of this node to the queue
             int numCreated = pNode->createChildren(incomingQueue, m_distanceFunc);
+
+            #if GRAPHSEARCH_DEBUG > 0
+            std::cout << "GraphSearchTree: Created " << numCreated << " children from node "
+                 << pNode->getVertex()->getID() << std::endl;
+            #endif
+
             m_totalNodes += numCreated;
 
             if(numCreated == 0)

@@ -52,7 +52,8 @@ void test()
     unsigned int minOverlap = 40;
 
     string asqgFile = "assemble.K27.X2.m70-graph.asqg.gz";
-    string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
+    //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
+    string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles.same";
     //string bundleFileName = "trouble.bundles";
 
 
@@ -104,7 +105,7 @@ void test()
         SGSearchParams params(pX, pY, b.dir1, 0);
         params.goalDir = !b.dir2;
         params.maxDistance = maxGap + lX;
-        params.minDistance = max(minGap + lX, (int64_t) 0);
+        params.minDistance = max(minGap + lX, (int64_t) 1);
         params.allowGoalRepeat = true;
         params.goalOriented = true;
         params.minDistanceEnforced = true;
@@ -112,6 +113,7 @@ void test()
         params.print();
         assert(params.maxDistance > 0);
         assert(params.minDistance < params.maxDistance);
+        assert(params.minDistance > 0);
 
         SGWalkVector walks;
         bool foundAll = PCSearch::findWalks(pGraph, params, exhaustive, walks);

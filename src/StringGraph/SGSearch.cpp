@@ -62,8 +62,10 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
 
     ///////////////////////////////////////////////////
     // DEBUG
+    #if SGSEARCH_DEBUG > 0
     std::cout << "Making SGSearchTree with params:\n";
     params.print();
+    #endif
     ///////////////////////////////////////////////////
 
 
@@ -104,6 +106,10 @@ bool SGSearch::findWalks(const SGSearchParams& params, bool exhaustive, SGWalkVe
     // Iteravively perform the BFS using the search tree.
     while(searchTree.stepOnce()) { }
 
+    #if SGSEARCH_DEBUG > 0
+    std::cout << "SGSearch: Done stepping:" << std::endl;
+    #endif
+
     // If the search was aborted, do not return any walks
     // because we do not know if there are more valid paths from pX
     // to pY that we could not find because the search space was too large
@@ -112,7 +118,11 @@ bool SGSearch::findWalks(const SGSearchParams& params, bool exhaustive, SGWalkVe
         // Extract the walks from the graph as a vector of edges
         SGWalkBuilder builder(outWalks, false);
         searchTree.buildWalksToGoal(builder);
+        #if SGSEARCH_DEBUG > 0
+        std::cout << "SGSearch: Made walks:" << outWalks.size() <<  std::endl;
+        #endif
     }
+
     return !searchTree.wasSearchAborted();
 }
 
