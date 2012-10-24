@@ -21,6 +21,7 @@
 
 #define GRAPHSEARCH_DEBUG 0
 #define GRAPHDELETE_DEBUG 0
+#define GRAPHPRUNE_DEBUG 0
 
 // Parameters guiding a GraphSearchTree Search
 // This structure sets a default for optional search parameters
@@ -566,6 +567,9 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
         // either a parent with children is found or a goal node is found.
         // Catch the node where the pruning stopped. Check if it is a leaf, and if it is,
         // add it to the done queue.
+
+        size_t doneSizeBefore = m_doneQueue.size();
+
         for(typename _SearchNodePtrDeque::iterator iter = m_doneQueue.begin();
                                                   iter != m_doneQueue.end();
                                                   iter++)
@@ -585,6 +589,16 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
             if (pStopNode && pStopNode->getNumChildren() == 0)
                 newDoneQueue.push_back(pStopNode);
         }
+
+        size_t doneSizeAfter = newDoneQueue.size();
+
+        #if GRAPHPRUNE_DEBUG
+        std::cout << "Num Pruned: " << numPruned
+             << " Leafs Before: " << doneSizeBefore
+             << " Leafs After: " << doneSizeAfter
+             << " Number Nodes: " << m_totalNodes
+             << std::endl;
+        #endif
 
         m_doneQueue = newDoneQueue;
     }

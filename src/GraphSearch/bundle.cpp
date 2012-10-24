@@ -11,14 +11,11 @@ using namespace std;
 vector<int> readDField(const string& field)
 {
     size_t L = field.size();
-    assert(field[0]=='(');
-    assert(field[L-1]==')');
-    string inner = field.substr(1,L-2);
 
     vector<int> d;
     const char delim = ',';
     string item;
-    istringstream ss(inner);
+    istringstream ss(field);
     while(getline(ss, item, delim))
     {
         istringstream iss(item);
@@ -36,6 +33,7 @@ Bundle::Bundle(const string& line)
         istringstream iss(line);
 
         char v1End, v2End;
+        iss >> id;
         iss >> vertex1ID;
         iss >> v1End;
         iss >> vertex2ID;

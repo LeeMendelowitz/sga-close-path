@@ -13,6 +13,7 @@
 #include "Subgraph.h"
 #include "PCSearch.h"
 #include "bundle.h"
+#include "bundleManager.h"
 
 using namespace std;
 
@@ -52,10 +53,10 @@ void test()
     unsigned int minOverlap = 40;
 
     string asqgFile = "assemble.K27.X2.m70-graph.asqg.gz";
-    //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
+    string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
     //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles.same";
     //string bundleFileName = "trouble.bundles";
-    string bundleFileName = "repetative.bundles";
+    //string bundleFileName = "repetative.bundles";
 
 
     std::cout << "Reading Graph: " << asqgFile << std::endl;
@@ -66,72 +67,13 @@ void test()
 
     // Read the bundle file
     cout << "Reading Bundle File: " << bundleFileName << endl;
-    BundleVec bundles = readBundles(bundleFileName);
-    cout << "Read " << bundles.size() << " bundles!" << endl;
 
-    const int maxStd = 5;
+    BundleManager bundleManager(bundleFileName, pGraph);
+    cout << "Read " << bundleManager.getNumBundles() << " bundles!" << endl;
+
+    const int maxStd = 4;
     bool exhaustive = true;
-
-    // Loop over bundles and identify paths
-    for (size_t i = 0; i < bundles.size(); i++)
-    {
-
-        Bundle& b = bundles[i];
-
-
-        Vertex * pX = pGraph->getVertex(b.vertex1ID);
-        Vertex * pY = pGraph->getVertex(b.vertex2ID);
-        assert(pX);
-        assert(pY);
-
-        int64_t maxGap = b.gap + maxStd*b.std;
-        int64_t minGap = b.gap - maxStd*b.std;
-        int64_t lX = pX->getSeqLen();
-        int64_t lY = pY->getSeqLen();
-
-        cout << "*****************************\n";
-        cout << " V1: " << b.vertex1ID << " Length: " << lX
-             << " V2: " << b.vertex2ID << " Length: " << lY
-             << " Gap: " << b.gap << " std: " << b.std
-             << " maxGap: " << maxGap << " minGap: " << minGap << "\n";
-
-        // Skip this search if the maximum allowed gap implies too large of an overlap
-        if ( (maxGap < 0) && (-maxGap >= lX))
-        {
-            cout << "Skipping due to too large of an overlap!";
-            continue;
-        }
-
-        // Create search params
-        SGSearchParams params(pX, pY, b.dir1, 0);
-        params.goalDir = !b.dir2;
-        params.maxDistance = maxGap + lX;
-        params.minDistance = max(minGap + lX, (int64_t) 1);
-        params.allowGoalRepeat = true;
-        params.goalOriented = true;
-        params.minDistanceEnforced = true;
-        params.maxDistanceEnforced = true;
-        params.nodeLimit = 10000;
-        params.print();
-        assert(params.maxDistance > 0);
-        assert(params.minDistance < params.maxDistance);
-        assert(params.minDistance > 0);
-
-        SGWalkVector walks;
-        bool foundAll = PCSearch::findWalks(pGraph, params, exhaustive, walks);
-        cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
-        for (size_t i=0; i < walks.size(); i++)
-        {
-            walks[i].print();
-            cout << "\n"
-                 << " End2Start Dist: " << walks[i].getEndToStartDistance() << "\n";
-        }
-        
-        //write closures to a fasta
-        writeClosures(closureFasta, pGraph, b, walks);
-    }
-
-    closureFasta.close();
+    bundleManager.closeBundles(maxStd, exhaustive);
 }
 
 
