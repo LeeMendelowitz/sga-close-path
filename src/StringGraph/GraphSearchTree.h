@@ -20,6 +20,7 @@
 #include <iostream>
 
 #define GRAPHSEARCH_DEBUG 0
+#define GRAPHDELETE_DEBUG 0
 
 // Parameters guiding a GraphSearchTree Search
 // This structure sets a default for optional search parameters
@@ -29,7 +30,7 @@ class GraphSearchParams
 
     public:
 
-    // Basic constructor sets the basic parameters. All other parameters should be set by hand.
+    // Basic constructor allows specification of only the required parameters. All other parameters should be set by hand.
     GraphSearchParams(VERTEX * start, VERTEX * end, EdgeDir dir, int64_t maxDist) :
         pStartVertex(start),
         pEndVertex(end),
@@ -42,7 +43,8 @@ class GraphSearchParams
         goalOriented(false),
         minDistanceEnforced(false),
         maxDistanceEnforced(false),
-        nodeLimit(10000)
+        nodeLimit(10000),
+        selfPrune(false)
         {};
 
     VERTEX* pStartVertex; 
@@ -58,6 +60,7 @@ class GraphSearchParams
     bool minDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at least minDistance.
     bool maxDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at most maxDistanceEnforced.
     size_t nodeLimit; // The maximum number of nodes allowed in the GraphSearchTree.
+    bool selfPrune; // If true, prune any search nodes which do not lead to the goal.
 
     void print() const
     {
@@ -72,7 +75,8 @@ class GraphSearchParams
              << "goalOriented: " << goalOriented << "\n"
              << "minDistanceEnforced: " << minDistanceEnforced << "\n"
              << "maxDistanceEnforced: " << maxDistanceEnforced << "\n"
-             << "nodeLimit: " << nodeLimit << std::endl;
+             << "nodeLimit: " << nodeLimit << "\n"
+             << "selfPrune: " << selfPrune << std::endl;
     }
 };
 
@@ -100,6 +104,9 @@ class GraphSearchNode
         int64_t getDistance() const { return m_distance; }
         EDGE* getEdgeFromParent() const { return m_pEdgeFromParent; }
         int getNumChildren() const { return m_numChildren; }
+        bool isGoal() const { return m_isGoal; } 
+        void isGoal(bool isGoal) { m_isGoal = isGoal; }
+
 
     private:
 
@@ -108,9 +115,9 @@ class GraphSearchNode
         EdgeDir m_expandDir;
         GraphSearchNode* m_pParent;
         EDGE* m_pEdgeFromParent;
-
         int m_numChildren;
         int64_t m_distance;
+        bool m_isGoal; // True if this node is a goal vertex
 };
 
 template<typename VERTEX, typename EDGE, typename DISTANCE>
@@ -186,14 +193,21 @@ class GraphSearchTree
         // Build a queue with all the leaves in it
         void _makeFullLeafQueue(_SearchNodePtrDeque& completeQueue) const;
 
+        // Delete the leaf node pCurr. Follow path to root and delete any of parents that become childless.
+        size_t deleteFromLeaf(_SearchNode * pCurr);
+
+        // Delete from the leaf node pCurr. Follow path to root and delete any parents that become childless,
+        // until a goal node or parent with child is reached. Set the stopNode to be the undeleted parent.
+        size_t pruneFromLeaf(_SearchNode * pCurr, _SearchNode ** stopNode);
+
         // print the branch sequence
         void printBranch(_SearchNode* pNode) const;
 
         // We keep the pointers to the search nodes in queues.
         // The goal queue contains the nodes representing the vertex we are searching for.
         // The expand queue contains nodes that have not yet been explored.
-        // The done queue contains non-goal nodes that will not be expanded further.
-        // Together, they represent all leaves of the tree
+        // The done queue contains nodes that will not be expanded further.
+        // Together, the expand queue and done queue represent all leafs of the tree
         // NOTE: Each node in the qoal queue is duplicated in either the expand queue or
         // done queue. This depends on whether we allow a goal vertex to be repeated
         // on a walk from start to goal (controlled by m_searchParams.allowGoalRepeat).
@@ -222,7 +236,8 @@ GraphSearchNode<VERTEX,EDGE,DISTANCE>::GraphSearchNode(VERTEX* pVertex,
                                                     m_expandDir(expandDir),
                                                     m_pParent(pParent), 
                                                     m_pEdgeFromParent(pEdgeFromParent),
-                                                    m_numChildren(0)
+                                                    m_numChildren(0),
+                                                    m_isGoal(false)
 {
     // Set the extension distance
     if(m_pParent == NULL)
@@ -302,25 +317,118 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(const _SearchParams& para
 template<typename VERTEX, typename EDGE, typename DISTANCE>
 GraphSearchTree<VERTEX,EDGE,DISTANCE>::~GraphSearchTree()
 {
+    using namespace std;
     // Delete the tree
     // We delete each leaf and recurse up the tree iteratively deleting
     // parents with a single child node. This ensure that each parent is
     // deleted after all its children
+
     _SearchNodePtrDeque completeLeafNodes;
     _makeFullLeafQueue(completeLeafNodes);
 
+    #if GRAPHDELETE_DEBUG > 0
+    std::cout << "GraphSearchTree Destructor"
+              << "\ntotal nodes: " << m_totalNodes
+              << "\ndoneQueue: " << m_doneQueue.size()
+              << "\nexpandQueue: " << m_expandQueue.size()
+              << "\ngoalQueue: " << m_goalQueue.size()
+              << "\ncompleteLeafNodes: " << completeLeafNodes.size() << endl;
+    #endif 
+
     size_t totalDeleted = 0;
+    size_t totalNodes = m_totalNodes;
     for(typename _SearchNodePtrDeque::iterator iter = completeLeafNodes.begin(); 
                                                iter != completeLeafNodes.end();
                                                ++iter)    
     {
         _SearchNode* pCurr = *iter;
 
+        VertexID vId = pCurr->getVertex()->getID();
+
+        #if GRAPHDELETE_DEBUG > 0
+        std::cout << "Deleting from leaf: " <<  vId  << endl;
+        #endif 
+
+        size_t numDeleted = deleteFromLeaf(pCurr);
+
+        #if GRAPHDELETE_DEBUG > 0
+        std::cout << "Deleted " << numDeleted << " from leaf: " <<  vId << endl;
+        #endif 
+
+        totalDeleted += numDeleted;
+
+    }
+    assert(totalDeleted == totalNodes);
+    assert(m_totalNodes == 0);
+}
+
+// Delete the leaf node pCurr. Delete any of its parents that are childless.
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+size_t GraphSearchTree<VERTEX,EDGE,DISTANCE>::deleteFromLeaf(_SearchNode * pCurr)
+{
         // loop invariant: pCurr is a deletable node
         // the loop stops when the parent is NULL or has 
         // a child other than pCurr
-        do
+
+        #if GRAPHDELETE_DEBUG > 0
+        std::cout << "Deleting from leaf: " <<  pCurr->getVertex()->getID()
+                  << "\nNumChildren: " << pCurr->getNumChildren() << std::endl;
+        #endif 
+
+        size_t totalDeleted = 0;
+        assert(pCurr->getNumChildren() == 0);
+
+        while(pCurr && pCurr->getNumChildren() == 0)
         {
+
+            assert(pCurr->getNumChildren() == 0);
+            _SearchNode* pNext = pCurr->getParent();
+
+            #if GRAPHDELETE_DEBUG > 0
+            
+            std::cout << "Deleting " << pCurr->getVertex()->getID()
+                      << " parent: " << ( pNext ? pNext->getVertex()->getID() : "NULL" ) << std::endl;
+            #endif 
+            
+            delete pCurr; // decrements pNext's child count
+            totalDeleted += 1;
+
+            pCurr = pNext;
+
+            #if GRAPHDELETE_DEBUG > 0
+            std::cout << " Pcurr: " << (pCurr ? pCurr->getVertex()->getID() : "NULL") << std::endl;
+            #endif 
+        }
+
+        m_totalNodes -= totalDeleted;
+
+        #if GRAPHDELETE_DEBUG > 0
+        std::cout << " DONE Deleting from leaf."
+                  << " totalDeleted: " << totalDeleted
+                  << " m_totalNodes: " << m_totalNodes << std::endl;
+        #endif 
+
+        return totalDeleted;
+}
+
+// Delete from the leaf node pCurr. Follow path to root and delete any parents that become childless,
+// until a goal node or parent with child is reached. Set the stopNode to be the undeleted parent.
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+size_t GraphSearchTree<VERTEX,EDGE,DISTANCE>::pruneFromLeaf(_SearchNode * pCurr, _SearchNode ** stopNode)
+{
+        // loop invariant: pCurr is a deletable node
+        // the loop stops when the parent is NULL or has 
+        // a child other than pCurr
+
+        *stopNode = NULL;
+
+        size_t totalDeleted = 0;
+        assert(pCurr->getNumChildren() == 0);
+
+        while(pCurr && pCurr->getNumChildren() == 0)
+        {
+            if (pCurr->isGoal()) break;
+
             assert(pCurr->getNumChildren() == 0);
             _SearchNode* pNext = pCurr->getParent();
             
@@ -328,11 +436,15 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE>::~GraphSearchTree()
             totalDeleted += 1;
 
             pCurr = pNext;
-        } while(pCurr && pCurr->getNumChildren() == 0);
-    }
+        }
 
-    assert(totalDeleted == m_totalNodes);
+        m_totalNodes -= totalDeleted;
+        *stopNode = pCurr;
+
+        return totalDeleted;
 }
+
+
 
 // Perform one step of the BFS
 template<typename VERTEX, typename EDGE, typename DISTANCE>
@@ -407,6 +519,7 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
                 std::cout << "GraphSearchTree: Reached goal and satisfied requirements! node " << pNode->getVertex()->getID() << std::endl;
                 #endif
 
+                pNode->isGoal(true);
                 m_goalQueue.push_back(pNode);
                 if (!m_searchParams.allowGoalRepeat)
                 {
@@ -440,6 +553,40 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
                 m_doneQueue.push_back(pNode);
             }
         }
+    }
+
+    // Check if we should prune off any leaves in the done queue
+    if (m_searchParams.selfPrune)
+    {
+        size_t numPruned = 0;
+        
+        _SearchNodePtrDeque newDoneQueue; // stores the done leafs, after pruning
+
+        // Go over through each leaf in the done queue and prune towards the root until
+        // either a parent with children is found or a goal node is found.
+        // Catch the node where the pruning stopped. Check if it is a leaf, and if it is,
+        // add it to the done queue.
+        for(typename _SearchNodePtrDeque::iterator iter = m_doneQueue.begin();
+                                                  iter != m_doneQueue.end();
+                                                  iter++)
+        {
+            _SearchNode * pNode = *iter;
+            _SearchNode * pStopNode = NULL;
+            numPruned +=  pruneFromLeaf(pNode, &pStopNode);
+
+            if (pStopNode == NULL)
+            {
+                // This means the entire search tree was pruned!
+                // Test that this is sane.
+                assert(incomingQueue.size() == 0);
+                assert(iter+1 == m_doneQueue.end());
+            }
+
+            if (pStopNode && pStopNode->getNumChildren() == 0)
+                newDoneQueue.push_back(pStopNode);
+        }
+
+        m_doneQueue = newDoneQueue;
     }
 
     m_expandQueue = incomingQueue;
