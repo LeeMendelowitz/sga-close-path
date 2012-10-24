@@ -52,8 +52,10 @@ void test()
     using namespace std;
     unsigned int minOverlap = 40;
 
-    string asqgFile = "assemble.K27.X2.m70-graph.asqg.gz";
-    string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
+    //string asqgFile = "assemble.K27.X2.m70-graph.asqg.gz";
+    string asqgFile = "U00096.perfectCov.pp.filter.pass.fmmerged40.asqg.gz";
+    //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
+    string bundleFileName = "U00096.perfectCov.pp.filter.pass.fmmerged40.alignments.bundles";
     //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles.same";
     //string bundleFileName = "trouble.bundles";
     //string bundleFileName = "repetative.bundles";
