@@ -8,6 +8,8 @@
 
 using namespace std;
 
+#define BUNDLEMANAGER_DEBUG 0
+
 // Class to hold the results for a single bundle closure
 class CloseBundleResult
 {
@@ -106,7 +108,7 @@ void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive,
     int64_t minGap = b->gap - maxStd*b->std;
     int64_t lX = pX->getSeqLen();
 
-    #if BUNDLE_DEBUG > 0
+    #if BUNDLEMANAGER_DEBUG > 0
     int64_t lY = pY->getSeqLen();
     cout << "*****************************\n";
     cout << " V1: " << b->vertex1ID << " Length: " << lX
@@ -143,7 +145,7 @@ void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive,
     res.setWalks(walks);
     res.tooRepetative = !foundAll;
 
-    #if BUNDLE_DEBUG > 0
+    #if BUNDLEMANAGER_DEBUG > 0
     cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
     #endif
 }
