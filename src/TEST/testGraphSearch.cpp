@@ -57,8 +57,11 @@ void test()
     //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles";
     string bundleFileName = "U00096.perfectCov.pp.filter.pass.fmmerged40.alignments.bundles";
     //string bundleFileName = "assemble.K27.X2.m70-contigs.alignments.bundles.same";
-    //string bundleFileName = "trouble.bundles";
+    //string bundleFileName = "trouble.bundle";
     //string bundleFileName = "repetative.bundles";
+
+    //string outputPfx = "trouble";
+    string outputPfx = "bundle.out";
 
 
     std::cout << "Reading Graph: " << asqgFile << std::endl;
@@ -70,7 +73,7 @@ void test()
     // Read the bundle file
     cout << "Reading Bundle File: " << bundleFileName << endl;
 
-    BundleManager bundleManager(bundleFileName, pGraph);
+    BundleManager bundleManager(bundleFileName, pGraph, outputPfx);
     cout << "Read " << bundleManager.getNumBundles() << " bundles!" << endl;
 
     const int maxStd = 4;

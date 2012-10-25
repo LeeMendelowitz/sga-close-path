@@ -179,6 +179,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
 // Make a subgraph of nodes that are on gauranteed to be on paths from Vertex pX to pY
 // with distance less than maxDistance.
 // See description for boundedBFS for how distance is measured.
+// Return a pointer to the subgraph, or NULL if the subgraph is empty.
 
 // dX: direction of edge out of pX on walk to pY.
 // dY: direction of edge out of pY on walk to pX.
@@ -190,7 +191,6 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
 {
     using namespace std;
 
-    StringGraph * pSubgraph = Subgraph::copyGraph(pGraph); // Make empty subgraph
 
     // |-----------> X          Y  <------------|
     // |<-------------------------------------->| startToEnd
@@ -204,7 +204,7 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
         #if PATHS_DEBUG!=0
         cout << "Warning: maxDistanceX must be >= 0. Returning empty subgraph" << endl;
         #endif
-        return pSubgraph;
+        return NULL;
     }
 
     // Avoid a situation where we are detecting a path from X to Y which implies
@@ -217,9 +217,10 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
         #if PATHS_DEBUG!=0
         cout << "Warning: PathGraph implies containment. Returning empty subgraph" << endl;
         #endif
-        return pSubgraph;
-
+        return NULL;
     }
+
+    StringGraph * pSubgraph = Subgraph::copyGraph(pGraph); // Make empty subgraph
 
     int startToEnd = maxDistanceX + pY->getSeqLen();
     int maxDistanceY = startToEnd - pX->getSeqLen();
@@ -251,18 +252,6 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     cout << yEdges << endl;
     #endif
 
-    
-    if ( xEdges.size() == 0 || 
-         yEdges.size() == 0 )
-    {
-        // This means that either pX or pY is an island.
-        // Return an empty subgraph
-        #if PATHS_DEBUG!=0
-        cout << "Warning: X Edges or Y Edges is empty. Returning empty subgraph." << endl;
-        #endif
-        return pSubgraph;
-    }
-
     // Copy the edges found into xyEdges
     xyEdges.insert(xyEdges.end(), xEdges.begin(), xEdges.end());
     xyEdges.insert(xyEdges.end(), yEdges.begin(), yEdges.end());
@@ -274,6 +263,18 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
 
     // Create a subgraph with these edges
     Subgraph::copyEdgesToSubgraph(pSubgraph, pGraph, xyEdges);
+
+    // If X or Y is not in the subgraph, then return an empty graph
+    if (!pSubgraph->hasVertex(xId) ||
+        !pSubgraph->hasVertex(yId) )
+    {
+        #if PATHS_DEBUG!=0
+        cout << "Subgraph does not contain either X or Y, so no path satisfying path length constraints exists."
+             << "Returning NULL" << endl;
+        #endif
+        delete pSubgraph;
+        return NULL;
+    }
 
     #if PATHS_DEBUG!=0
     cout << "Copied Edges:" << endl;
@@ -293,6 +294,18 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     cout << "Subgraph nodes removed:" << endl;
     pSubgraph->stats();
     #endif
+
+    // If X or Y is not in the subgraph, then return an empty graph
+    if (!pSubgraph->hasVertex(xId) ||
+        !pSubgraph->hasVertex(yId) )
+    {
+        #if PATHS_DEBUG!=0
+        cout << "Subgraph does not contain either X or Y, so no path satisfying path length constraints exists."
+             << "Returning NULL" << endl;
+        #endif
+        delete pSubgraph;
+        return NULL;
+    }
   
     return pSubgraph;
 }
