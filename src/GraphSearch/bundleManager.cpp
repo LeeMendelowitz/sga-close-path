@@ -45,6 +45,7 @@ BundleManager::BundleManager(const std::string& bundleFile,
     statusFile_.open((outputPfx_ + ".status").c_str());
     statsFile_.open((outputPfx_ + ".stats").c_str());
     fastaFile_.open((outputPfx_ + ".fasta").c_str());
+    walksFile_.open((outputPfx_ + ".walks").c_str());
     writeStatsHeader();
     writeStatusHeader();
     readBundles();
@@ -56,6 +57,7 @@ BundleManager::~BundleManager()
     statusFile_.close();
     statsFile_.close();
     fastaFile_.close();
+    walksFile_.close();
 
     size_t numBundles = bundles_.size();
     for( size_t i =0; i < numBundles; i++)
@@ -89,6 +91,7 @@ void BundleManager::closeBundles(float maxStd, bool exhaustive)
         writeResultToStatus(res);
         writeResultToStats(res);
         writeResultToFasta(res);
+        writeResultToWalks(res);
     }
 }
 
@@ -228,5 +231,21 @@ void BundleManager::writeResultToFasta(CloseBundleResult & res)
         size_t seqClosureL = seqClosure.size();
         fastaFile_ << ">" << b->id << "-" << i << " " << seqClosureL << "\n"
            << seqClosure << "\n";
+    }
+}
+
+void BundleManager::writeResultToWalks(CloseBundleResult & res)
+{
+    // Write each walk to the walks file
+    const Bundle * b = res.bundle;
+    size_t numWalks = res.walks.size();
+    for(size_t i = 0; i < numWalks; i++)
+    {
+        const SGWalk& walk = res.walks[i];
+        walksFile_ << b->id << "-" << i << "\t"
+                   << "NumEdges: " << walk.getNumEdges() << "\t"
+                   << "Gap: " << walk.getEndToStartDistance() << "\t";
+        walk.printWithOL(walksFile_);
+        walksFile_ << "\n";
     }
 }

@@ -68,8 +68,6 @@ void test()
     StringGraph * pGraph = SGUtil::loadASQG(asqgFile, minOverlap);
     pGraph->stats();
 
-    ofstream closureFasta("closures.fasta");
-
     // Read the bundle file
     cout << "Reading Bundle File: " << bundleFileName << endl;
 

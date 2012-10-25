@@ -50,6 +50,7 @@ class BundleManager
         std::ofstream statusFile_;
         std::ofstream statsFile_;
         std::ofstream fastaFile_;
+        std::ofstream walksFile_;
         BundlePtrVec bundles_;
 
         void readBundles();
@@ -61,6 +62,7 @@ class BundleManager
         void writeResultToStatus(CloseBundleResult & res);
         void writeResultToStats(CloseBundleResult & res);
         void writeResultToFasta(CloseBundleResult & res);
+        void writeResultToWalks(CloseBundleResult & res);
         void writeStatusHeader();
         void writeStatsHeader();
 };
