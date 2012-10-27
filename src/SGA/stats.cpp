@@ -53,6 +53,7 @@ static const char *STATS_USAGE_MESSAGE =
 "                                       away from repetitive reads\n"
 "      --run-lengths                    Print the run length distribution of the BWT\n"
 "      --kmer-distribution              Print the distribution of kmer counts\n"
+"      --max-kmer-dist=N                Maximum occurrence value to output in the kmer distribution histogram. (default: 200)\n"
 "      --no-overlap                     Suppress the overlap-based error statistics (faster if you only want the k-mer distribution)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -68,6 +69,7 @@ namespace opt
     static int sampleRate = BWT::DEFAULT_SAMPLE_RATE_SMALL;
     static int kmerLength = 27;
     static int minOverlap = 45;
+    static int maxKmerDist = 200;
     static int branchCutoff = -1;
     static size_t numReads = -1;
     static bool bPrintRunLengths = false;
@@ -77,7 +79,7 @@ namespace opt
 
 static const char* shortopts = "p:d:t:o:k:n:b:v";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_RUNLENGTHS, OPT_KMERDIST, OPT_NOOVERLAP};
+enum { OPT_HELP = 1, OPT_VERSION, OPT_RUNLENGTHS, OPT_KMERDIST, OPT_NOOVERLAP, OPT_MAXKMERDIST };
 
 static const struct option longopts[] = {
     { "verbose",            no_argument,       NULL, 'v' },
@@ -92,6 +94,7 @@ static const struct option longopts[] = {
     { "run-lengths",        no_argument,       NULL, OPT_RUNLENGTHS },
     { "help",               no_argument,       NULL, OPT_HELP },
     { "version",            no_argument,       NULL, OPT_VERSION },
+    { "max-kmer-dist",      required_argument, NULL, OPT_MAXKMERDIST },
     { NULL, 0, NULL, 0 }
 };
 
@@ -104,7 +107,9 @@ int statsMain(int argc, char** argv)
     Timer* pTimer = new Timer(PROGRAM_IDENT);
 
     BWT* pBWT = new BWT(opt::prefix + BWT_EXT, opt::sampleRate);
-    BWT* pRBWT = new BWT(opt::prefix + RBWT_EXT, opt::sampleRate);
+    BWT* pRBWT = NULL;
+    if (!opt::bNoOverlap)
+         pRBWT = new BWT(opt::prefix + RBWT_EXT, opt::sampleRate);
 
     if(opt::bPrintRunLengths)
     {
@@ -114,7 +119,7 @@ int statsMain(int argc, char** argv)
 
     SeqReader reader(opt::readsFile);
     
-    StatsPostProcess postProcessor(opt::bPrintKmerDist);
+    StatsPostProcess postProcessor(opt::bPrintKmerDist, opt::maxKmerDist);
     if(opt::numThreads <= 1)
     {
         // Serial mode
@@ -147,7 +152,8 @@ int statsMain(int argc, char** argv)
     }
 
     delete pBWT;
-    delete pRBWT;
+    if (pRBWT != NULL)
+        delete pRBWT;
     delete pTimer;
 
     if(opt::numThreads > 1)
@@ -179,6 +185,7 @@ void parseStatsOptions(int argc, char** argv)
             case OPT_KMERDIST: opt::bPrintKmerDist = true; break;
             case OPT_RUNLENGTHS: opt::bPrintRunLengths = true; break;
             case OPT_NOOVERLAP: opt::bNoOverlap = true; break;
+            case OPT_MAXKMERDIST: arg >> opt::maxKmerDist; break;
             case OPT_HELP:
                 std::cout << STATS_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -208,6 +215,12 @@ void parseStatsOptions(int argc, char** argv)
     if(opt::kmerLength <= 0)
     {
         std::cerr << SUBPROGRAM ": invalid kmer length: " << opt::kmerLength << ", must be greater than zero\n";
+        die = true;
+    }
+
+    if(opt::maxKmerDist <= 0)
+    {
+        std::cerr << SUBPROGRAM ": invalid maximum kmer occurrence: " << opt::maxKmerDist << ", must be greater than zero\n";
         die = true;
     }
 

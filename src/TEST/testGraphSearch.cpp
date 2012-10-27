@@ -79,12 +79,37 @@ void test()
     bundleManager.closeBundles(maxStd, exhaustive);
 }
 
+void test2()
+{
+    using namespace std;
+    unsigned int minOverlap = 40;
+
+    string asqgFile = "U00096.perfectCov.pp.filter.pass.fmmerged40.asqg.gz";
+    string bundleFileName = "U00096.reads1.cov100.mean300.std30.alignments.bundles";
+    string outputPfx = "bundle.out.mean300";
+
+
+    std::cout << "Reading Graph: " << asqgFile << std::endl;
+    StringGraph * pGraph = SGUtil::loadASQG(asqgFile, minOverlap);
+    pGraph->stats();
+
+    // Read the bundle file
+    cout << "Reading Bundle File: " << bundleFileName << endl;
+
+    BundleManager bundleManager(bundleFileName, pGraph, outputPfx);
+    cout << "Read " << bundleManager.getNumBundles() << " bundles!" << endl;
+
+    const int maxStd = 4;
+    bool exhaustive = true;
+    bundleManager.closeBundles(maxStd, exhaustive);
+}
+
 
 
 int main()
 {
 
-    test();
+    test2();
     return 0;
 
 
