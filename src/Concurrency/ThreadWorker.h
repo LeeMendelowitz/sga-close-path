@@ -194,6 +194,8 @@ void ThreadWorker<Input, Output, Processor>::run()
             Output result = m_pProcessor->process(m_sharedInputVector[i]);
             m_sharedOutputVector.push_back(result);    
         }
+
+        assert(m_sharedInputVector.size() == m_sharedOutputVector.size());
         
         m_isReady = true;
         pthread_mutex_unlock(&m_mutex);

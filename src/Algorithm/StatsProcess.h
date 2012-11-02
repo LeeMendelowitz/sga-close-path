@@ -52,7 +52,7 @@ class StatsProcess
 class StatsPostProcess
 {
     public:
-        StatsPostProcess(bool bPrintKmer);
+        StatsPostProcess(bool bPrintKmer, int maxKmerDist);
         ~StatsPostProcess();
 
         void process(const SequenceWorkItem& item, const StatsResult& result);
@@ -61,6 +61,7 @@ class StatsPostProcess
 
         KmerDistribution m_kmerDist;
         bool m_bPrintKmer;
+        const int m_maxKmerDist;
         int m_basesCounted;
         int m_basesWrong;
         double m_depthSum;

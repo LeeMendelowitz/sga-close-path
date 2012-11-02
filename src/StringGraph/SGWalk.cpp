@@ -548,6 +548,22 @@ void SGWalk::print() const
     std::cout << "\n";
 }
 
+//  Print the walk, with the overlap length.
+//  NOTE: in the case of inexact overlaps, the two nodes may not agree on the 
+//  overlap length. We simply pick the overlap length of the first node.
+void SGWalk::printWithOL(std::ostream& os) const
+{
+    const Vertex* pLast = m_pStartVertex;
+    for(EdgePtrVec::const_iterator iter = m_edges.begin(); iter != m_edges.end(); ++iter)
+    {
+        //os << *(*iter) << " ";
+        os << (*iter)->getStartID() << "->" << (*iter)->getEndID()
+                  << " (" << (*iter)->getDir() << "," << (*iter)->getComp() << "," << (*iter)->getOverlap().getOverlapLength(0) << ")\t";
+        assert((*iter)->getStart() == pLast);
+        pLast = (*iter)->getEnd();
+    }
+}
+
 // 
 void SGWalk::printSimple() const
 {

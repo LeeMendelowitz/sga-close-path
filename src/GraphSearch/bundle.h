@@ -12,7 +12,7 @@ class Bundle
 
     Bundle() {};
     Bundle(const std::string& line);
-
+    std::string id;
     std::string vertex1ID;
     std::string vertex2ID;
     EdgeDir dir1; // direction of edge out of vertex1 towards vertex2

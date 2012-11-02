@@ -48,6 +48,15 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     // |-----------> X               Y <----------------|
     // |<----------------------------->| maxDistance
     StringGraph * pSubgraph = makePathGraph(pGraph, pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
+
+    // makePathGraph returns NULL if there X & Y are not connected by a path satisfying path constraints
+    if (pSubgraph == NULL)
+    {
+        // Do not add to outwalks
+        return true;
+    }
+
+    assert(pSubgraph != NULL);
     #if PCSEARCH_DEBUG > 0
     std::cout << "Writing subgraph to file: temp.asqg.gz\n";
     pSubgraph->writeASQG("temp.asqg.gz");
@@ -57,14 +66,8 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     SGSearchParams sgParams(params);
     sgParams.pStartVertex = pSubgraph->getVertex(pXid);
     sgParams.pEndVertex = pSubgraph->getVertex(pYid);
-
-    // If the start or end vertex is not in the subgraph, then no valid path exists.
-    if ( sgParams.pStartVertex == NULL ||
-         sgParams.pEndVertex == NULL)
-    {
-        delete pSubgraph;
-        return true;
-    }
+    assert(sgParams.pStartVertex != NULL);
+    assert(sgParams.pEndVertex != NULL);
 
     // Convert the maxDistance and minDistance from to the distance expected by SGSearch,
     // which is the number of bases from the end of the start vertex to the end of the last vertex.

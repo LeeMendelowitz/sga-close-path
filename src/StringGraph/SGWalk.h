@@ -12,6 +12,7 @@
 
 #include "Bigraph.h"
 #include <deque>
+#include <ostream>
 
 // A walk on the string graph is given by the starting vertex
 // then a vector of edges used in the walk
@@ -98,6 +99,7 @@ class SGWalk
         static bool compareByTotalLength(const SGWalk& a, const SGWalk& b);
 
         void print() const;
+        void printWithOL(std::ostream& os) const;
         void printSimple() const;
 
     private:

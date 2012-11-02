@@ -16,5 +16,6 @@ libgraphsearch_a_SOURCES = \
    EdgeGenerator.h EdgeGenerator.cpp \
    Subgraph.h Subgraph.cpp \
    PCSearch.h PCSearch.cpp \
-   bundle.h bundle.cpp
+   bundle.h bundle.cpp \
+   bundleManager.h bundleManager.cpp
 

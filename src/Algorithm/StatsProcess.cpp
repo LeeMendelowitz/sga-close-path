@@ -19,15 +19,18 @@ StatsProcess::StatsProcess(const BWT* pBWT, const BWT* pRBWT, int kmerLength, in
                             m_kmerLength(kmerLength),
                             m_minOverlap(minOverlap),
                             m_branchCutoff(branchCutoff),
-                            m_bNoOverlap(bNoOverlap)
+                            m_bNoOverlap(bNoOverlap),
+                            m_pAllOverlapper(NULL)
 {
-    m_pAllOverlapper = new OverlapAlgorithm(m_pBWT, m_pRBWT, 0.05, 16, 16, false, m_branchCutoff);
+    if(!m_bNoOverlap)
+        m_pAllOverlapper = new OverlapAlgorithm(m_pBWT, m_pRBWT, 0.05, 16, 16, false, m_branchCutoff);
 }
 
 //
 StatsProcess::~StatsProcess()
 {
-    delete m_pAllOverlapper;
+    if (m_pAllOverlapper != NULL)
+        delete m_pAllOverlapper;
 }
 
 //
@@ -79,7 +82,7 @@ StatsResult StatsProcess::process(const SequenceWorkItem& workItem)
 //
 //
 //
-StatsPostProcess::StatsPostProcess(bool bPrintKmer) : m_bPrintKmer(bPrintKmer), m_basesCounted(0), m_basesWrong(0), m_depthSum(0.0f), m_numReads(0), m_numPerfect(0)
+StatsPostProcess::StatsPostProcess(bool bPrintKmer, int maxKmerDist) : m_bPrintKmer(bPrintKmer), m_maxKmerDist(maxKmerDist), m_basesCounted(0), m_basesWrong(0), m_depthSum(0.0f), m_numReads(0), m_numPerfect(0)
 {
 }
 
@@ -90,8 +93,7 @@ StatsPostProcess::~StatsPostProcess()
     
     if(m_bPrintKmer)
     {
-        int max = 100;
-        m_kmerDist.print(max);
+        m_kmerDist.print(m_maxKmerDist);
     }
 
     printf("%d out of %d bases are potentially incorrect (%lf)\n", m_basesWrong, m_basesCounted, (double)m_basesWrong/m_basesCounted);
