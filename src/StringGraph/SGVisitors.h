@@ -261,6 +261,7 @@ struct SGGraphStatsVisitor
     int num_edges;
     int num_vertex;
     size_t sum_edgeLen;
+    size_t sum_vertexLen;
 };
 
 // Write out any vertices that are going to be cause a contig to terminate
