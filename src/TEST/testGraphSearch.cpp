@@ -108,8 +108,8 @@ void test2()
 
 int main()
 {
-
-    test2();
+    test();
+    //test2();
     return 0;
 
 

@@ -168,7 +168,9 @@ void assemble()
     }
 
     // Compact together unbranched chains of vertices
+    std::cout << "[Stats] After Compacting unbranched chains of vertices:\n";
     pGraph->simplify();
+    pGraph->visit(statsVisit);    
     
     if(opt::bValidate)
     {
@@ -213,7 +215,9 @@ void assemble()
     }
 
     // Peform another round of simplification
+    std::cout << "[Stats] After Compacting unbranched chains of vertices (round 2):\n";
     pGraph->simplify();
+    pGraph->visit(statsVisit);    
     
     if(opt::numBubbleRounds > 0)
     {
