@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <sstream>
 
 #include "bundleManager.h"
 #include "PCSearch.h"
@@ -50,6 +51,7 @@ BundleManager::BundleManager(const std::string& bundleFile,
     statusFile_.open((outputPfx_ + ".status").c_str());
     statsFile_.open((outputPfx_ + ".stats").c_str());
     fastaFile_.open((outputPfx_ + ".fasta").c_str());
+    fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
     walksFile_.open((outputPfx_ + ".walks").c_str());
     writeStatsHeader();
     writeStatusHeader();
@@ -62,6 +64,7 @@ BundleManager::~BundleManager()
     statusFile_.close();
     statsFile_.close();
     fastaFile_.close();
+    fastaFileUnique_.close();
     walksFile_.close();
 
     size_t numBundles = bundles_.size();
@@ -243,8 +246,15 @@ void BundleManager::writeResultToFasta(CloseBundleResult & res)
         assert(lClosure >= 0);
         string seqClosure = seq.substr(trimLeft, lClosure);
         size_t seqClosureL = seqClosure.size();
-        fastaFile_ << ">" << b->id << "-" << i << " " << seqClosureL << "\n"
+        ostringstream oss;
+        oss << ">" << b->id << "-" << i << " " << seqClosureL << "\n"
            << seqClosure << "\n";
+
+        fastaFile_ << oss.str();
+        if (numWalks == 1)
+        {
+            fastaFileUnique_ << oss.str();
+        }
     }
 }
 
