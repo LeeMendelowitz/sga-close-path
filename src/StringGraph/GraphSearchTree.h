@@ -457,10 +457,11 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
     if(m_totalNodes > m_searchParams.nodeLimit)
     {
 
+        #if GRAPHSEARCH_DEBUG > 0
         std::cout << "Aborting Graph Search!! "
                   << " NodeLimit: " << m_searchParams.nodeLimit
                   << " TotalNodes: " << m_totalNodes << std::endl;
-
+        #endif
         // Move all nodes in the expand queue to the done queue
         m_doneQueue.insert(m_doneQueue.end(), m_expandQueue.begin(), m_expandQueue.end());
         m_expandQueue.clear();
