@@ -10,6 +10,7 @@ sga_CPPFLAGS = \
 	-I$(top_srcdir)/SQG \
 	-I$(top_srcdir)/Scaffold \
 	-I$(top_srcdir)/GraphDiff \
+    -I$(top_srcdir)/GraphSearch \
 	-I$(top_srcdir)/Thirdparty
 
 sga_LDADD = \
@@ -22,6 +23,7 @@ sga_LDADD = \
 	$(top_builddir)/Bigraph/libbigraph.a \
 	$(top_builddir)/Util/libutil.a \
 	$(top_builddir)/SQG/libsqg.a \
+    $(top_srcdir)/GraphSearch/libgraphsearch.a \
 	$(top_builddir)/Thirdparty/libthirdparty.a
 
 sga_LDFLAGS = -pthread
@@ -57,4 +59,5 @@ sga_SOURCES = sga.cpp \
               metagenome.h metagenome.cpp \
               variant-detectability.h variant-detectability.cpp \
               OverlapCommon.h OverlapCommon.cpp \
+              close-path.h close-path.cpp \
               SGACommon.h 
