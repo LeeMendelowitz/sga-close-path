@@ -42,6 +42,8 @@ class BundleManager
         // maxStd: The maximum number of standard deviations that the path is allowed
         // to stray from the estimate of the gap size.
         void closeBundles(float maxStd, bool exhaustive);
+
+        void printSummary();
                     
     private:
         std::string bundleFile_;
@@ -52,6 +54,10 @@ class BundleManager
         std::ofstream fastaFile_;
         std::ofstream walksFile_;
         BundlePtrVec bundles_;
+        int numClosedUniquely_;
+        int numClosed_;
+        int numFailedOverlap_;
+        int numFailedRepetative_;
 
         void readBundles();
 

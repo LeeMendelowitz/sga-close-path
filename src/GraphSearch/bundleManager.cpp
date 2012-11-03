@@ -42,6 +42,11 @@ BundleManager::BundleManager(const std::string& bundleFile,
               pGraph_(pGraph),
               outputPfx_(outputPfx)
 {
+    numClosedUniquely_ = 0;
+    numClosed_ = 0;
+    numFailedOverlap_ = 0;
+    numFailedRepetative_ = 0;
+
     statusFile_.open((outputPfx_ + ".status").c_str());
     statsFile_.open((outputPfx_ + ".stats").c_str());
     fastaFile_.open((outputPfx_ + ".fasta").c_str());
@@ -92,6 +97,15 @@ void BundleManager::closeBundles(float maxStd, bool exhaustive)
         writeResultToStats(res);
         writeResultToFasta(res);
         writeResultToWalks(res);
+
+        if (res.tooRepetative)
+            numFailedRepetative_++;
+        if (res.overlapTooLarge)
+            numFailedOverlap_++;
+        if (res.numClosures == 1)
+            numClosedUniquely_++;
+        if (res.numClosures > 0)
+            numClosed_++;
     }
 }
 
@@ -248,4 +262,19 @@ void BundleManager::writeResultToWalks(CloseBundleResult & res)
         walk.printWithOL(walksFile_);
         walksFile_ << "\n";
     }
+}
+
+void BundleManager::printSummary()
+{
+    int numClosedRepeat = numClosed_ - numClosedUniquely_;
+    std::cout << "Num. Bundles: " <<  getNumBundles() << "\n"
+              << "Num. Closed: " << numClosed_ << "\n"
+              << "Num. Closed Uniquely: " << numClosedUniquely_ << "\n"
+              << "Num. Closed > 1 Path: " << numClosedRepeat << "\n"
+              << "Num. Failed Overlap Too Large: " << numFailedOverlap_ << "\n"
+              << "Num. Failed Graph Repetative: " << numFailedRepetative_
+              << std::endl;
+
+             
+
 }

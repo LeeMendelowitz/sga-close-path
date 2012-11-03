@@ -37,17 +37,17 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      --help                           display this help and exit\n"
 "      -v, --verbose                    display verbose output\n"
 "      -o, --output=NAME                use output prefix NAME. Defaults to bundle filename prefix.\n"
-"      -s, maxStd                       maximum standard deviation allowed in path length deviation.\n"
-"      -m, minOverlap                   minimum overlap used when loading the ASQG file.\n"
+"      -s, maxStd=FLOAT                  maximum standard deviation allowed in path length deviation. (Default 3.0)\n"
+"      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
 //static const char* PROGRAM_IDENT = PACKAGE_NAME "::" SUBPROGRAM;
 
 namespace opt
 {
-    static unsigned int verbose;
+    static unsigned int verbose = 0;
     static int minOverlap = 0;
-    static int maxStd = 4;
+    static float maxStd = 3.0;
     static std::string graphFile;
     static std::string bundleFile;
     static std::string outputPfx;
@@ -67,6 +67,8 @@ static const struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
+void printOptions();
+
 //
 // Main
 //
@@ -75,6 +77,7 @@ int closePathMain(int argc, char** argv)
     using namespace std;
 
     parseClosePathOptions(argc, argv);
+    printOptions();
 
     // Read the graph file
     std::cout << "Reading Graph: " << opt::graphFile << std::endl;
@@ -89,6 +92,7 @@ int closePathMain(int argc, char** argv)
     // Close the bundles
     bool exhaustive = true;
     bundleManager.closeBundles(opt::maxStd, exhaustive);
+    bundleManager.printSummary();
 
     return 0;
 }
@@ -149,9 +153,25 @@ void parseClosePathOptions(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    if (opt::outputPfx.empty())
-        opt::outputPfx = stripFilename(opt::bundleFile);
 
     opt::bundleFile = argv[optind++];
     opt::graphFile = argv[optind++];
+
+    if (opt::outputPfx.empty())
+        opt::outputPfx = stripFilename(opt::bundleFile);
+
+}
+
+void printOptions()
+{
+    if (opt::verbose > 0)
+    {
+        std::cerr << "Verbose: " << opt::verbose << "\n"
+                  << "MinOverlap: " << opt::minOverlap << "\n"
+                  << "MaxStd: " << opt::maxStd << "\n"
+                  << "graphFile: " << opt::graphFile << "\n"
+                  << "bundleFile: " << opt::bundleFile << "\n"
+                  << "outputPfx: " << opt::outputPfx << "\n"
+                  << std::endl;
+    }
 }
