@@ -154,13 +154,13 @@ int scaffold2fastaMain(int argc, char** argv)
         record.parse(line);
         if(record.getNumComponents() > 1 || !opt::bNoSingletons)
         {
-            StringVector ids;
-            std::string sequence = record.generateString(resolveParams, ids);
+            StringVector contigPlacementDesc; // Description of contig placements
+            std::string sequence = record.generateString(resolveParams, contigPlacementDesc);
             
             // Write out the sequence of contigs to a stringstream
             std::stringstream contig_ss;
             contig_ss << "Contigs=";
-            std::copy(ids.begin(), ids.end(), std::ostream_iterator<std::string>(contig_ss, ";"));
+            std::copy(contigPlacementDesc.begin(), contigPlacementDesc.end(), std::ostream_iterator<std::string>(contig_ss, ";"));
 
             //
             std::stringstream id_ss;

@@ -14,6 +14,40 @@
 
 //#define DEBUGRESOLVE 1
 
+struct ContigPlacement
+{
+    ContigPlacement (const std::string& contigId, char orientation, int start, int end) :
+        contigId_(contigId),
+        orientation_(orientation),
+        start_(start),
+        end_(end) {};
+
+    std::string toString()
+    {
+        std::ostringstream oss;
+        oss << contigId_ << ","
+            << orientation_ << ","
+            << start_ << ","
+            << end_;
+        std::string retValue = oss.str();
+        return retValue;
+    }
+
+    // Reverse the start and ending coords based on the scaffLength
+    void reverseCoords(int scaffLength)
+    {
+        int oldStart = start_;
+        int oldEnd = end_;
+        start_ = scaffLength - oldEnd;
+        end_ = scaffLength - oldStart;
+    }
+
+    std::string contigId_;
+    char orientation_;
+    int start_;
+    int end_;
+};
+
 //
 ScaffoldRecord::ScaffoldRecord() 
 {
@@ -42,27 +76,22 @@ size_t ScaffoldRecord::getNumComponents() const
 }
 
 // Construct a string from the scaffold
-std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVector& ids) const
+std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVector& contigPlacementDesc) const
 {
     assert(params.pSequenceCollection != NULL);
 
     params.pStats->numScaffolds += 1;
 
+    std::vector<ContigPlacement> contigPlacements;
+
     // Starting from the root, join the sequence(s) of the scaffold
     // together along with the appropriate gaps/overlap
     std::string sequence = params.pSequenceCollection->getSequence(m_rootID);
     params.pSequenceCollection->setPlaced(m_rootID);
+   
+    ContigPlacement rootPlacement(m_rootID, '+', 0, sequence.size());
+    contigPlacements.push_back(rootPlacement);
 
-    std::ostringstream scaffDesc;
-    scaffDesc << m_rootID << ","
-              << "+" << ","
-              << 0 << ","
-              << sequence.size();
-    ids.push_back(scaffDesc.str());
-
-    scaffDesc.clear();
-    scaffDesc.str("");
- 
     if(m_links.empty())
         return sequence;
 
@@ -148,6 +177,7 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
 
         size_t seqStart = sequence.size();
         sequence.append(resolvedSequence);
+        size_t seqEnd = sequence.size();
         currID = link.endpointID;
 
         //std::string outID = currID;
@@ -161,21 +191,27 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
             seqStart += insertedGap;
         }
 
-        std::ostringstream scaffDesc;
-        scaffDesc << currID << ","
-                  << (relativeComp == EC_SAME ? "+" : "-") << ","
-                  << seqStart << ","
-                  << sequence.size();
-        ids.push_back(scaffDesc.str());
-
+        char orientation =  (relativeComp == EC_SAME ? '+' : '-');
+        ContigPlacement contigPlacement(currID, orientation, seqStart, seqEnd);
+        contigPlacements.push_back(contigPlacement);
         prevComp = relativeComp;
     }
 
     if(reverseAll) 
     {
         sequence = reverse(sequence);
-        std::reverse(ids.begin(), ids.end());
+        size_t scaffLength = sequence.size();
+        for (size_t i = 0; i < contigPlacements.size(); i++)
+        {
+            contigPlacements[i].reverseCoords(scaffLength);
+        }
+        std::reverse(contigPlacements.begin(), contigPlacements.end());
     }
+
+    contigPlacementDesc.clear();
+    for (size_t i = 0; i < contigPlacements.size(); i++)
+        contigPlacementDesc.push_back(contigPlacements[i].toString());
+
     return sequence;
 }
 
