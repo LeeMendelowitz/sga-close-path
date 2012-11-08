@@ -103,7 +103,7 @@ class ScaffoldRecord
                             const ScaffoldLink& link, std::string& outString) const;
 
         // Resolve a link by introducing a gap
-        bool introduceGap(int minGapLength, const std::string& contigString, const ScaffoldLink& link, std::string& outString) const;
+        bool introduceGap(int minGapLength, const std::string& contigString, const ScaffoldLink& link, std::string& outString, int& insertedGap) const;
 
         void parse(const std::string& text);
         void writeScaf(std::ostream* pWriter);

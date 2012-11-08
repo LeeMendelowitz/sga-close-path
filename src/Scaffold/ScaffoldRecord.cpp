@@ -52,7 +52,16 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
     // together along with the appropriate gaps/overlap
     std::string sequence = params.pSequenceCollection->getSequence(m_rootID);
     params.pSequenceCollection->setPlaced(m_rootID);
-    ids.push_back(m_rootID + "+");
+
+    std::ostringstream scaffDesc;
+    scaffDesc << m_rootID << ","
+              << "+" << ","
+              << 0 << ","
+              << sequence.size();
+    ids.push_back(scaffDesc.str());
+
+    scaffDesc.clear();
+    scaffDesc.str("");
  
     if(m_links.empty())
         return sequence;
@@ -89,6 +98,7 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
         
         // Step 1, try to walk through the graph between the vertices
         bool resolved = false;
+        int insertedGap(0);
         if(params.resolveMask & RESOLVE_GRAPH_BEST || params.resolveMask & RESOLVE_GRAPH_UNIQUE)
         {
             resolved = graphResolve(params, currID, link, resolvedSequence);
@@ -133,16 +143,31 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
 
             // Step 3, just introduce a gap between the sequences
             if(!resolved)
-                introduceGap(params.minGapLength, toAppend, link, resolvedSequence);
-
+                introduceGap(params.minGapLength, toAppend, link, resolvedSequence, insertedGap);
         }
 
+        size_t seqStart = sequence.size();
         sequence.append(resolvedSequence);
         currID = link.endpointID;
 
-        std::string outID = currID;
-        outID.append(relativeComp == EC_SAME ? "+" : "-");
-        ids.push_back(outID);
+        //std::string outID = currID;
+        //outID.append(relativeComp == EC_SAME ? "+" : "-");
+
+        
+        // If resolved by gap, adjust the seqStart to be the end of the gap
+        if (!resolved)
+        {
+            assert(insertedGap > 0);
+            seqStart += insertedGap;
+        }
+
+        std::ostringstream scaffDesc;
+        scaffDesc << currID << ","
+                  << (relativeComp == EC_SAME ? "+" : "-") << ","
+                  << seqStart << ","
+                  << sequence.size();
+        ids.push_back(scaffDesc.str());
+
         prevComp = relativeComp;
     }
 
@@ -306,13 +331,15 @@ bool ScaffoldRecord::overlapResolve(const ResolveParams& params, const std::stri
 }
 
 // Resolve a link with a gap
-bool ScaffoldRecord::introduceGap(int minGapLength, const std::string& contigString, const ScaffoldLink& link, std::string& out) const
+bool ScaffoldRecord::introduceGap(int minGapLength, const std::string& contigString, const ScaffoldLink& link, std::string& out,
+                                  int& insertedGap) const
 {
     assert(out.empty());
     if(link.distance < 0)
     {
         // Truncate the string using the expected overlap and add a gap with a fixed number of Ns
         out.append(minGapLength, 'N');
+        insertedGap = minGapLength;
         int expectedOverlap = -1 * link.distance;
         assert(expectedOverlap < (int)contigString.length());
         out.append(contigString.substr(expectedOverlap));
@@ -320,6 +347,7 @@ bool ScaffoldRecord::introduceGap(int minGapLength, const std::string& contigStr
     else
     {
         int gap = std::max(link.distance, minGapLength);
+        insertedGap = gap;
         out.append(gap, 'N');
         out.append(contigString);
     }
