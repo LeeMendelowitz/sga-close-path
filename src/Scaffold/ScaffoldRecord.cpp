@@ -86,14 +86,16 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
 
     // Starting from the root, join the sequence(s) of the scaffold
     // together along with the appropriate gaps/overlap
-    std::string sequence = params.pSequenceCollection->getSequence(m_rootID);
     params.pSequenceCollection->setPlaced(m_rootID);
-   
+    std::string sequence = params.pSequenceCollection->getSequence(m_rootID);
     ContigPlacement rootPlacement(m_rootID, '+', 0, sequence.size());
     contigPlacements.push_back(rootPlacement);
 
     if(m_links.empty())
+    {
+        contigPlacementDesc.push_back(rootPlacement.toString());
         return sequence;
+    }
 
     EdgeDir rootDir = m_links[0].getDir();
     EdgeComp relativeComp = EC_SAME;
