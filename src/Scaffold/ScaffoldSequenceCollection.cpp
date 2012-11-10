@@ -12,6 +12,7 @@
 //
 #include "ScaffoldSequenceCollection.h"
 #include "SeqReader.h"
+#include "ScaffoldRecord.h"
 
 //
 GraphSequenceCollection::GraphSequenceCollection(StringGraph* pGraph) : m_pGraph(pGraph)
@@ -50,8 +51,12 @@ struct UnplacedVisitor
         if((int)pVertex->getSeqLen() >= m_minLength)
         {
             std::stringstream idss;
-            idss << "unplaced-" << m_numUnplaced++;
-            writeFastaRecord(m_pWriter, idss.str(), pVertex->getSeq().toString());
+            std::string seq = pVertex->getSeq().toString();
+            bool isRC = false;
+            ContigPlacement contigDesc(pVertex->getID(), isRC, 0, seq.size(), 0, seq.size());
+            idss << "unplaced-" << m_numUnplaced++
+                 << " Contigs=" << contigDesc.toString(); 
+            writeFastaRecord(m_pWriter, idss.str(), seq);
         }
         return false;
     }

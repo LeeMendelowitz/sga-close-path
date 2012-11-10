@@ -14,6 +14,56 @@
 #include "ScaffoldLink.h"
 #include "ScaffoldSequenceCollection.h"
 #include "SGUtil.h"
+#include "SGWalk.h"
+
+//Placement of contig within a scaffold
+struct ContigPlacement
+{
+    ContigPlacement (const std::string& contigId, bool isRC, int scaffStart, int scaffEnd,
+                     int contigStart, int contigEnd) :
+        contigId_(contigId),
+        isRC_(isRC),
+        scaffStart_(scaffStart),
+        scaffEnd_(scaffEnd),
+        contigStart_(contigStart),
+        contigEnd_(contigEnd)
+        {};
+
+    std::string toString()
+    {
+        std::ostringstream oss;
+        oss << contigId_ << ","
+            << (isRC_ ? '-' : '+') << ","
+            << scaffStart_ << ","
+            << scaffEnd_ << ","
+            << contigStart_ << ","
+            << contigEnd_;
+        std::string retValue = oss.str();
+        return retValue;
+    }
+
+    // Reverse the start and ending scaffold coords based on the total scaffLength
+    void reverseScaffCoords(int scaffLength)
+    {
+        int oldStart = scaffStart_;
+        int oldEnd = scaffEnd_;
+        scaffStart_ = scaffLength - oldEnd;
+        scaffEnd_ = scaffLength - oldStart;
+    }
+
+    void reverseOrientation()
+    {
+        isRC_ = !isRC_;
+    }
+
+    
+    std::string contigId_;
+    bool isRC_;
+    int scaffStart_;
+    int scaffEnd_;
+    int contigStart_;
+    int contigEnd_;
+};
 
 // Gap resolution statistics
 struct ResolveStats
@@ -96,7 +146,8 @@ class ScaffoldRecord
 
         // Resolve a link by find walks through the graph
         bool graphResolve(const ResolveParams& params, const std::string& startID, 
-                          const ScaffoldLink& link, std::string& extensionString) const;
+                          const ScaffoldLink& link, std::string& extensionString,
+                          SGWalk& selectedWalk) const;
 
         // Resolve a predicted overlap between s1 and s2 by aligning the ends of the sequences
         bool overlapResolve(const ResolveParams& params, const std::string& s1, const std::string& s2, 

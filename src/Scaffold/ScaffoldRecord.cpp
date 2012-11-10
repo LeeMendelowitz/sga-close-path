@@ -12,41 +12,11 @@
 #include "OverlapTools.h"
 #include "SGSearch.h"
 
-//#define DEBUGRESOLVE 1
+#define DEBUGRESOLVE 1
+#define DEBUG_WALKTOPLACEMENT 1
 
-struct ContigPlacement
-{
-    ContigPlacement (const std::string& contigId, char orientation, int start, int end) :
-        contigId_(contigId),
-        orientation_(orientation),
-        start_(start),
-        end_(end) {};
 
-    std::string toString()
-    {
-        std::ostringstream oss;
-        oss << contigId_ << ","
-            << orientation_ << ","
-            << start_ << ","
-            << end_;
-        std::string retValue = oss.str();
-        return retValue;
-    }
-
-    // Reverse the start and ending coords based on the scaffLength
-    void reverseCoords(int scaffLength)
-    {
-        int oldStart = start_;
-        int oldEnd = end_;
-        start_ = scaffLength - oldEnd;
-        end_ = scaffLength - oldStart;
-    }
-
-    std::string contigId_;
-    char orientation_;
-    int start_;
-    int end_;
-};
+void walkToContigPlacements(const SGWalk& walk, std::vector<ContigPlacement>& contigPlacements);
 
 //
 ScaffoldRecord::ScaffoldRecord() 
@@ -88,7 +58,8 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
     // together along with the appropriate gaps/overlap
     params.pSequenceCollection->setPlaced(m_rootID);
     std::string sequence = params.pSequenceCollection->getSequence(m_rootID);
-    ContigPlacement rootPlacement(m_rootID, '+', 0, sequence.size());
+    bool isRC = false;
+    ContigPlacement rootPlacement(m_rootID, isRC, 0, sequence.size(), 0, sequence.size());
     contigPlacements.push_back(rootPlacement);
 
     if(m_links.empty())
@@ -114,6 +85,8 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
     // to the scaffold
     for(size_t i = 0; i < m_links.size(); ++i)
     {   
+
+        size_t currScaffPos = sequence.size();
         params.pStats->numGapsAttempted += 1;
 
         // Mark the current link as placed in the scaffold
@@ -127,22 +100,70 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
         // Attempt to resolve the sequence of the link
         std::string resolvedSequence;
         
+
         // Step 1, try to walk through the graph between the vertices
         bool resolved = false;
         int insertedGap(0);
         if(params.resolveMask & RESOLVE_GRAPH_BEST || params.resolveMask & RESOLVE_GRAPH_UNIQUE)
         {
-            resolved = graphResolve(params, currID, link, resolvedSequence);
+            SGWalk selectedWalk(NULL); // Create an empty walk with a NULL starting vertex.
+            resolved = graphResolve(params, currID, link, resolvedSequence, selectedWalk);
             if(resolved)
             {
+
+                // Determine the contig placements within the walk
+                std::vector<ContigPlacement> newPlacements;
+                walkToContigPlacements(selectedWalk, newPlacements);
+                int walkL = selectedWalk.getStartToEndDistance();
+                assert(newPlacements.back().scaffEnd_ == walkL);
+   
+                // Check that the contig placements either starts or ends with the current contig considered.
+                // Walk will end with the current contig if the walk leaves the 5' end of the contig.
+                bool contigIsFirst = (newPlacements[0].contigId_ == currID);
+                bool contigIsLast = (newPlacements.back().contigId_ == currID);
+                assert(contigIsFirst || contigIsLast);
+
+                // Reverse the contig placements if necessary.
+                if(contigIsLast)
+                {
+                    std::reverse(newPlacements.begin(), newPlacements.end());
+                    for( size_t i = 0; i < newPlacements.size(); i++)
+                        newPlacements[i].reverseScaffCoords(walkL);
+                }
+
                 // The returned sequence is wrt currID. If we flipped the sequence of currID, we must
                 // flip this sequence
                 if(prevComp == EC_REVERSE)
+                {
                     resolvedSequence = reverseComplementIUPAC(resolvedSequence);
+                    for( size_t i = 0; i < newPlacements.size(); i++)
+                    {
+                        newPlacements[i].reverseOrientation();
+                    }
+                }
+
+                // Make sure the first placement is that of the current contig.
+                // Then, remove this placement, and adjust all of the scaffold start and end coordinates
+                assert(newPlacements[0].contigId_ == currID);
+                int firstContigL = newPlacements[0].scaffEnd_;
+                int adjustment = currScaffPos - firstContigL;
+                for( size_t i = 1; i < newPlacements.size(); i++)
+                {
+                    ContigPlacement& placement = newPlacements[i];
+                    placement.scaffStart_ += adjustment;
+                    placement.scaffEnd_ += adjustment;
+                }
 
                 if(reverseAll)
                     resolvedSequence = reverse(resolvedSequence);
+
                 params.pStats->numGapsResolved += 1;
+
+                // Save new contig placements. Note that the first placement is that of a contig
+                // we hace placed previously
+                assert(newPlacements[0].contigId_ == currID);
+                assert(contigPlacements.back().contigId_ == currID);
+                contigPlacements.insert(contigPlacements.end(), newPlacements.begin()+1, newPlacements.end());
             }
         }
 
@@ -150,21 +171,39 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
         // and the sequence of the linked contig
         if(!resolved)
         {
+            currID = link.endpointID;
+            bool isRC = (relativeComp == EC_REVERSE);
             // Get the sequence that should be potentially appended in
-            std::string toAppend = params.pSequenceCollection->getSequence(link.endpointID);
+            std::string contigSeq = params.pSequenceCollection->getSequence(currID);
+            size_t contigSeqL = contigSeq.size();
+
             if(relativeComp == EC_REVERSE)
-                toAppend = reverseComplementIUPAC(toAppend);
+                contigSeq = reverseComplementIUPAC(contigSeq);
             if(reverseAll)
-                toAppend = reverse(toAppend);
+                contigSeq = reverse(contigSeq);
             
             //
             if(link.distance < 0 && params.resolveMask & RESOLVE_OVERLAP)
             {
-                resolved = overlapResolve(params, sequence, toAppend, link, resolvedSequence);
+                resolved = overlapResolve(params, sequence, contigSeq, link, resolvedSequence);
                 if(resolved)
                 {
                     params.pStats->numGapsResolved += 1;
                     params.pStats->overlapFound += 1;
+
+                    // Add the placement of the contig
+                    size_t resolvedSeqL = resolvedSequence.size();
+                    size_t scaffEnd = currScaffPos + resolvedSeqL;
+                    int contigSeqEnd =  contigSeqL;
+                    int contigSeqStart = contigSeqEnd - resolvedSeqL;
+                    // If contig is reverse-complement, select the contig seq start/end coords
+                    // with respect to the contig's forward orientation
+                    if (isRC)
+                    {
+                        contigSeqStart = 0;
+                        contigSeqEnd = resolvedSeqL;
+                    }
+                    contigPlacements.push_back(ContigPlacement(currID, isRC, currScaffPos, scaffEnd, contigSeqStart, contigSeqEnd));
                 }
                 else
                 {
@@ -174,28 +213,16 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
 
             // Step 3, just introduce a gap between the sequences
             if(!resolved)
-                introduceGap(params.minGapLength, toAppend, link, resolvedSequence, insertedGap);
+            {
+                introduceGap(params.minGapLength, contigSeq, link, resolvedSequence, insertedGap);
+                // If resolved by gap, adjust the seqStart to be the end of the gap
+                assert(insertedGap > 0);
+                size_t scaffStart = currScaffPos + insertedGap; // Start position of contig in scaffold, after the gap
+                size_t scaffEnd = scaffStart + resolvedSequence.size();
+                contigPlacements.push_back(ContigPlacement(currID, isRC, scaffStart, scaffEnd, 0, contigSeqL));
+            }
         }
-
-        size_t seqStart = sequence.size();
         sequence.append(resolvedSequence);
-        size_t seqEnd = sequence.size();
-        currID = link.endpointID;
-
-        //std::string outID = currID;
-        //outID.append(relativeComp == EC_SAME ? "+" : "-");
-
-        
-        // If resolved by gap, adjust the seqStart to be the end of the gap
-        if (!resolved)
-        {
-            assert(insertedGap > 0);
-            seqStart += insertedGap;
-        }
-
-        char orientation =  (relativeComp == EC_SAME ? '+' : '-');
-        ContigPlacement contigPlacement(currID, orientation, seqStart, seqEnd);
-        contigPlacements.push_back(contigPlacement);
         prevComp = relativeComp;
     }
 
@@ -203,11 +230,11 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
     {
         sequence = reverse(sequence);
         size_t scaffLength = sequence.size();
+        std::reverse(contigPlacements.begin(), contigPlacements.end());
         for (size_t i = 0; i < contigPlacements.size(); i++)
         {
-            contigPlacements[i].reverseCoords(scaffLength);
+            contigPlacements[i].reverseScaffCoords(scaffLength);
         }
-        std::reverse(contigPlacements.begin(), contigPlacements.end());
     }
 
     contigPlacementDesc.clear();
@@ -219,7 +246,8 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
 
 // Attempt to resolve a scaffold link by finding a walk through the graph linking the two vertices
 bool ScaffoldRecord::graphResolve(const ResolveParams& params, const std::string& startID, 
-                                  const ScaffoldLink& link, std::string& outExtensionString) const
+                                  const ScaffoldLink& link, std::string& outExtensionString,
+                                  SGWalk& selectedWalk) const
 {
     assert(params.pGraph != NULL);
 
@@ -311,11 +339,12 @@ bool ScaffoldRecord::graphResolve(const ResolveParams& params, const std::string
     if(useWalk)
     {
         assert(selectedIdx != -1);
-        outExtensionString = walks[selectedIdx].getString(SGWT_EXTENSION);
+        selectedWalk = walks[selectedIdx];
+        outExtensionString = selectedWalk.getString(SGWT_EXTENSION);
         params.pStats->graphWalkFound += 1;
 
         // Mark all vertices in the walk as visited
-        VertexPtrVec vertexPtrVector = walks[selectedIdx].getVertices();
+        VertexPtrVec vertexPtrVector = selectedWalk.getVertices();
         for(size_t i = 0; i < vertexPtrVector.size(); ++i)
             params.pSequenceCollection->setPlaced(vertexPtrVector[i]->getID());
         return true;
@@ -414,4 +443,101 @@ void ScaffoldRecord::writeScaf(std::ostream* pWriter)
     for(size_t i = 0; i < m_links.size(); ++i)
         *pWriter << "\t" << m_links[i];
     *pWriter << "\n";
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+// Given a walk resolving a scaffold gap, determine the contig placement information
+// for all contigs of the walk.
+// Position 0 is relative to the beginning of the walk
+
+// Example: walk from A to B:
+//   A |------------->                         <---------------| B
+//                |-------------> C
+//                         <----------| D
+//                                 <-----------------| E
+//                                          |------------> F
+// Placements:
+//                   |--C--------|-D---|----E---|---------------| B
+// Note:
+// We do not plact contig A
+// Both D & E are reverse-complement.
+// F does not get placed because we use all of B.
+void walkToContigPlacements(const SGWalk& walk, std::vector<ContigPlacement>& contigPlacements)
+{
+    contigPlacements.clear();
+
+    // Get the sequence of the walk and the placements of all contigs in the walk
+    // Position 0 is the start of the first contig in the walk
+    SGWalkVertexPlacementVector vertexPlacements;
+    std::string walkSeq = walk.getString(SGWT_START_TO_END, &vertexPlacements);
+
+    // Add the placement of the first contig of walk
+    SGWalkVertexPlacement& vPlacement = vertexPlacements[0];
+    Vertex * pFirstVertex = vPlacement.pVertex;
+    size_t firstContigL = pFirstVertex->getSeqLen();
+    assert(vPlacement.position == 0);
+    ContigPlacement contigPlacement(pFirstVertex->getID(), vPlacement.isRC, 0, firstContigL, 0, firstContigL);
+    contigPlacements.push_back(contigPlacement);
+
+    int currPos = firstContigL; // absolute position in walk
+    int gapStart = currPos;
+    int gapSize = walk.getEndToStartDistance();
+    int gapEnd = gapStart + (gapSize > 0 ? gapSize : 0); // absolute position in walk
+
+    // Add placements from interior contigs if they contribute to the walk's sequence
+    // by filling in a gap between the first and last contig
+    size_t lastContig = vertexPlacements.size()-1;
+    for (size_t i = 1; i < lastContig; i++)
+    {
+        if (currPos >= gapEnd) break;
+
+        SGWalkVertexPlacement& vPlacement = vertexPlacements[i];
+        Vertex * pVertex = vPlacement.pVertex;
+
+        // Get the contig start/ending position in walk
+        int contigStartPos = vPlacement.position;
+        int contigSeqL = pVertex->getSeqLen();
+        int contigEndPos = contigStartPos + contigSeqL;
+
+        // Coordinates of walk interval first covered by this contig
+        int scaffSeqStart = currPos;
+        int scaffSeqEnd = (contigEndPos > gapEnd) ? gapEnd : contigEndPos;
+        int seqContributionL = scaffSeqEnd - scaffSeqStart;
+
+        // Coordinates of contig matched to this walk interval
+        int contigSeqStart = currPos - contigStartPos;
+        int contigSeqEnd = contigSeqStart + seqContributionL;
+        assert(contigSeqStart > 0);
+        assert(contigSeqEnd <= contigSeqL);
+
+        // If contig is reverse-complement, select the contig seq start/end coords
+        // with respect to the contig's forward orientation
+        if (vPlacement.isRC)
+        {
+            contigSeqStart = contigSeqL - contigSeqEnd;
+            contigSeqEnd = contigSeqStart + seqContributionL;
+        }
+        ContigPlacement contigPlacement(pVertex->getID(), vPlacement.isRC, scaffSeqStart, scaffSeqEnd,
+                                        contigSeqStart, contigSeqEnd);
+        contigPlacements.push_back(contigPlacement);
+        currPos += seqContributionL;
+    }
+
+    //Add placement of final contig
+    assert(currPos == gapEnd);
+    vPlacement = vertexPlacements[lastContig];
+    Vertex * pLastVertex = vPlacement.pVertex;
+    // Get the contig start/ending position in walk
+    int contigStartPos = vPlacement.position;
+    int contigSeqL = pLastVertex->getSeqLen();
+    int contigEndPos = contigStartPos + contigSeqL;
+    // Coordinate of contig matched to scaffold sequence
+    int contigSeqStart = currPos - contigStartPos;
+    int contigSeqEnd = contigSeqL;
+    // Coordinate of scaffold matched to contig sequence
+    int scaffSeqStart = currPos;
+    int scaffSeqEnd = contigEndPos;
+    contigPlacement = ContigPlacement(pLastVertex->getID(), vPlacement.isRC, scaffSeqStart, scaffSeqEnd, contigSeqStart, contigSeqEnd);
+    contigPlacements.push_back(contigPlacement);
+    return;
 }
