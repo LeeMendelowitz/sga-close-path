@@ -113,12 +113,18 @@ void MapSequenceCollection::setPlaced(const std::string& id)
 void MapSequenceCollection::writeUnplaced(std::ostream* pWriter, int minLength)
 {
     int numUnplaced = 0;
+
     for(SMPMap::iterator iter = m_map.begin(); iter != m_map.end(); ++iter)
     {
         if(!iter->second.isPlaced && (int)iter->second.sequence.size() >= minLength)
         {
             std::stringstream idss;
-            idss << "unplaced-" << numUnplaced++;
+            std::string seqId = iter->first;
+            size_t L = iter->second.sequence.size();
+            bool isRC = false;
+            ContigPlacement contigDesc(seqId, isRC, 0, L, 0, L);
+            idss << "unplaced-" << numUnplaced++
+                 << " Contigs=" << contigDesc.toString();
             writeFastaRecord(pWriter, idss.str(), iter->second.sequence);
         }
     }

@@ -11,10 +11,13 @@
 #ifndef SCAFFOLDRECORD_H
 #define SCAFFOLDRECORD_H
 
+#include <cassert>
+
 #include "ScaffoldLink.h"
 #include "ScaffoldSequenceCollection.h"
 #include "SGUtil.h"
 #include "SGWalk.h"
+
 
 //Placement of contig within a scaffold
 struct ContigPlacement
@@ -27,9 +30,18 @@ struct ContigPlacement
         scaffEnd_(scaffEnd),
         contigStart_(contigStart),
         contigEnd_(contigEnd)
-        {};
+        {
+            assert(scaffStart_ >= 0);
+            assert(contigStart_ >= 0);
+            // Make sure contig interval and scaffold interval are same length
+            const int contigSpan = contigEnd_ - contigStart_;
+            const int scaffSpan = scaffEnd_ - scaffStart_;
+            assert(contigSpan > 0);
+            assert(scaffSpan > 0);
+            assert(scaffSpan == contigSpan);
+        };
 
-    std::string toString()
+    std::string toString() const
     {
         std::ostringstream oss;
         oss << contigId_ << ","
@@ -45,10 +57,20 @@ struct ContigPlacement
     // Reverse the start and ending scaffold coords based on the total scaffLength
     void reverseScaffCoords(int scaffLength)
     {
+//        std::cout << "In reverseScaffCoords:\n"
+//                  << "scaffLength = " << scaffLength << "\n"
+//                  << "Placement BEFORE:\n"
+//                  << toString() << std::endl;
+
         int oldStart = scaffStart_;
         int oldEnd = scaffEnd_;
         scaffStart_ = scaffLength - oldEnd;
         scaffEnd_ = scaffLength - oldStart;
+        
+//        std::cout << "Placement AFTER:\n"
+ //                 << toString() << std::endl;
+        assert(scaffStart_ >= 0);
+        assert(scaffStart_ <= scaffEnd_);
     }
 
     void reverseOrientation()
