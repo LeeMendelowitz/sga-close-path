@@ -173,15 +173,30 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
                 {
                     params.pStats->numGapsResolved += 1;
                     params.pStats->overlapFound += 1;
-
-                    // Add the placement of contig nextID
                     size_t resolvedSeqL = resolvedSequence.size();
                     size_t scaffEnd = currScaffPos + resolvedSeqL;
-                    int contigSeqEnd =  contigSeqL;
-                    int contigSeqStart = contigSeqEnd - resolvedSeqL;
-                    // If contig is reverse-complement, select the contig seq start/end coords
-                    // with respect to the contig's forward orientation
-                    if (isRC)
+
+                    // Check which end of contig ends up in the overlap.
+                    // Case 1: !isRC && !reverseAll:
+                    // scaff start -------> ....
+                    //                            ------> contig (overlap at front)
+                    // Case 2: !isRC && reverseAll:
+                    // contig -----> (overlap at end)
+                    //                .....  ------> scaff start 
+                    // Case 3: isRC && !reverseAll:
+                    // ------> scaff start
+                    //         ..... <----- contig (overlap at end)
+                    // Case 4: isRC && reverseAll:
+                    //  <----- contig (overlap at front)
+                    //        ....  -------> scaff start
+                    bool overlapInFront = (!isRC && !reverseAll) || (isRC && reverseAll);
+                    int contigSeqStart, contigSeqEnd;
+                    if (overlapInFront)
+                    {
+                        contigSeqEnd =  contigSeqL;
+                        contigSeqStart = contigSeqEnd - resolvedSeqL;
+                    }
+                    else
                     {
                         contigSeqStart = 0;
                         contigSeqEnd = resolvedSeqL;
@@ -219,15 +234,34 @@ std::string ScaffoldRecord::generateString(const ResolveParams& params, StringVe
                 size_t scaffEnd = currScaffPos + resolvedSequence.size();
                 size_t numContigBasesUsed = scaffEnd - scaffStart;
                 assert(numContigBasesUsed <= contigSeqL);
-                int contigSeqEnd =  contigSeqL;
-                int contigSeqStart = contigSeqEnd - numContigBasesUsed;
-                // If contig is reverse-complement, select the contig seq start/end coords
-                // with respect to the contig's forward orientation
-                if (isRC)
+
+                // Check which end of contig ends up in the gap. If introduceGap() clips sequence
+                // off of the contig, we must carefully record this
+                // Case 1: !isRC && !reverseAll:
+                // scaff start -------> ....
+                //                            ------> contig (gap at front)
+                // Case 2: !isRC && reverseAll:
+                // contig -----> (gap at end)
+                //                .....  ------> scaff start 
+                // Case 3: isRC && !reverseAll:
+                // ------> scaff start
+                //         ..... <----- contig (gap at end)
+                // Case 4: isRC && reverseAll:
+                //  <----- contig (gap at front)
+                //        ....  -------> scaff start
+                bool clipInFront = (!isRC && !reverseAll) || (isRC && reverseAll);
+                int contigSeqStart, contigSeqEnd;
+                if (clipInFront)
+                {
+                    contigSeqEnd =  contigSeqL;
+                    contigSeqStart = contigSeqEnd - numContigBasesUsed;
+                }
+                else
                 {
                     contigSeqStart = 0;
                     contigSeqEnd = numContigBasesUsed;
                 }
+
                 ContigPlacement newPlacement(nextID, isRC, scaffStart, scaffEnd, contigSeqStart, contigSeqEnd);
                 contigPlacements.push_back(newPlacement);
                 #if DEBUGPLACEMENTS
@@ -646,6 +680,14 @@ void walkToContigPlacements(const SGWalk& walk, const ContigPlacement& currPlace
     // Coordinate of scaffold matched to contig sequence
     int scaffSeqStart = currPos;
     int scaffSeqEnd = contigEndPos;
+    int seqContributionL = scaffSeqEnd - scaffSeqStart;
+    // If contig is reverse-complement, select the contig seq start/end coords
+    // with respect to the contig's forward orientation
+    if (vPlacement.isRC)
+    {
+        contigSeqStart = contigSeqL - contigSeqEnd;
+        contigSeqEnd = contigSeqStart + seqContributionL;
+    }
     contigPlacement = ContigPlacement(pLastVertex->getID(), vPlacement.isRC, scaffSeqStart, scaffSeqEnd, contigSeqStart, contigSeqEnd);
     contigPlacements.push_back(contigPlacement);
 
