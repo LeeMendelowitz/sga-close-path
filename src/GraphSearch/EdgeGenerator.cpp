@@ -10,8 +10,8 @@
 #include <limits>
 #include <algorithm>
 
-#define PATHS_DEBUG 0
-#define BFS_DEBUG 0
+#define PATHS_DEBUG 1
+#define BFS_DEBUG 1
 
 using namespace std;
 
@@ -36,6 +36,11 @@ class SearchEntry
     Vertex * pVertex;
     EdgeDir dir; // edge taken to enter the node
     int startPos; // position of the start of this node
+
+    bool operator<(const SearchEntry& rhs) const
+    {
+        return (startPos < rhs.startPos);
+    }
 };
 
 ostream& operator<<(ostream& os, const SearchEntry& se)
@@ -63,7 +68,9 @@ ostream& operator<<(ostream& os, EdgePtrVec& evec)
 
 
 // Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
-// NOTE: This search differs from the search functionality provided in SGSearch.
+// This is done using modified Dijkstra's. We allow a node to appear once on a path in each possible orientation.
+// As in Dijkstra's. we maintain a priority_queue of nodes with their distance from source (and their orientation)
+//
 // Search distance is measured from the beginning of the starting vertex.
 // |----------> A
 // 
@@ -87,8 +94,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
     EdgePtrVec edges;
 
     typedef pair<Vertex *, EdgeDir> VDirPair;
-    typedef pair<Vertex *, int> VIntPair;
-    typedef queue<SearchEntry> SearchQueue;
+    typedef priority_queue<SearchEntry> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
@@ -110,11 +116,22 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
         size_t N = vQueue.size();
         for(unsigned int i=0; i<N; i++)
         {
-            // Get the next vertex
-            SearchEntry se = vQueue.front();
+            // Get the next vertex. This entry will be the next closest vertex to the source.
+            SearchEntry se = vQueue.top();
             vQueue.pop();
+
+            assert(se.startPos <= maxDistance);
             Vertex * pVertex = se.pVertex;
-            int endPos = se.startPos + pVertex->getSeqLen();
+            VDirPair vdir(pVertex, se.dir);
+            bool alreadySeen = (seen.count(vdir)>0);
+
+            #if BFS_DEBUG!=0
+            cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
+            #endif
+
+            if (alreadySeen) continue;
+
+            seen.insert(vdir);
 
             #if BFS_DEBUG!=0
             cout << "**************************************\n"
@@ -125,6 +142,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
             EdgePtrVec nextEdges = pVertex->getEdges(se.dir);
             EdgePtrVec::iterator iEdge = nextEdges.begin();
             const EdgePtrVec::iterator E = nextEdges.end();
+            int endPos = se.startPos + pVertex->getSeqLen();
             for(; iEdge != E; iEdge++) {
                 Edge * pEdge = *iEdge;
                 assert(pEdge->getStart() == pVertex);
@@ -144,29 +162,21 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
                             
                 EdgeDir nextDir = !pEdge->getTwinDir();
                 SearchEntry se(pNextVertex, nextDir, nextStartPos);
-                VDirPair nextVertexDir(pNextVertex, nextDir);
-
-                bool alreadySeen = (seen.count(nextVertexDir)>0);
                 bool tooFar = (nextStartPos > maxDistance);
 
                 if (!tooFar)
                 {
-                    seen.insert(nextVertexDir);
                     edges.push_back(pEdge);
-                }
-
-                if ( !alreadySeen && !tooFar) {
-                     // Explore the successors of this vertex in the next round
-                     vQueue.push(se);
-                     #if BFS_DEBUG != 0
-                     cout << "Adding edge from " << pVertex->getID()
-                          << ": " << se  << endl;
-                     #endif
+                    vQueue.push(se);
+                    #if BFS_DEBUG != 0
+                    cout << "Adding edge from " << pVertex->getID()
+                      << ": " << se  << endl;
+                    #endif
                 } else {
                     #if BFS_DEBUG != 0
                     cout << "Skipping edge from " << pVertex->getID()
                          << " " << se 
-                         << ". AlreadySeen: " << alreadySeen << " TooFar: " << tooFar << endl;
+                         << " because it is too far." << endl;
                     #endif
                 }
             }
