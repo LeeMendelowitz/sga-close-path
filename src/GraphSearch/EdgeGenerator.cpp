@@ -10,8 +10,8 @@
 #include <limits>
 #include <algorithm>
 
-#define PATHS_DEBUG 1
-#define BFS_DEBUG 1
+#define PATHS_DEBUG 0
+#define BFS_DEBUG 0
 
 using namespace std;
 
@@ -36,10 +36,17 @@ class SearchEntry
     Vertex * pVertex;
     EdgeDir dir; // edge taken to enter the node
     int startPos; // position of the start of this node
+};
 
-    bool operator<(const SearchEntry& rhs) const
+class SearchEntryComparison
+{
+    public:
+    // Returns true if rhs has a greater priority than lhs
+    bool operator() (const SearchEntry& lhs, const SearchEntry& rhs)
     {
-        return (startPos < rhs.startPos);
+        if (rhs.startPos < lhs.startPos)
+            return true;
+        return false;
     }
 };
 
@@ -94,7 +101,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
     EdgePtrVec edges;
 
     typedef pair<Vertex *, EdgeDir> VDirPair;
-    typedef priority_queue<SearchEntry> SearchQueue;
+    typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
@@ -104,7 +111,6 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
 
     // Add the first vertex to the queue
     vQueue.push(SearchEntry(pVertex, dir, 0));
-    seen.insert(VDirPair(pVertex, dir));
 
     #if BFS_DEBUG!=0
     cout << "*************************************\n"
