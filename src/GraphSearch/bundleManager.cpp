@@ -38,7 +38,7 @@ class CloseBundleResult
 // Constructor
 BundleManager::BundleManager(const std::string& bundleFile,
               StringGraph * pGraph,
-              const std::string& outputPfx) :
+              const std::string& outputPfx, float minStd) :
               bundleFile_(bundleFile),
               pGraph_(pGraph),
               outputPfx_(outputPfx)
@@ -56,6 +56,14 @@ BundleManager::BundleManager(const std::string& bundleFile,
     writeStatsHeader();
     writeStatusHeader();
     readBundles();
+
+    // Impose the minimum standard deviation on the bundles
+    for(size_t i = 0; i < bundles_.size(); i++)
+    {
+        Bundle * pBundle = bundles_[i];
+        if (pBundle->std < minStd)
+            pBundle->std = minStd;
+    }
 }
 
 // Destructor

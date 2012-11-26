@@ -76,12 +76,10 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     sgParams.minDistance = params.minDistance -lX + lY;
     sgParams.maxDistance = params.maxDistance -lX + lY;
     sgParams.startDistance = 0;
-    /*
     sgParams.allowGoalRepeat = true;
     sgParams.goalOriented = true;
     sgParams.minDistanceEnforced = true;
     sgParams.maxDistanceEnforced = true;
-    */
     SGWalkVector subgraphWalks;
     bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, subgraphWalks);
 

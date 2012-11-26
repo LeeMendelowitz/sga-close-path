@@ -37,7 +37,9 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      --help                           display this help and exit\n"
 "      -v, --verbose                    display verbose output\n"
 "      -o, --output=NAME                use output prefix NAME. Defaults to bundle filename prefix.\n"
-"      -s, maxStd=FLOAT                  maximum standard deviation allowed in path length deviation. (Default 3.0)\n"
+"      -s, maxNumStd=FLOAT              maximum number of standard deviations allowed in path length deviation. (Default 3.0)\n"
+"      --minStd=FLOAT                   minimum standard deviation to use for a bundle. If a bundle has a standard deviation less than FLOAT\n"
+"                                       then FLOAT will be used in its place.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -47,20 +49,22 @@ namespace opt
 {
     static unsigned int verbose = 0;
     static int minOverlap = 0;
-    static float maxStd = 3.0;
+    static float maxNumStd = 3.0;
+    static float minStd = 0.0;
     static std::string graphFile;
     static std::string bundleFile;
     static std::string outputPfx;
 }
 
-static const char* shortopts = "vm:s:p:";
+static const char* shortopts = "vm:s:p:o:";
 
-enum { OPT_HELP = 1, OPT_VERSION };
+enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
     { "minOverlap",       required_argument, NULL, 'm' },
-    { "maxStd",        required_argument, NULL, 's' },
+    { "minStd",        required_argument, NULL, OPT_MINSTD},
+    { "maxNumStd",        required_argument, NULL, 's' },
     { "output",       required_argument, NULL, 'o' },
     { "help",          no_argument,       NULL, OPT_HELP },
     { "version",       no_argument,       NULL, OPT_VERSION },
@@ -86,12 +90,12 @@ int closePathMain(int argc, char** argv)
 
     // Read the bundle file
     cout << "Reading Bundle File: " << opt::bundleFile << endl;
-    BundleManager bundleManager(opt::bundleFile, pGraph, opt::outputPfx);
+    BundleManager bundleManager(opt::bundleFile, pGraph, opt::outputPfx, opt::minStd);
     cout << "Read " << bundleManager.getNumBundles() << " bundles!" << endl;
 
     // Close the bundles
     bool exhaustive = true;
-    bundleManager.closeBundles(opt::maxStd, exhaustive);
+    bundleManager.closeBundles(opt::maxNumStd, exhaustive);
     bundleManager.printSummary();
 
     return 0;
@@ -109,10 +113,11 @@ void parseClosePathOptions(int argc, char** argv)
         switch (c) 
         {
             case 'm': arg >> opt::minOverlap; break;
-            case 's': arg >> opt::maxStd; break;
+            case 's': arg >> opt::maxNumStd; break;
             case 'o': arg >> opt::outputPfx; break;
             case '?': die = true; break;
             case 'v': opt::verbose++; break;
+            case OPT_MINSTD: arg >> opt::minStd; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -141,7 +146,7 @@ void parseClosePathOptions(int argc, char** argv)
         die = true;
     }    
     
-    if (opt::maxStd < 0)
+    if (opt::maxNumStd < 0)
     {
         std::cerr << SUBPROGRAM ": std must be positive\n";
         die = true;
@@ -168,7 +173,8 @@ void printOptions()
     {
         std::cerr << "Verbose: " << opt::verbose << "\n"
                   << "MinOverlap: " << opt::minOverlap << "\n"
-                  << "MaxStd: " << opt::maxStd << "\n"
+                  << "MaxNumStd: " << opt::maxNumStd << "\n"
+                  << "MinStd: " << opt::minStd << "\n"
                   << "graphFile: " << opt::graphFile << "\n"
                   << "bundleFile: " << opt::bundleFile << "\n"
                   << "outputPfx: " << opt::outputPfx << "\n"

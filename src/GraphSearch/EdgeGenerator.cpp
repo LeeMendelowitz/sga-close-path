@@ -41,7 +41,7 @@ class SearchEntry
 class SearchEntryComparison
 {
     public:
-    // Returns true if rhs has a greater priority than lhs
+    // Returns true if lhs has a smaller priority than rhs
     bool operator() (const SearchEntry& lhs, const SearchEntry& rhs)
     {
         if (rhs.startPos < lhs.startPos)
@@ -281,6 +281,8 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     Subgraph::copyEdgesToSubgraph(pSubgraph, pGraph, xyEdges);
 
     // If X or Y is not in the subgraph, then return an empty graph
+    // The subgraph may not have vertex X/Y because the boundedBFS may not return
+    // any edges out of X/Y which satisfy the distance bound
     if (!pSubgraph->hasVertex(xId) ||
         !pSubgraph->hasVertex(yId) )
     {
@@ -300,14 +302,18 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     int numPruneRounds = 0;
     while (true)
     {
+        #if PATHS_DEBUG!=0
+        cout << "**********************\n"
+             << "Pruning Round " << numPruneRounds << endl;
+        #endif
         bool graphModified = pruneGraph(pSubgraph, xId, dX, maxDistanceX, yId, dY, maxDistanceY);
-        numPruneRounds++;
         if (!graphModified) break;
+        numPruneRounds++;
     }
 
     #if PATHS_DEBUG!=0
     cout << "Number of prune rounds: " << numPruneRounds << endl;
-    cout << "Subgraph nodes removed:" << endl;
+    cout << "After Subgraph nodes removed:" << endl;
     pSubgraph->stats();
     #endif
 

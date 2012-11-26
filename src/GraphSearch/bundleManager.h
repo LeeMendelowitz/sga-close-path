@@ -31,7 +31,8 @@ class BundleManager
         // Constructor
         BundleManager(const std::string& bundleFile,
                       StringGraph * pGraph,
-                      const std::string& outputPfx = "bundle.out");
+                      const std::string& outputPfx = "bundle.out",
+                      float minStd = 0.0);
 
         // Destructor
         ~BundleManager();
