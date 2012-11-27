@@ -16,11 +16,11 @@
 //GraphSearch Includes
 #include "bundle.h"
 #include "SGUtil.h"
+#include "SGWalk.h"
 
 #define BUNDLE_DEBUG 0
 
 typedef std::vector<Bundle *> BundlePtrVec;
-
 class CloseBundleResult;
 
 class BundleManager
@@ -55,6 +55,7 @@ class BundleManager
         std::ofstream fastaFile_;
         std::ofstream fastaFileUnique_;
         std::ofstream walksFile_;
+        std::ofstream edgeCovFile_;
         BundlePtrVec bundles_;
         int numClosedUniquely_;
         int numClosed_;

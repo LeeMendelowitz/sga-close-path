@@ -35,6 +35,55 @@ class CloseBundleResult
     SGWalkVector walks;
 };
 
+// Class to track which edges have been covered by unique closures
+class EdgeTracker
+{
+    typedef std::map<Edge *, int> EdgeIntMap;
+    typedef set<Edge *> EdgeSet;
+
+    public:
+    void processResult(const CloseBundleResult& res)
+    {
+        if (res.numClosures != 1)
+             return;
+        const EdgePtrVec edges = res.walks[0].getEdges();
+        for(size_t i = 0; i < edges.size(); i++)
+        {
+            Edge * pEdge = edges[i];
+            Edge * pTwin = pEdge->getTwin();
+            pair<EdgeIntMap::iterator, bool> ret;
+
+            // Add the Edge
+            ret = edgeCov_.insert(EdgeIntMap::value_type(pEdge, 1));
+            if (!ret.second)
+            {
+                ret.first->second++;
+            }
+
+            // Add the Twin
+            ret = edgeCov_.insert(EdgeIntMap::value_type(pTwin, 1));
+            if (!ret.second)
+            {
+                ret.first->second++;
+            }
+        }
+    };
+
+    void writeCoverageStats(ostream& os)
+    {
+        EdgeIntMap::const_iterator i = edgeCov_.begin();
+        EdgeIntMap::const_iterator ie = edgeCov_.end();
+        for(; i != ie; i++)
+        {
+            os << "Edge: " << *(i->first) << " Coverage: " << i->second << endl;
+        }
+    };
+
+    private:
+    EdgeIntMap edgeCov_; // Coverage of edge by unique path closures
+};
+
+
 // Constructor
 BundleManager::BundleManager(const std::string& bundleFile,
               StringGraph * pGraph,
@@ -53,6 +102,7 @@ BundleManager::BundleManager(const std::string& bundleFile,
     fastaFile_.open((outputPfx_ + ".fasta").c_str());
     fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
     walksFile_.open((outputPfx_ + ".walks").c_str());
+    edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
     writeStatsHeader();
     writeStatusHeader();
     readBundles();
@@ -74,6 +124,7 @@ BundleManager::~BundleManager()
     fastaFile_.close();
     fastaFileUnique_.close();
     walksFile_.close();
+    edgeCovFile_.close();
 
     size_t numBundles = bundles_.size();
     for( size_t i =0; i < numBundles; i++)
@@ -96,6 +147,7 @@ void BundleManager::readBundles()
 void BundleManager::closeBundles(float maxStd, bool exhaustive)
 {
     size_t numBundles = bundles_.size();
+    EdgeTracker edgeTracker;
 
     for(size_t i = 0; i < numBundles; i++)
     {
@@ -108,6 +160,7 @@ void BundleManager::closeBundles(float maxStd, bool exhaustive)
         writeResultToStats(res);
         writeResultToFasta(res);
         writeResultToWalks(res);
+        edgeTracker.processResult(res);
 
         if (res.tooRepetative)
             numFailedRepetative_++;
@@ -117,7 +170,11 @@ void BundleManager::closeBundles(float maxStd, bool exhaustive)
             numClosedUniquely_++;
         if (res.numClosures > 0)
             numClosed_++;
+
     }
+
+    // Write edge coverage statistics to file
+    edgeTracker.writeCoverageStats(edgeCovFile_);
 }
 
 
