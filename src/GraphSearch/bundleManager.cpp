@@ -156,16 +156,17 @@ void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive,
     SGSearchParams params(pX, pY, b->dir1, 0);
     params.goalDir = !b->dir2;
     params.maxDistance = maxGap + lX;
-    params.minDistance = max(minGap + lX, (int64_t) 1);
+    params.minDistance = max(minGap + lX, (int64_t) 0);
     params.allowGoalRepeat = true;
     params.goalOriented = true;
     params.minDistanceEnforced = true;
     params.maxDistanceEnforced = true;
     params.nodeLimit = 10000;
     params.selfPrune = false;
+
     assert(params.maxDistance > 0);
     assert(params.minDistance < params.maxDistance);
-    assert(params.minDistance > 0);
+    assert(params.minDistance >= 0);
 
     // Find paths and save results
     SGWalkVector walks;

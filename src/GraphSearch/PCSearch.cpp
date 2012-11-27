@@ -28,8 +28,8 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     #endif
     ///////////////////////////////////////////////////
 
-    assert(params.maxDistance > 0);
-    assert(params.minDistance > 0);
+    assert(params.maxDistance >= 0);
+    assert(params.minDistance >= 0);
     assert(params.maxDistance >= params.minDistance);
 
     // Create a subgraph with nodes that are gauranteed to be on a path satisfying the gap constraints
