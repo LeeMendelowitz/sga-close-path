@@ -40,6 +40,7 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      -s, maxNumStd=FLOAT              maximum number of standard deviations allowed in path length deviation. (Default 3.0)\n"
 "      --minStd=FLOAT                   minimum standard deviation to use for a bundle. If a bundle has a standard deviation less than FLOAT\n"
 "                                       then FLOAT will be used in its place.\n"
+"      --removeEdges                    Remove zero-coverage edges from the graph.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -54,14 +55,16 @@ namespace opt
     static std::string graphFile;
     static std::string bundleFile;
     static std::string outputPfx;
+    static bool removeEdges = false;
 }
 
 static const char* shortopts = "vm:s:p:o:";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD};
+enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
+    { "removeEdges",       no_argument,       NULL, OPT_REMOVE_EDGES},
     { "minOverlap",       required_argument, NULL, 'm' },
     { "minStd",        required_argument, NULL, OPT_MINSTD},
     { "maxNumStd",        required_argument, NULL, 's' },
@@ -95,7 +98,7 @@ int closePathMain(int argc, char** argv)
 
     // Close the bundles
     bool exhaustive = true;
-    bundleManager.closeBundles(opt::maxNumStd, exhaustive);
+    bundleManager.closeBundles(opt::maxNumStd, exhaustive, opt::removeEdges);
     bundleManager.printSummary();
 
     return 0;
@@ -118,6 +121,7 @@ void parseClosePathOptions(int argc, char** argv)
             case '?': die = true; break;
             case 'v': opt::verbose++; break;
             case OPT_MINSTD: arg >> opt::minStd; break;
+            case OPT_REMOVE_EDGES: opt::removeEdges = true; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -175,6 +179,7 @@ void printOptions()
                   << "MinOverlap: " << opt::minOverlap << "\n"
                   << "MaxNumStd: " << opt::maxNumStd << "\n"
                   << "MinStd: " << opt::minStd << "\n"
+                  << "RemoveEdges: " << opt::removeEdges << "\n"
                   << "graphFile: " << opt::graphFile << "\n"
                   << "bundleFile: " << opt::bundleFile << "\n"
                   << "outputPfx: " << opt::outputPfx << "\n"

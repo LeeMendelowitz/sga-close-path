@@ -42,7 +42,7 @@ class BundleManager
         // Close all of the bundles
         // maxStd: The maximum number of standard deviations that the path is allowed
         // to stray from the estimate of the gap size.
-        void closeBundles(float maxStd, bool exhaustive);
+        void closeBundles(float maxStd, bool exhaustive, bool removeEdges=false);
 
         void printSummary();
                     

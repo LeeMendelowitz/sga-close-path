@@ -69,6 +69,18 @@ class EdgeTracker
         }
     };
 
+    // Set the color of all edges to the specified color
+    void setEdgeColors(GraphColor c, int minCov=0)
+    {
+        EdgeIntMap::const_iterator i = edgeCov_.begin();
+        EdgeIntMap::const_iterator ie = edgeCov_.end();
+        for(; i != ie; i++)
+        {
+            if (i->second >= minCov)
+                (i->first)->setColor(c);
+        }
+    }
+
     void writeCoverageStats(ostream& os)
     {
         EdgeIntMap::const_iterator i = edgeCov_.begin();
@@ -144,7 +156,7 @@ void BundleManager::readBundles()
     ifs.close();
 }
 
-void BundleManager::closeBundles(float maxStd, bool exhaustive)
+void BundleManager::closeBundles(float maxStd, bool exhaustive, bool removeEdges)
 {
     size_t numBundles = bundles_.size();
     EdgeTracker edgeTracker;
@@ -175,6 +187,15 @@ void BundleManager::closeBundles(float maxStd, bool exhaustive)
 
     // Write edge coverage statistics to file
     edgeTracker.writeCoverageStats(edgeCovFile_);
+
+    if (removeEdges)
+    {
+       pGraph_->setColors(GC_BLACK);
+       edgeTracker.setEdgeColors(GC_WHITE);
+       int numRemoved = pGraph_->sweepEdges(GC_BLACK);
+       std::cerr << "Removed " << numRemoved << " low coverage edges from the graph.";
+       pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
+    }
 }
 
 
