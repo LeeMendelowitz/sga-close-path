@@ -19,7 +19,7 @@
 //
 // Distance 0 is at the start of vertex A
 // A vertex reachable from A is measured as the distance between 0 and the start of that vertex.
-EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance);
+EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance);
 
 // This version copies StringGraphAttributes from pGraph
 // Make a subgraph of nodes that are on gauranteed to be on paths from Vertex pX to pY
@@ -32,6 +32,6 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance);
 // Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
 // Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
-StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Vertex * pY, EdgeDir dY, int maxDistanceX);
+StringGraph * makePathGraph(const StringGraph * pGraph, const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
 
 #endif

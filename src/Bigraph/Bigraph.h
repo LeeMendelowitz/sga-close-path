@@ -55,7 +55,7 @@ class Bigraph
         void removeConnectedVertex(Vertex* pVertex);
 
         // Check if a vertex exists
-        bool hasVertex(VertexID id);
+        bool hasVertex(VertexID id) const;
 
         // Get a vertex
         Vertex* getVertex(VertexID id) const;
@@ -83,7 +83,7 @@ class Bigraph
         void simplify();
 
         // Validate that the graph is sane
-        void validate();
+        void validate() const;
 
         // Flip a given vertex
         void flip(VertexID id);

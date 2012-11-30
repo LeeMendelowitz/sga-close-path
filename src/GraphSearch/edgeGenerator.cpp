@@ -27,13 +27,13 @@ class SearchEntry
 {
     public:
 
-    SearchEntry( Vertex * v, EdgeDir d, int o) :
+    SearchEntry( const Vertex * v, EdgeDir d, int o) :
         pVertex(v), dir(d), startPos(o) {};
 
     SearchEntry( const SearchEntry& se) :
         pVertex(se.pVertex), dir(se.dir), startPos(se.startPos) {};
 
-    Vertex * pVertex;
+    const Vertex * pVertex;
     EdgeDir dir; // edge taken to enter the node
     int startPos; // position of the start of this node
 };
@@ -95,12 +95,12 @@ ostream& operator<<(ostream& os, EdgePtrVec& evec)
 // The start of pVertex is considered to be offset 0.
 // If dir == ED_SENSE, then the 5' end is at offset 0.
 // If dir == ED_ANTISENSE, then the 3' end is at offset 0.
-EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
+EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
 {
     
     EdgePtrVec edges;
 
-    typedef pair<Vertex *, EdgeDir> VDirPair;
+    typedef pair<const Vertex *, EdgeDir> VDirPair;
     typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
@@ -129,7 +129,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
             vQueue.pop();
 
             assert(se.startPos <= maxDistance);
-            Vertex * pVertex = se.pVertex;
+            const Vertex * pVertex = se.pVertex;
             VDirPair vdir(pVertex, se.dir);
             bool alreadySeen = (seen.count(vdir)>0);
 
@@ -154,7 +154,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
             for(; iEdge != E; iEdge++) {
                 Edge * pEdge = *iEdge;
                 assert(pEdge->getStart() == pVertex);
-                Vertex * pNextVertex = pEdge->getEnd();
+                const Vertex * pNextVertex = pEdge->getEnd();
                 int nextStartPos = endPos - pEdge->getMatchLength();
                 int nextStartPos2 = se.startPos + pEdge->getTwin()->getSeqLen();
                 assert(nextStartPos2 == nextStartPos);
@@ -205,7 +205,7 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
 // Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
 // Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
-StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Vertex * pY, EdgeDir dY, int maxDistanceX)
+StringGraph * makePathGraph(const StringGraph * pGraph, const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX)
 {
     using namespace std;
 
@@ -280,7 +280,7 @@ StringGraph * makePathGraph(StringGraph * pGraph, Vertex * pX, EdgeDir dX, Verte
     #endif
 
     // Create a subgraph with these edges
-    Subgraph::copyEdgesToSubgraph(pSubgraph, pGraph, xyEdges);
+    Subgraph::copyEdgesToSubgraph(pSubgraph, xyEdges);
 
     // If X or Y is not in the subgraph, then return an empty graph
     // The subgraph may not have vertex X/Y because the boundedBFS may not return
@@ -345,8 +345,8 @@ bool pruneGraph(StringGraph * pSubgraph,
 
     ///////////////////////////////////////////////////////////////
     // Remove any nodes that are not on a path from pX to pY
-    Vertex * pX = pSubgraph->getVertex(xId);
-    Vertex * pY = pSubgraph->getVertex(yId);
+    const Vertex * pX = pSubgraph->getVertex(xId);
+    const Vertex * pY = pSubgraph->getVertex(yId);
 
     if( (pX == NULL) || (pY == NULL) )
     {

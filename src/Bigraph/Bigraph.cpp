@@ -92,9 +92,9 @@ void Bigraph::removeConnectedVertex(Vertex* pVertex)
 //
 // Check for the existance of a vertex
 //
-bool Bigraph::hasVertex(VertexID id)
+bool Bigraph::hasVertex(VertexID id) const
 {
-    VertexPtrMapIter iter = m_vertices.find(id);
+    VertexPtrMapConstIter iter = m_vertices.find(id);
     return iter != m_vertices.end();
 }
 
@@ -338,9 +338,9 @@ void Bigraph::sortVertexAdjListsByID()
 //
 // Validate that the graph is sane
 //
-void Bigraph::validate()
+void Bigraph::validate() const
 {
-    VertexPtrMapIter iter = m_vertices.begin();
+    VertexPtrMapConstIter iter = m_vertices.begin();
     for(; iter != m_vertices.end(); ++iter)
     {
         iter->second->validate();

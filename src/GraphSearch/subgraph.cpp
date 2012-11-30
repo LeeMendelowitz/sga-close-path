@@ -1,6 +1,10 @@
+#include <set>
+
+
 #include "subgraph.h"
 #include "SGUtil.h"
 #include "SGAlgorithms.h"
+
 
 // Code to handle creating a subgraph StringGraph from an existing StringGraph
 StringGraph * Subgraph::copyGraph(const StringGraph * pGraph)
@@ -31,27 +35,31 @@ void Subgraph::copyVertexToSubgraph(StringGraph* pSubgraph, const Vertex* pVerte
 // Add a copy of the edge and its twin to the subgraph
 void Subgraph::addEdgeToSubgraph(StringGraph* pSubGraph, const Edge* pEdge)
 {
-    Vertex * pX = pEdge->getStart();
-    Vertex * pY = pEdge->getEnd();
+    const Vertex * pX = pEdge->getStart();
+    const Vertex * pY = pEdge->getEnd();
     copyVertexToSubgraph(pSubGraph, pX);
     copyVertexToSubgraph(pSubGraph, pY);
     Overlap ovr = pEdge->getOverlap(); // contains start Id, end Id, and coordinates of the overlap
     SGAlgorithms::createEdgesFromOverlap(pSubGraph, ovr, true); // This will create two edges, one for each direction
 }
 
-// Copy edges in the eVec into the subGraph. Take care to copy an edge only once
-void Subgraph::copyEdgesToSubgraph(StringGraph * pSubGraph, StringGraph * pGraphOrig, const EdgePtrVec& eVec)
+// Copy edges in the eVec into the subGraph. Take care to copy an edge only once. 
+void Subgraph::copyEdgesToSubgraph(StringGraph * pSubGraph, const EdgePtrVec& eVec)
 {
-    pGraphOrig->setColors(GC_WHITE);
+    std::set<const Edge *> edgesAdded;
     EdgePtrVec::const_iterator i = eVec.begin();
     const EdgePtrVec::const_iterator E = eVec.end();
     for(; i != E; i++) {
-        Edge * pEdge = *i;
-        Edge * pTwinEdge = pEdge->getTwin();
-        if (pEdge->getColor() != GC_BLACK) {
+        const Edge * pEdge = *i;
+        const Edge * pTwinEdge = pEdge->getTwin();
+        size_t pEdgeCount = edgesAdded.count(pEdge);
+        size_t pTwinEdgeCount = edgesAdded.count(pTwinEdge);
+        assert( pEdgeCount == pTwinEdgeCount);
+        if (pEdgeCount == 0)
+        {
             addEdgeToSubgraph(pSubGraph, pEdge);
-            pEdge->setColor(GC_BLACK);
-            pTwinEdge->setColor(GC_BLACK);
+            edgesAdded.insert(pEdge);
+            edgesAdded.insert(pTwinEdge);
         }
     }
 }

@@ -17,7 +17,7 @@ void copyVertexToSubgraph(StringGraph* pSubgraph, const Vertex* pVertex);
 void addEdgeToSubgraph(StringGraph* pSubGraph, const Edge* pEdge);
 
 // Copy edges in the eVec into the subGraph. Take care to copy an edge only once
-void copyEdgesToSubgraph(StringGraph * pSubgraph, StringGraph * pGraphOrig, const EdgePtrVec& eVec);
+void copyEdgesToSubgraph(StringGraph * pSubgraph, const EdgePtrVec& eVec);
 
 };
 

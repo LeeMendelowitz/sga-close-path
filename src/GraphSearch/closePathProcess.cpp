@@ -156,6 +156,9 @@ ClosePathPostProcess::~ClosePathPostProcess()
        pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
     }
 
+    // Write summary to standard out
+    printSummary(std::cout);
+
     // Close all output files
     statusFile_.close();
     statsFile_.close();
@@ -272,7 +275,7 @@ void ClosePathPostProcess::printSummary(std::ostream& os)
 {
     int numClosedRepeat = numClosed_ - numClosedUniquely_;
     os << "\n----------------------------------------------------------";
-    os << "sga close-path summary\n\n";
+    os << "\nsga close-path summary\n\n";
     os << "Num. Bundles Processed:  " <<  numProcessed_ << "\n"
               << "Num. Closed: " << numClosed_ << "\n"
               << "Num. Closed Uniquely: " << numClosedUniquely_ << "\n"
