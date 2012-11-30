@@ -1,169 +1,38 @@
-#include <string>
+// Code for sga close-path parallel processing
+
 #include <iostream>
-#include <fstream>
 #include <algorithm>
 #include <sstream>
+#include <string>
 
-#include "bundleManager.h"
+#include "closePathProcess.h"
 #include "PCSearch.h"
-#include "bundleReader.h"
 
 using namespace std;
 
-#define BUNDLEMANAGER_DEBUG 0
+ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd) : 
+    pGraph_(pGraph),
+    numStd_(numStd) 
+    { };
 
-// Class to hold the results for a single bundle closure
-class CloseBundleResult
-{
-    public:
-
-    CloseBundleResult(const Bundle * b) :
-        bundle(b),
-        tooRepetative(false),
-        overlapTooLarge(false),
-        numClosures(0) {};
-
-    void setWalks(const SGWalkVector& walksIn)
-    {
-        walks = walksIn;
-        numClosures = walks.size();
-    }
-
-    const Bundle * bundle;
-    bool tooRepetative; // Closure failed due to graph too repetative
-    bool overlapTooLarge; // Closure failed because bundle implies overlap too large
-    size_t numClosures;
-    SGWalkVector walks;
-};
+ClosePathProcess::~ClosePathProcess() { };
 
 
-
-// Constructor
-BundleManager::BundleManager(const std::string& bundleFile,
-              StringGraph * pGraph,
-              const std::string& outputPfx, float minStd) :
-              bundleFile_(bundleFile),
-              pGraph_(pGraph),
-              outputPfx_(outputPfx)
-{
-    numClosedUniquely_ = 0;
-    numClosed_ = 0;
-    numFailedOverlap_ = 0;
-    numFailedRepetative_ = 0;
-
-    statusFile_.open((outputPfx_ + ".status").c_str());
-    statsFile_.open((outputPfx_ + ".stats").c_str());
-    fastaFile_.open((outputPfx_ + ".fasta").c_str());
-    fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
-    walksFile_.open((outputPfx_ + ".walks").c_str());
-    edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
-    writeStatsHeader();
-    writeStatusHeader();
-    readBundles();
-
-    // Impose the minimum standard deviation on the bundles
-    for(size_t i = 0; i < bundles_.size(); i++)
-    {
-        Bundle * pBundle = bundles_[i];
-        if (pBundle->std < minStd)
-            pBundle->std = minStd;
-    }
-}
-
-// Destructor
-BundleManager::~BundleManager()
-{
-    statusFile_.close();
-    statsFile_.close();
-    fastaFile_.close();
-    fastaFileUnique_.close();
-    walksFile_.close();
-    edgeCovFile_.close();
-
-    size_t numBundles = bundles_.size();
-    for( size_t i =0; i < numBundles; i++)
-        delete bundles_[i];
-    bundles_.clear();
-}
-
-void BundleManager::readBundles()
-{
-    using namespace std;
-
-    /*
-    ifstream ifs(bundleFile_.c_str());
-    assert(ifs);
-    string line;
-    while(getline(ifs, line))
-        bundles_.push_back(new Bundle(line));
-    ifs.close();
-    */
-    BundleReader bundleReader(bundleFile_);
-    Bundle * pBundle = NULL;
-    while(bundleReader.getNextBundle(pBundle))
-    {
-        assert(pBundle);
-        bundles_.push_back(pBundle);
-    }
-}
-
-void BundleManager::closeBundles(float maxStd, bool exhaustive, bool removeEdges)
-{
-    size_t numBundles = bundles_.size();
-    EdgeTracker edgeTracker;
-
-    for(size_t i = 0; i < numBundles; i++)
-    {
-        const Bundle * b = bundles_[i];
-        CloseBundleResult res(b);
-        closeBundle(b, maxStd, exhaustive, res);
-
-        // Write to the output files
-        writeResultToStatus(res);
-        writeResultToStats(res);
-        writeResultToFasta(res);
-        writeResultToWalks(res);
-        edgeTracker.processResult(res);
-
-        if (res.tooRepetative)
-            numFailedRepetative_++;
-        if (res.overlapTooLarge)
-            numFailedOverlap_++;
-        if (res.numClosures == 1)
-            numClosedUniquely_++;
-        if (res.numClosures > 0)
-            numClosed_++;
-
-    }
-
-    // Write edge coverage statistics to file
-    edgeTracker.writeCoverageStats(edgeCovFile_);
-
-    if (removeEdges)
-    {
-       pGraph_->setColors(GC_BLACK);
-       edgeTracker.setEdgeColors(GC_WHITE);
-       int numRemoved = pGraph_->sweepEdges(GC_BLACK);
-       std::cerr << "Removed " << numRemoved << " low coverage edges from the graph.";
-       pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
-    }
-}
-
-
-// Find the closure for a single bundle.
-// If exhaustive is true, no walks are returned if the graph search does not complete.
-void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive, CloseBundleResult& res)
+// Given the work item, find the paths which close the bundle
+ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
 {
 
-    res = CloseBundleResult(b);
+    Bundle * b = item.b_;
+
+    ClosePathResult result(b);
 
     Vertex * pX = pGraph_->getVertex(b->vertex1ID);
     Vertex * pY = pGraph_->getVertex(b->vertex2ID);
     assert(pX);
     assert(pY);
 
-    int64_t maxGap = b->gap + maxStd*b->std;
-    int64_t minGap = b->gap - maxStd*b->std;
+    int64_t maxGap = b->gap + numStd_*b->std;
+    int64_t minGap = b->gap - numStd_*b->std;
     int64_t lX = pX->getSeqLen();
 
     #if BUNDLEMANAGER_DEBUG > 0
@@ -178,8 +47,8 @@ void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive,
     // Skip this search if the maximum allowed gap implies too large of an overlap
     if ( (maxGap < 0) && (-maxGap >= lX))
     {
-        res.overlapTooLarge = true;
-        return;
+        result.overlapTooLarge = true;
+        return result;
     }
 
     // Create search params for path closure search
@@ -200,17 +69,98 @@ void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive,
 
     // Find paths and save results
     SGWalkVector walks;
+    bool exhaustive = true;
     bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, walks);
-    res.setWalks(walks);
-    res.tooRepetative = !foundAll;
+    result.setWalks(walks);
+    result.tooRepetative = !foundAll;
 
     #if BUNDLEMANAGER_DEBUG > 0
     cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
     #endif
+
+    return result;
+};
+
+
+ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, bool removeEdges) :
+    pGraph_(pGraph),
+    outputPfx_(outputPfx),
+    removeEdges_(removeEdges),
+    numProcessed_(0),
+    numClosedUniquely_(0),
+    numClosed_(0),
+    numFailedOverlap_(0),
+    numFailedRepetative_(0)
+{
+
+    // Open output files
+    statusFile_.open((outputPfx_ + ".status").c_str());
+    statsFile_.open((outputPfx_ + ".stats").c_str());
+    fastaFile_.open((outputPfx_ + ".fasta").c_str());
+    fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
+    walksFile_.open((outputPfx_ + ".walks").c_str());
+    edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
+
+    // Write file headers
+    writeStatsHeader();
+    writeStatusHeader();
+}
+
+// Write the results to file
+// Delete the bundle object
+void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePathResult& result)
+{
+        // Write to the output files
+        writeResultToStatus(result);
+        writeResultToStats(result);
+        writeResultToFasta(result);
+        writeResultToWalks(result);
+        edgeTracker_.processResult(result);
+
+        numProcessed_++;
+        if (result.tooRepetative)
+            numFailedRepetative_++;
+        if (result.overlapTooLarge)
+            numFailedOverlap_++;
+        if (result.numClosures == 1)
+            numClosedUniquely_++;
+        if (result.numClosures > 0)
+            numClosed_++;
+
+        edgeTracker_.processResult(result);
+
+        // Delete the bundle object
+        delete item.b_;
 }
 
 
-void BundleManager::writeStatusHeader()
+// Write edge coverage statistics to file.
+// Remove uncovered edges from graph
+ClosePathPostProcess::~ClosePathPostProcess()
+{
+
+    // Write edge coverage statistics to file
+    edgeTracker_.writeCoverageStats(edgeCovFile_);
+
+    if (removeEdges_)
+    {
+       pGraph_->setColors(GC_BLACK);
+       edgeTracker_.setEdgeColors(GC_WHITE);
+       int numRemoved = pGraph_->sweepEdges(GC_BLACK);
+       std::cout << "Removed " << numRemoved << " low coverage edges from the graph.\n";
+       pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
+    }
+
+    // Close all output files
+    statusFile_.close();
+    statsFile_.close();
+    fastaFile_.close();
+    fastaFileUnique_.close();
+    walksFile_.close();
+    edgeCovFile_.close();
+}
+
+void ClosePathPostProcess::writeStatusHeader()
 {
     statusFile_ << "bundle"
                 << "\tNumClosures"
@@ -219,7 +169,7 @@ void BundleManager::writeStatusHeader()
                 << "\n";
 }
 
-void BundleManager::writeResultToStatus(CloseBundleResult & res)
+void ClosePathPostProcess::writeResultToStatus(const ClosePathResult & res)
 {
     statusFile_ << res.bundle->id
                 << "\t" << res.numClosures
@@ -228,7 +178,7 @@ void BundleManager::writeResultToStatus(CloseBundleResult & res)
                 << "\n";
 }
 
-void BundleManager::writeStatsHeader()
+void ClosePathPostProcess::writeStatsHeader()
 {
     statsFile_ << "bundle"
                << "\tgapEst"
@@ -239,7 +189,7 @@ void BundleManager::writeStatsHeader()
                << "\n";
 }
 
-void BundleManager::writeResultToStats(CloseBundleResult & res)
+void ClosePathPostProcess::writeResultToStats(const ClosePathResult & res)
 {
     // Output bundle id, gap est, std est, num links, num closures, and list of gap sizes
     const Bundle * b = res.bundle;
@@ -259,7 +209,7 @@ void BundleManager::writeResultToStats(CloseBundleResult & res)
     statsFile_ << "\n";
 }
 
-void BundleManager::writeResultToFasta(CloseBundleResult & res)
+void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
 {
     const Bundle * b = res.bundle;
 
@@ -297,7 +247,7 @@ void BundleManager::writeResultToFasta(CloseBundleResult & res)
     }
 }
 
-void BundleManager::writeResultToWalks(CloseBundleResult & res)
+void ClosePathPostProcess::writeResultToWalks(const ClosePathResult & res)
 {
     // Write each walk to the walks file
     const Bundle * b = res.bundle;
@@ -313,17 +263,16 @@ void BundleManager::writeResultToWalks(CloseBundleResult & res)
     }
 }
 
-void BundleManager::printSummary()
+void ClosePathPostProcess::printSummary(std::ostream& os)
 {
     int numClosedRepeat = numClosed_ - numClosedUniquely_;
-    std::cout << "Num. Bundles: " <<  getNumBundles() << "\n"
+    os << "\n----------------------------------------------------------";
+    os << "sga close-path summary\n\n";
+    os << "Num. Bundles Processed:  " <<  numProcessed_ << "\n"
               << "Num. Closed: " << numClosed_ << "\n"
               << "Num. Closed Uniquely: " << numClosedUniquely_ << "\n"
               << "Num. Closed > 1 Path: " << numClosedRepeat << "\n"
               << "Num. Failed Overlap Too Large: " << numFailedOverlap_ << "\n"
-              << "Num. Failed Graph Repetative: " << numFailedRepetative_
-              << std::endl;
-
-             
-
+              << "Num. Failed Graph Repetative: " << numFailedRepetative_;
+    os << "\n----------------------------------------------------------" << std::endl;
 }

@@ -15,6 +15,7 @@
 
 //GraphSearch Includes
 #include "bundle.h"
+#include "edgeTracker.h"
 #include "SGUtil.h"
 #include "SGWalk.h"
 

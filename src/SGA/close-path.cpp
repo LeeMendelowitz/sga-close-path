@@ -13,13 +13,14 @@
 #include <sstream>
 #include <iterator>
 
-
 #include "close-path.h"
+#include "closePathProcess.h"
 #include "Util.h"
+#include "SequenceProcessFramework.h"
 #include "Timer.h"
 #include "SGACommon.h"
 #include "bundle.h"
-#include "bundleManager.h"
+//#include "bundleManager.h"
 
 
 //
@@ -36,6 +37,7 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "\n"
 "      --help                           display this help and exit\n"
 "      -v, --verbose                    display verbose output\n"
+"      -t, --threads=NUM                use NUM threads to find path closures\n"
 "      -o, --output=NAME                use output prefix NAME. Defaults to bundle filename prefix.\n"
 "      -s, maxNumStd=FLOAT              maximum number of standard deviations allowed in path length deviation. (Default 3.0)\n"
 "      --minStd=FLOAT                   minimum standard deviation to use for a bundle. If a bundle has a standard deviation less than FLOAT\n"
@@ -50,6 +52,7 @@ namespace opt
 {
     static unsigned int verbose = 0;
     static int minOverlap = 0;
+    static int numThreads = 1;
     static float maxNumStd = 3.0;
     static float minStd = 0.0;
     static std::string graphFile;
@@ -58,13 +61,14 @@ namespace opt
     static bool removeEdges = false;
 }
 
-static const char* shortopts = "vm:s:p:o:";
+static const char* shortopts = "vm:s:t:p:o:";
 
 enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
     { "removeEdges",       no_argument,       NULL, OPT_REMOVE_EDGES},
+    { "threads",       required_argument, NULL, 't'},
     { "minOverlap",       required_argument, NULL, 'm' },
     { "minStd",        required_argument, NULL, OPT_MINSTD},
     { "maxNumStd",        required_argument, NULL, 's' },
@@ -79,6 +83,7 @@ void printOptions();
 //
 // Main
 //
+/*
 int closePathMain(int argc, char** argv)
 {
     using namespace std;
@@ -103,6 +108,64 @@ int closePathMain(int argc, char** argv)
 
     return 0;
 }
+*/
+
+// Main with parallel processing
+int closePathMain(int argc, char** argv)
+{
+    using namespace std;
+
+    parseClosePathOptions(argc, argv);
+    printOptions();
+
+    // Read the graph file
+    std::cout << "Reading Graph: " << opt::graphFile << std::endl;
+    StringGraph * pGraph = SGUtil::loadASQG(opt::graphFile, opt::minOverlap);
+    pGraph->stats();
+
+    BundleReader bundleReader(opt::bundleFile);
+    ClosePathWorkItemGenerator<ClosePathWorkItem> workGenerator(&bundleReader);
+    ClosePathPostProcess postProcessor(pGraph, opt::outputPfx, opt::removeEdges);
+
+    // Close bundles
+    if (opt::numThreads <= 1)
+    {
+        // Serial Mode
+        ClosePathProcess processor(pGraph, opt::maxNumStd);
+        SequenceProcessFramework::processWorkSerial<ClosePathWorkItem,
+                                                    ClosePathResult,
+                                                    ClosePathWorkItemGenerator<ClosePathWorkItem>,
+                                                    ClosePathProcess,
+                                                    ClosePathPostProcess> (workGenerator, &processor, &postProcessor);
+    }
+    else
+    {
+        // Parallel Mode
+        std::vector<ClosePathProcess*> processorVector;
+        for(int i = 0; i < opt::numThreads; ++i)
+        {
+            ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd);
+            processorVector.push_back(pProcessor);
+        }
+
+        SequenceProcessFramework::processWorkParallel<ClosePathWorkItem,
+                                                           ClosePathResult,
+                                                           ClosePathWorkItemGenerator<ClosePathWorkItem>,
+                                                           ClosePathProcess,
+                                                           ClosePathPostProcess>(workGenerator, processorVector, &postProcessor);
+
+        for(int i = 0; i < opt::numThreads; ++i)
+        {
+            delete processorVector[i];
+        }
+    }
+
+
+    if(opt::numThreads > 1)
+        pthread_exit(NULL);
+
+    return 0;
+}
 
 // 
 // Handle command line arguments
@@ -118,6 +181,7 @@ void parseClosePathOptions(int argc, char** argv)
             case 'm': arg >> opt::minOverlap; break;
             case 's': arg >> opt::maxNumStd; break;
             case 'o': arg >> opt::outputPfx; break;
+            case 't': arg >> opt::numThreads; break;
             case '?': die = true; break;
             case 'v': opt::verbose++; break;
             case OPT_MINSTD: arg >> opt::minStd; break;
@@ -176,6 +240,7 @@ void printOptions()
     if (opt::verbose > 0)
     {
         std::cerr << "Verbose: " << opt::verbose << "\n"
+                  << "Threads: " << opt::numThreads << "\n"
                   << "MinOverlap: " << opt::minOverlap << "\n"
                   << "MaxNumStd: " << opt::maxNumStd << "\n"
                   << "MinStd: " << opt::minStd << "\n"

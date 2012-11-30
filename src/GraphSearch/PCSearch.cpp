@@ -1,5 +1,5 @@
 #include "PCSearch.h"
-#include "EdgeGenerator.h"
+#include "edgeGenerator.h"
 #include <queue>
 //#include <iostream>
 

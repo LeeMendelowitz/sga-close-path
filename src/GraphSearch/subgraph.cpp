@@ -1,4 +1,4 @@
-#include "Subgraph.h"
+#include "subgraph.h"
 #include "SGUtil.h"
 #include "SGAlgorithms.h"
 

@@ -8,9 +8,9 @@
 #include "SGSearch.h"
 
 //GraphSearch Includes
-#include "EdgeGenerator.h"
+#include "edgeGenerator.h"
 #include "testUtils.h"
-#include "Subgraph.h"
+#include "subgraph.h"
 #include "PCSearch.h"
 #include "bundle.h"
 #include "bundleManager.h"

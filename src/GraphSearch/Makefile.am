@@ -13,9 +13,11 @@ libgraphsearch_a_CPPFLAGS = \
     -I$(top_srcdir)/Thirdparty
 
 libgraphsearch_a_SOURCES = \
-   EdgeGenerator.h EdgeGenerator.cpp \
-   Subgraph.h Subgraph.cpp \
+   edgeGenerator.h edgeGenerator.cpp \
+   subgraph.h subgraph.cpp \
    PCSearch.h PCSearch.cpp \
    bundle.h bundle.cpp \
-   bundleManager.h bundleManager.cpp
-
+   bundleReader.h bundleReader.cpp \
+   edgeTracker.h edgeTracker.cpp \
+   closePathProcess.h closePathProcess.cpp
+#   bundleManager.h bundleManager.cpp

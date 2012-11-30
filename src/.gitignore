@@ -9,10 +9,14 @@ depcomp
 install-sh
 missing
 build*
-
+Makefile
+errors.txt
 
 # ignore compiled units
 *.o
 *.a
 *.deps
 *.Po
+
+# ignore TEST files
+TEST/

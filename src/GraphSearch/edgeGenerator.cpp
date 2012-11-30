@@ -1,5 +1,5 @@
-#include "EdgeGenerator.h"
-#include "Subgraph.h"
+#include "edgeGenerator.h"
+#include "subgraph.h"
 
 #include <vector>
 #include <queue>
