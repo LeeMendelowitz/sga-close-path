@@ -142,9 +142,14 @@ void BundleManager::closeBundles(float maxStd, bool exhaustive, bool removeEdges
     if (removeEdges)
     {
        pGraph_->setColors(GC_BLACK);
+       int numEdges = pGraph_->getNumEdges();
        edgeTracker.setEdgeColors(GC_WHITE);
        int numRemoved = pGraph_->sweepEdges(GC_BLACK);
-       std::cerr << "Removed " << numRemoved << " low coverage edges from the graph.";
+       float fracRemoved = ((float) numRemoved)/numEdges;
+       std::cerr << "Removed " << numRemoved << " low coverage edges out of "
+                 << numEdges << " from the graph"
+                 << " (" << 100.0*fracRemoved << " %)"
+                 << std::endl;
        pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
     }
 }

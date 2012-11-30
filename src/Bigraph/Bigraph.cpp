@@ -640,6 +640,16 @@ size_t Bigraph::getNumVertices() const
     return m_vertices.size();
 }
 
+int Bigraph::getNumEdges() const
+{
+    int numEdges = 0;
+
+    VertexPtrMapConstIter iter = m_vertices.begin(); 
+    for(; iter != m_vertices.end(); ++iter)
+        numEdges += iter->second->countEdges();
+    return numEdges;
+}
+
 //
 // Output mem stats
 //

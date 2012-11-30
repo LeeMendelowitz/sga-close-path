@@ -9,8 +9,9 @@ depcomp
 install-sh
 missing
 build*
-Makefile
+config*
 errors.txt
+Makefile
 
 # ignore compiled units
 *.o
