@@ -115,6 +115,8 @@ class Bigraph
 
         size_t getNumVertices() const;
 
+        int getNumEdges() const;
+
         // Visit each vertex in the graph and perform the visit function
         bool visit(VertexVisitFunction f);
 
