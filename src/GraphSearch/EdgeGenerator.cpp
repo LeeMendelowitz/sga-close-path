@@ -107,7 +107,9 @@ EdgePtrVec boundedBFS(Vertex * pVertex, EdgeDir dir, int maxDistance)
     set<VDirPair> seen;
 
     // Maintain a queue of vertices and their starting distance and orientation.
-    SearchQueue vQueue;
+    vector<SearchEntry> entryVec;
+    entryVec.reserve(10000);
+    SearchQueue vQueue(SearchEntryComparison(), entryVec);
 
     // Add the first vertex to the queue
     vQueue.push(SearchEntry(pVertex, dir, 0));
