@@ -186,8 +186,10 @@ class ProcessFramework
                         outputBuffers[i]->clear();
                     }
 
-                    if(generator.getNumConsumed() % (reportInterval) == 0)
-                        printf("[sga %s] Processed %zu items\n", name_.c_str(), generator.getNumConsumed());
+                    if(generator.getNumConsumed() % reportInterval_ == 0)
+                        printf("[sga %s] Processed %zu items (%lfs elapsed)\n", name_.c_str(), generator.getNumConsumed(), timer.getElapsedWallTime());
+                    //if(generator.getNumConsumed() % (reportInterval) == 0)
+                     //   printf("[sga %s] Processed %zu items\n", name_.c_str(), generator.getNumConsumed());
 
                     // This should never loop more than twice
                     assert(numLoops < 2);
