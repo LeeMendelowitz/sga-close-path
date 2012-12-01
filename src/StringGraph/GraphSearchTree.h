@@ -88,17 +88,19 @@ class GraphSearchNode
     public:
         typedef std::deque<GraphSearchNode<VERTEX,EDGE,DISTANCE>* > GraphSearchNodePtrDeque;
         typedef std::vector<EDGE*> _EDGEPtrVector;
+        typedef SimpleAllocator< GraphSearchNode<VERTEX,EDGE,DISTANCE> > GraphSearchNodeAllocator;
 
     public:
         GraphSearchNode(VERTEX* pVertex, EdgeDir expandDir, GraphSearchNode* pParent, EDGE* pEdgeFromParent, int distance);
         ~GraphSearchNode();
+        void destroy();
 
         // Reduce the child count by 1
         void decrementChildren();
 
         // Create the children of this node and place pointers to their nodes
         // on the queue. Returns the number of children created;
-        int createChildren(GraphSearchNodePtrDeque& outQueue, const DISTANCE& distanceFunc);
+        int createChildren(GraphSearchNodeAllocator * allocator, GraphSearchNodePtrDeque& outQueue, const DISTANCE& distanceFunc);
 
         GraphSearchNode* getParent() const { return m_pParent; }
         VERTEX* getVertex() const { return m_pVertex; }
@@ -108,6 +110,18 @@ class GraphSearchNode
         bool isGoal() const { return m_isGoal; } 
         void isGoal(bool isGoal) { m_isGoal = isGoal; }
 
+        // Memory management
+        void* operator new(size_t /*size*/, SimpleAllocator< GraphSearchNode<VERTEX,EDGE,DISTANCE> >* pAllocator)
+        {
+            return pAllocator->alloc();
+        }
+
+        void operator delete(void* /*target*/, size_t /*size*/)
+        {
+            // delete does nothing since all allocations go through the memory pool
+            // belonging to the graph. The memory allocated for the vertex will be
+            // cleaned up when the graph is destroyed.
+        }
 
     private:
 
@@ -119,6 +133,13 @@ class GraphSearchNode
         int m_numChildren;
         int64_t m_distance;
         bool m_isGoal; // True if this node is a goal vertex
+
+        // Global new is disallowed, all allocations must go through the pool
+        void* operator new(size_t size)
+        {
+            return malloc(size);
+        }
+
 };
 
 template<typename VERTEX, typename EDGE, typename DISTANCE>
@@ -179,6 +200,8 @@ class GraphSearchTree
         // of walks found thus far from the start node to the goal.
         size_t countWalksToGoal() const {return m_goalQueue.size();}
 
+//        SimpleAllocator<_SearchNode> * getNodeAllocator const {return &m_nodeAllocator;}
+
     private:
 
         // Search the branch from pNode to the root for pX.  
@@ -225,6 +248,9 @@ class GraphSearchTree
 
         // Distance functor
         DISTANCE m_distanceFunc;
+
+        // Allocator for GrachSearchNodes
+        SimpleAllocator<_SearchNode> m_nodeAllocator;
 };
 
 //
@@ -253,18 +279,27 @@ GraphSearchNode<VERTEX,EDGE,DISTANCE>::GraphSearchNode(VERTEX* pVertex,
     }
 }
 
-
-
 // Delete this node and decrement the number of children
 // in the parent node. All children of a node must
 // be deleted before the parent
 template<typename VERTEX, typename EDGE, typename DISTANCE>
 GraphSearchNode<VERTEX,EDGE,DISTANCE>::~GraphSearchNode()
 {
+    // destroy();
+}
+
+// Delete this node and decrement the number of children
+// in the parent node. All children of a node must
+// be deleted before the parent
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+void GraphSearchNode<VERTEX,EDGE,DISTANCE>::destroy()
+{
     assert(m_numChildren == 0);
     if(m_pParent != NULL)
         m_pParent->decrementChildren();
 }
+
+
 
 //
 template<typename VERTEX, typename EDGE, typename DISTANCE>
@@ -278,7 +313,7 @@ void GraphSearchNode<VERTEX,EDGE,DISTANCE>::decrementChildren()
 // and place pointers to them in the queue.
 // Returns the number of nodes created
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodePtrDeque& outDeque, const DISTANCE& distanceFunc)
+int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodeAllocator * allocator, GraphSearchNodePtrDeque& outDeque, const DISTANCE& distanceFunc)
 {
     assert(m_numChildren == 0);
 
@@ -287,7 +322,8 @@ int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodePtrDequ
     for(size_t i = 0; i < edges.size(); ++i)
     {
         EdgeDir childExpandDir = !edges[i]->getTwin()->getDir();
-        GraphSearchNode* pNode = new GraphSearchNode(edges[i]->getEnd(), childExpandDir, this, edges[i], distanceFunc(edges[i]));
+        GraphSearchNode* pNode = new(allocator) GraphSearchNode(edges[i]->getEnd(), childExpandDir, this, edges[i], distanceFunc(edges[i]));
+        //GraphSearchNode* pNode = new GraphSearchNode(edges[i]->getEnd(), childExpandDir, this, edges[i], distanceFunc(edges[i]));
         outDeque.push_back(pNode);
         m_numChildren += 1;
     }
@@ -304,7 +340,7 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(const _SearchParams& para
 {
 
     // Create the root node of the search tree
-    m_pRootNode = new GraphSearchNode<VERTEX, EDGE, DISTANCE>(m_searchParams.pStartVertex,
+    m_pRootNode = new(&m_nodeAllocator) GraphSearchNode<VERTEX, EDGE, DISTANCE>(m_searchParams.pStartVertex,
                                                               m_searchParams.searchDir, NULL, NULL,
                                                               m_searchParams.startDistance);
 
@@ -390,8 +426,10 @@ size_t GraphSearchTree<VERTEX,EDGE,DISTANCE>::deleteFromLeaf(_SearchNode * pCurr
             std::cout << "Deleting " << pCurr->getVertex()->getID()
                       << " parent: " << ( pNext ? pNext->getVertex()->getID() : "NULL" ) << std::endl;
             #endif 
-            
-            delete pCurr; // decrements pNext's child count
+
+            //delete pCurr; // decrements pNext's child count
+            pCurr->destroy(); // decrements pNext's child count
+            pCurr = NULL;
             totalDeleted += 1;
 
             pCurr = pNext;
@@ -433,7 +471,9 @@ size_t GraphSearchTree<VERTEX,EDGE,DISTANCE>::pruneFromLeaf(_SearchNode * pCurr,
             assert(pCurr->getNumChildren() == 0);
             _SearchNode* pNext = pCurr->getParent();
             
-            delete pCurr; // decrements pNext's child count
+            pCurr->destroy();
+            pCurr = NULL;
+            //delete pCurr; // decrements pNext's child count
             totalDeleted += 1;
 
             pCurr = pNext;
@@ -540,7 +580,7 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
         else
         {
             // Add the children of this node to the queue
-            int numCreated = pNode->createChildren(incomingQueue, m_distanceFunc);
+            int numCreated = pNode->createChildren(&m_nodeAllocator, incomingQueue, m_distanceFunc);
 
             #if GRAPHSEARCH_DEBUG > 0
             std::cout << "GraphSearchTree: Created " << numCreated << " children from node "
