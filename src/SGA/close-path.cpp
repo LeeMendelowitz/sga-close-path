@@ -16,7 +16,7 @@
 #include "close-path.h"
 #include "closePathProcess.h"
 #include "Util.h"
-#include "SequenceProcessFramework.h"
+#include "ProcessFramework.h"
 #include "Timer.h"
 #include "SGACommon.h"
 #include "bundle.h"
@@ -127,16 +127,22 @@ int closePathMain(int argc, char** argv)
     ClosePathWorkItemGenerator<ClosePathWorkItem> workGenerator(&bundleReader);
     ClosePathPostProcess postProcessor(pGraph, opt::outputPfx, opt::removeEdges);
 
+    typedef ProcessFramework<ClosePathWorkItem, 
+                             ClosePathResult,
+                             ClosePathWorkItemGenerator<ClosePathWorkItem>,
+                             ClosePathProcess,
+                             ClosePathPostProcess>  ClosePathProcessFramework;
+
+    const size_t bufferSize = 100;
+    const size_t reportInterval = 1000;
+    ClosePathProcessFramework processFramework("close-path", bufferSize, reportInterval);
+
     // Close bundles
     if (opt::numThreads <= 1)
     {
         // Serial Mode
         ClosePathProcess processor(pGraph, opt::maxNumStd);
-        SequenceProcessFramework::processWorkSerial<ClosePathWorkItem,
-                                                    ClosePathResult,
-                                                    ClosePathWorkItemGenerator<ClosePathWorkItem>,
-                                                    ClosePathProcess,
-                                                    ClosePathPostProcess> (workGenerator, &processor, &postProcessor);
+        processFramework.processWorkSerial(workGenerator, &processor, &postProcessor);
     }
     else
     {
@@ -148,11 +154,7 @@ int closePathMain(int argc, char** argv)
             processorVector.push_back(pProcessor);
         }
 
-        SequenceProcessFramework::processWorkParallel<ClosePathWorkItem,
-                                                           ClosePathResult,
-                                                           ClosePathWorkItemGenerator<ClosePathWorkItem>,
-                                                           ClosePathProcess,
-                                                           ClosePathPostProcess>(workGenerator, processorVector, &postProcessor);
+        processFramework.processWorkParallel(workGenerator, processorVector, &postProcessor);
 
         for(int i = 0; i < opt::numThreads; ++i)
         {

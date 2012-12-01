@@ -127,8 +127,6 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         if (result.numClosures > 0)
             numClosed_++;
 
-        edgeTracker_.processResult(result);
-
         // Delete the bundle object
         delete item.b_;
 }
