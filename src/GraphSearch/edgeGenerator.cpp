@@ -423,3 +423,80 @@ bool pruneGraph(StringGraph * pSubgraph,
     #endif
     return graphModified;
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+// Collect edges that are on gauranteed to be on paths from Vertex pX to pY
+// with distance less than maxDistance.
+// See description for boundedBFS for how distance is measured.
+// Return a pointer to the subgraph, or NULL if the subgraph is empty.
+
+// dX: direction of edge out of pX on walk to pY.
+// dY: direction of edge out of pY on walk to pX.
+// Case 1: pX Forward, pY Reverse, then dX = ED_SENSE, dY = ED_SENSE |--->.......<----|
+// Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
+// Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
+// Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
+EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX)
+{
+    using namespace std;
+
+    EdgePtrVec pathEdges;
+
+    // |-----------> X          Y  <------------|
+    // |<-------------------------------------->| startToEnd
+    // |<------------------------->| maxDistanceX
+    // |<------------>| halfDistanceX
+    //                |<----------------------->| halfDistanceY
+    //             |<---------------------------| maxDistanceY
+
+    if (maxDistanceX <= 0)
+    {
+        #if PATHS_DEBUG!=0
+        cout << "Warning: maxDistanceX must be >= 0. Returning empty subgraph" << endl;
+        #endif
+        return pathEdges;
+    }
+
+    // Avoid a situation where we are detecting a path from X to Y which implies
+    // the containment of Y by X:
+    // e.g:
+    // |---------------------> X
+    //           <---| Y
+    if (maxDistanceX + pY->getSeqLen() < pX->getSeqLen())
+    {
+        #if PATHS_DEBUG!=0
+        cout << "Warning: PathGraph implies containment. Returning empty subgraph" << endl;
+        #endif
+        return pathEdges;
+    }
+
+    int startToEnd = maxDistanceX + pY->getSeqLen();
+    int maxDistanceY = startToEnd - pX->getSeqLen();
+    assert(maxDistanceY >= 0);
+    EdgePtrVec xEdges, yEdges;
+
+    // Search forward from pX
+    xEdges = boundedBFS(pX, dX, maxDistanceX);
+    #if PATHS_DEBUG!=0
+    cout << "X Edges: " << xEdges.size() << endl;
+    cout << xEdges << endl;
+    #endif
+
+    // Search backwards from pY
+    yEdges = boundedBFS(pY, dY, maxDistanceY);
+    #if PATHS_DEBUG!=0
+    cout << "Y Edges: " << yEdges.size() << endl;
+    cout << yEdges << endl;
+    #endif
+
+    // Find those edges that appear in xEdges with a twin that appears in yEdges.
+    pathEdges.reserve(max(xEdges.size(), yEdges.size()));
+    std::set<Edge *> yEdgeSet(yEdges.begin(), yEdges.end());
+    EdgePtrVec::const_iterator E = xEdges.end();
+    EdgePtrVec::const_iterator xIter = xEdges.begin();
+    for(; xIter != E; xIter++)
+        if (yEdgeSet.count((*xIter)->getTwin()) != 0)
+            pathEdges.push_back(*xIter);
+
+    return pathEdges;
+}

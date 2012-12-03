@@ -71,7 +71,7 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
 
     SGSearchTree searchTree(params);
 
-    // Iteravively perform the BFS using the search tree.
+    // Iteratively perform the BFS using the search tree.
     while(searchTree.stepOnce()) { }
 
     // If the search was aborted, do not return any walks

@@ -20,6 +20,13 @@ namespace PCSearch
                    SGSearchParams params,
                    bool exhaustive,
                    SGWalkVector& outWalks);
+
+    // Find walks without creating a subgraph. Instead, use the allowableEdgeSet in
+    // params
+    bool findWalks2(StringGraph * pGraph,
+                    SGSearchParams params,
+                    bool exhaustive,
+                    SGWalkVector& outWalks);
 };
 
 #endif

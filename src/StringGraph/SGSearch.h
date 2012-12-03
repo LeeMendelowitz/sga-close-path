@@ -27,7 +27,7 @@ struct SGDistanceFunction
 
 // 
 typedef GraphSearchTree<Vertex, Edge, SGDistanceFunction> SGSearchTree;
-typedef GraphSearchParams<Vertex> SGSearchParams;
+typedef GraphSearchParams<Vertex, Edge> SGSearchParams;
 
 //
 struct SGWalkBuilder

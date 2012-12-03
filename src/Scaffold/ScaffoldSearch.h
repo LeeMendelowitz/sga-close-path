@@ -24,7 +24,7 @@ struct ScaffoldDistanceFunction
 
 //
 typedef GraphSearchTree<ScaffoldVertex, ScaffoldEdge, ScaffoldDistanceFunction> ScaffoldSearchTree;
-typedef GraphSearchParams<ScaffoldVertex> ScaffoldSearchParams;
+typedef GraphSearchParams<ScaffoldVertex, ScaffoldEdge> ScaffoldSearchParams;
 
 //
 struct ScaffoldWalkBuilder

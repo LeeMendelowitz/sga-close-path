@@ -1,10 +1,14 @@
 // Author: Lee Mendelowitz
 // Date:   9/28/2012
 // Graph Search Functionality
-
 #ifndef EDGE_GEN_H
 #define EDGE_GEN_H
+
 #include "SGUtil.h"
+
+#include <set>
+
+//typedef std::set<Edge *> EdgePtrSet;
 
 // Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
 // NOTE: This search differs from the search functionality provided in SGSearch.
@@ -34,4 +38,16 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance);
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
 StringGraph * makePathGraph(const StringGraph * pGraph, const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
 
+// Collect edges that are on gauranteed to be on paths from Vertex pX to pY
+// with distance less than maxDistance.
+// See description for boundedBFS for how distance is measured.
+// Return a pointer to the subgraph, or NULL if the subgraph is empty.
+
+// dX: direction of edge out of pX on walk to pY.
+// dY: direction of edge out of pY on walk to pX.
+// Case 1: pX Forward, pY Reverse, then dX = ED_SENSE, dY = ED_SENSE |--->.......<----|
+// Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
+// Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
+// Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
+EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
 #endif

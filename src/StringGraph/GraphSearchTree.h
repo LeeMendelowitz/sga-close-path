@@ -18,6 +18,7 @@
 #include <deque>
 #include <queue>
 #include <iostream>
+#include <set>
 
 #define GRAPHSEARCH_DEBUG 0
 #define GRAPHDELETE_DEBUG 0
@@ -25,13 +26,13 @@
 
 // Parameters guiding a GraphSearchTree Search
 // This structure sets a default for optional search parameters
-template<typename VERTEX>
+template<typename VERTEX, typename EDGE>
 class GraphSearchParams
 {
 
     public:
 
-    // Basic constructor allows specification of only the required parameters. All other parameters should be set by hand.
+    // Basic constructor allows specification of only the default parameters. All other specialized parameters should be set by hand.
     GraphSearchParams(VERTEX * start, VERTEX * end, EdgeDir dir, int64_t maxDist) :
         pStartVertex(start),
         pEndVertex(end),
@@ -45,7 +46,8 @@ class GraphSearchParams
         minDistanceEnforced(false),
         maxDistanceEnforced(false),
         nodeLimit(10000),
-        selfPrune(false)
+        selfPrune(false),
+        enforceAllowedEdges(false)
         {};
 
     VERTEX* pStartVertex; 
@@ -60,8 +62,13 @@ class GraphSearchParams
     bool goalOriented; // Only accept the goal if it has orientation goalDir.
     bool minDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at least minDistance.
     bool maxDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at most maxDistanceEnforced.
+
     size_t nodeLimit; // The maximum number of nodes allowed in the GraphSearchTree.
+
     bool selfPrune; // If true, prune any search nodes which do not lead to the goal.
+
+    bool enforceAllowedEdges; // If true, only followed edges where are in the pAllowedEdgesSet
+    const std::set<EDGE *> * pAllowedEdgeSet; // The set of edges which can be used in the graph search.
 
     void print() const
     {
@@ -77,7 +84,9 @@ class GraphSearchParams
              << "minDistanceEnforced: " << minDistanceEnforced << "\n"
              << "maxDistanceEnforced: " << maxDistanceEnforced << "\n"
              << "nodeLimit: " << nodeLimit << "\n"
-             << "selfPrune: " << selfPrune << std::endl;
+             << "selfPrune: " << selfPrune << "\n"
+             << "enforceAllowedEdges: " << enforceAllowedEdges << "\n"
+             << "pAllowedEdgeSet->size(): " << ( pAllowedEdgeSet ? pAllowedEdgeSet->size() : 0 ) << std::endl;
     }
 };
 
@@ -89,6 +98,7 @@ class GraphSearchNode
         typedef std::deque<GraphSearchNode<VERTEX,EDGE,DISTANCE>* > GraphSearchNodePtrDeque;
         typedef std::vector<EDGE*> _EDGEPtrVector;
         typedef SimpleAllocator< GraphSearchNode<VERTEX,EDGE,DISTANCE> > GraphSearchNodeAllocator;
+        typedef GraphSearchParams<VERTEX, EDGE> SearchParams;
 
     public:
         GraphSearchNode(VERTEX* pVertex, EdgeDir expandDir, GraphSearchNode* pParent, EDGE* pEdgeFromParent, int distance);
@@ -100,7 +110,7 @@ class GraphSearchNode
 
         // Create the children of this node and place pointers to their nodes
         // on the queue. Returns the number of children created;
-        int createChildren(GraphSearchNodeAllocator * allocator, GraphSearchNodePtrDeque& outQueue, const DISTANCE& distanceFunc);
+        int createChildren(GraphSearchNodeAllocator * allocator, GraphSearchNodePtrDeque& outQueue, const DISTANCE& distanceFunc, const SearchParams& params);
 
         GraphSearchNode* getParent() const { return m_pParent; }
         VERTEX* getVertex() const { return m_pVertex; }
@@ -147,7 +157,7 @@ class GraphSearchTree
 {
     // typedefs
     typedef GraphSearchNode<VERTEX,EDGE,DISTANCE> _SearchNode;
-    typedef GraphSearchParams<VERTEX> _SearchParams;
+    typedef GraphSearchParams<VERTEX, EDGE> _SearchParams;
     typedef typename _SearchNode::GraphSearchNodePtrDeque _SearchNodePtrDeque;
     typedef typename std::set<_SearchNode*> _SearchNodePtrSet;
     typedef std::vector<EDGE*> WALK; // list of edges defines a walk through the graph
@@ -313,21 +323,31 @@ void GraphSearchNode<VERTEX,EDGE,DISTANCE>::decrementChildren()
 // and place pointers to them in the queue.
 // Returns the number of nodes created
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodeAllocator * allocator, GraphSearchNodePtrDeque& outDeque, const DISTANCE& distanceFunc)
+int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodeAllocator * allocator, GraphSearchNodePtrDeque& outDeque, const DISTANCE& distanceFunc, const SearchParams& params)
 {
     assert(m_numChildren == 0);
 
     _EDGEPtrVector edges = m_pVertex->getEdges(m_expandDir);
 
+    size_t numCreated = 0;
     for(size_t i = 0; i < edges.size(); ++i)
     {
+        // Check if we are allowed to take this edge
+        if ( params.enforceAllowedEdges && 
+             params.pAllowedEdgeSet &&
+             params.pAllowedEdgeSet->count(edges[i]) == 0 )
+        {
+            continue;
+        }
+
         EdgeDir childExpandDir = !edges[i]->getTwin()->getDir();
         GraphSearchNode* pNode = new(allocator) GraphSearchNode(edges[i]->getEnd(), childExpandDir, this, edges[i], distanceFunc(edges[i]));
         //GraphSearchNode* pNode = new GraphSearchNode(edges[i]->getEnd(), childExpandDir, this, edges[i], distanceFunc(edges[i]));
         outDeque.push_back(pNode);
         m_numChildren += 1;
+        numCreated++;
     }
-    return edges.size();
+    return numCreated;
 }
 
 //
@@ -580,7 +600,7 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
         else
         {
             // Add the children of this node to the queue
-            int numCreated = pNode->createChildren(&m_nodeAllocator, incomingQueue, m_distanceFunc);
+            int numCreated = pNode->createChildren(&m_nodeAllocator, incomingQueue, m_distanceFunc, m_searchParams);
 
             #if GRAPHSEARCH_DEBUG > 0
             std::cout << "GraphSearchTree: Created " << numCreated << " children from node "
