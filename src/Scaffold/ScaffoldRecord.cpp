@@ -12,8 +12,8 @@
 #include "OverlapTools.h"
 #include "SGSearch.h"
 
-#define DEBUGRESOLVE 1
-#define DEBUGPLACEMENTS 1
+//#define DEBUGRESOLVE 1
+//#define DEBUGPLACEMENTS 1
 
 
 void walkToContigPlacements(const SGWalk& walk, const ContigPlacement& currPlacement, const std::string& nextID,
