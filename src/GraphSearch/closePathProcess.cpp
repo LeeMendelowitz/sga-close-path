@@ -82,10 +82,23 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
 };
 
 
-ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, bool removeEdges) :
+void ClosePathPostProcess::removeEdges()
+{
+   pGraph_->setColors(GC_BLACK);
+   int numEdges = pGraph_->getNumEdges();                                                                                                
+   edgeTracker_.setEdgeColors(GC_WHITE);
+   int numRemoved = pGraph_->sweepEdges(GC_BLACK);
+   float fracRemoved = ((float) numRemoved)/numEdges;
+   std::cout << "Removed " << numRemoved << " low coverage edges out of "
+             << numEdges << " from the graph"
+             << " (" << 100.0*fracRemoved << " %)"
+             << std::endl;
+   pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
+}
+
+ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx) :
     pGraph_(pGraph),
     outputPfx_(outputPfx),
-    removeEdges_(removeEdges),
     numProcessed_(0),
     numClosedUniquely_(0),
     numClosed_(0),
@@ -140,19 +153,6 @@ ClosePathPostProcess::~ClosePathPostProcess()
     // Write edge coverage statistics to file
     edgeTracker_.writeCoverageStats(edgeCovFile_);
 
-    if (removeEdges_)
-    {
-       pGraph_->setColors(GC_BLACK);
-       int numEdges = pGraph_->getNumEdges();                                                                                                
-       edgeTracker_.setEdgeColors(GC_WHITE);
-       int numRemoved = pGraph_->sweepEdges(GC_BLACK);
-       float fracRemoved = ((float) numRemoved)/numEdges;
-       std::cout << "Removed " << numRemoved << " low coverage edges out of "
-                 << numEdges << " from the graph"
-                 << " (" << 100.0*fracRemoved << " %)"
-                 << std::endl;
-       pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
-    }
 
     // Write summary to standard out
     printSummary(std::cout);

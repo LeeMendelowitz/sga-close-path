@@ -101,15 +101,15 @@ class ClosePathProcess
 class ClosePathPostProcess
 {
     public:
-    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, bool removeEdges);
+    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx);
     ~ClosePathPostProcess();
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
+    void removeEdges();
 
     private:
         StringGraph * pGraph_;
         std::string outputPfx_;
-        bool removeEdges_;
         std::ofstream statusFile_;
         std::ofstream statsFile_;
         std::ofstream fastaFile_;
