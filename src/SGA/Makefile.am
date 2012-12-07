@@ -60,4 +60,5 @@ sga_SOURCES = sga.cpp \
               variant-detectability.h variant-detectability.cpp \
               OverlapCommon.h OverlapCommon.cpp \
               close-path.h close-path.cpp \
+              graphStats.h graphStats.cpp \
               SGACommon.h 
