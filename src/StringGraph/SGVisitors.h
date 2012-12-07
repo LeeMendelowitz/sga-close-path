@@ -45,6 +45,23 @@ struct SGOverlapWriterVisitor
     std::ofstream m_fileHandle;
 };
 
+// Visit each node and write the length and the number of overlaps to a file
+struct SGNodeSummaryVisitor
+{
+    SGNodeSummaryVisitor(std::string filename) : m_fileHandle(filename.c_str()) {}
+    ~SGNodeSummaryVisitor() { m_fileHandle.close(); }
+
+    // functions
+    void previsit(StringGraph* /*pGraph*/) {}
+    bool visit(StringGraph* pGraph, Vertex* pVertex);
+    void postvisit(StringGraph* /*pGraph*/) {}
+
+    // data
+    std::ofstream m_fileHandle;
+};
+
+
+
 // Run the Myers transitive reduction algorithm on each node
 struct SGTransitiveReductionVisitor
 {
@@ -180,9 +197,7 @@ struct SGDuplicateVisitor
 
 // Detect small island vertices and removal them
 struct SGIslandVisitor
-{
-    SGIslandVisitor() {}
-    void previsit(StringGraph* pGraph);
+{ SGIslandVisitor() {} void previsit(StringGraph* pGraph);
     bool visit(StringGraph* pGraph, Vertex* pVertex);
     void postvisit(StringGraph*);
 };
