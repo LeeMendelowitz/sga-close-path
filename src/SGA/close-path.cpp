@@ -154,7 +154,7 @@ int closePathMain(int argc, char** argv)
         ClosePathProcessFramework processFramework("close-path: round 2", bufferSize, reportInterval);
         BundleReader* bundleReader = new BundleReader(opt::bundleFile);
         WorkGenerator* workGenerator = new WorkGenerator(bundleReader);
-        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, opt::outputPfx + ".round2");
+        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, opt::outputPfx + ".round2", 2);
         // Perform a second round of bundle closures on the simplified graph. 
         // We hope that, after edge pruning, many of the bundles that previously could not be closed uniquely (either
         // due to too many paths or graph too repetative) could now be closed

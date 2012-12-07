@@ -96,8 +96,9 @@ void ClosePathPostProcess::removeEdges()
    pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
 }
 
-ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx) :
+ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, int round) :
     pGraph_(pGraph),
+    round_(round),
     outputPfx_(outputPfx),
     numProcessed_(0),
     numClosedUniquely_(0),
@@ -272,13 +273,15 @@ void ClosePathPostProcess::writeResultToWalks(const ClosePathResult & res)
 void ClosePathPostProcess::printSummary(std::ostream& os)
 {
     int numClosedRepeat = numClosed_ - numClosedUniquely_;
-    os << "\n----------------------------------------------------------";
-    os << "\nsga close-path summary\n\n";
-    os << "Num. Bundles Processed:  " <<  numProcessed_ << "\n"
-              << "Num. Closed: " << numClosed_ << "\n"
-              << "Num. Closed Uniquely: " << numClosedUniquely_ << "\n"
-              << "Num. Closed > 1 Path: " << numClosedRepeat << "\n"
-              << "Num. Failed Overlap Too Large: " << numFailedOverlap_ << "\n"
-              << "Num. Failed Graph Repetative: " << numFailedRepetative_;
-    os << "\n----------------------------------------------------------" << std::endl;
+    os << "\n----------------------------------------------------------\n"
+       << "sga close-path summary\n"
+       << "round " << round_ << "\n\n"
+
+       << "Num. Bundles Processed:  " <<  numProcessed_ << "\n"
+       << "Num. Closed: " << numClosed_ << "\n"
+       << "Num. Closed Uniquely: " << numClosedUniquely_ << "\n"
+       << "Num. Closed > 1 Path: " << numClosedRepeat << "\n"
+       << "Num. Failed Overlap Too Large: " << numFailedOverlap_ << "\n"
+       << "Num. Failed Graph Repetative: " << numFailedRepetative_
+       << "\n----------------------------------------------------------" << std::endl;
 }

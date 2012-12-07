@@ -101,7 +101,7 @@ class ClosePathProcess
 class ClosePathPostProcess
 {
     public:
-    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx);
+    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, int round=1);
     ~ClosePathPostProcess();
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
@@ -109,6 +109,7 @@ class ClosePathPostProcess
 
     private:
         StringGraph * pGraph_;
+        int round_;
         std::string outputPfx_;
         std::ofstream statusFile_;
         std::ofstream statsFile_;
