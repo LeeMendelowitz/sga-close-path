@@ -18,7 +18,7 @@ class Bundle
     EdgeDir dir1; // direction of edge out of vertex1 towards vertex2
     EdgeDir dir2; // direction of edge out of vertex2 towards vertex1
     float gap; // esimate of gap between vertex1 & vertex2
-    int n;
+    int n; // number of read pairs in this bundle
     float std;
 
     // The following lists measure the length of sequence in vertex

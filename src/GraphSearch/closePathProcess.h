@@ -64,7 +64,7 @@ class ClosePathResult
     public:
     ClosePathResult(const Bundle * b) :
         bundle(b),
-        tooRepetative(false),
+        tooRepetitive(false),
         overlapTooLarge(false),
         numClosures(0) {};
 
@@ -75,7 +75,7 @@ class ClosePathResult
     }
 
     const Bundle * bundle;
-    bool tooRepetative; // Closure failed due to graph too repetative
+    bool tooRepetitive; // Closure failed due to graph too repetitive
     bool overlapTooLarge; // Closure failed because bundle implies overlap too large
     size_t numClosures;
     SGWalkVector walks;
@@ -97,19 +97,22 @@ class ClosePathProcess
 };
 
 
+
 // Post Processor to write results to file
 class ClosePathPostProcess
 {
     public:
-    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, int round=1);
+    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx);
     ~ClosePathPostProcess();
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
-    void removeEdges();
+
+    // Remove edges 
+    template <class T>
+    void removeEdges(T criteria);
 
     private:
         StringGraph * pGraph_;
-        int round_;
         std::string outputPfx_;
         std::ofstream statusFile_;
         std::ofstream statsFile_;
@@ -120,11 +123,16 @@ class ClosePathPostProcess
         EdgeTracker edgeTracker_;
 
         // Summary of closures
-        int numProcessed_;
-        int numClosedUniquely_;
-        int numClosed_;
-        int numFailedOverlap_;
-        int numFailedRepetative_;
+        int numBundlesProcessed_;
+        int numBundlesClosedUniquely_;
+        int numBundlesClosed_;
+        int numBundlesFailedOverlap_;
+        int numBundlesFailedRepetitive_;
+        int numReadPairsProcessed_;
+        int numReadPairsClosedUniquely_;
+        int numReadPairsClosed_;
+        int numReadPairsFailedOverlap_;
+        int numReadPairsFailedRepetitive_;
 
         // Write results to files
         void writeResultToStatus(const ClosePathResult & res);
@@ -135,5 +143,18 @@ class ClosePathPostProcess
         void writeStatsHeader();
 };
 
+template <class T>
+void ClosePathPostProcess::removeEdges(T keepCriteria)
+{
+   pGraph_->setColors(GC_BLACK);
+   int numEdges = pGraph_->getNumEdges();
+   edgeTracker_.setEdgeColors(GC_WHITE, keepCriteria);
+   int numRemoved = pGraph_->sweepEdges(GC_BLACK);
+   float fracRemoved = ((float) numRemoved)/numEdges;
+   std::cout << "Removed " << numRemoved << " low coverage edges out of "
+             << numEdges << " from the graph"
+             << " (" << 100.0*fracRemoved << " %)"
+             << std::endl;
+}
 
 #endif

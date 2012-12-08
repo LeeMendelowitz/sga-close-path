@@ -72,7 +72,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     bool exhaustive = true;
     bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks);
     result.setWalks(walks);
-    result.tooRepetative = !foundAll;
+    result.tooRepetitive = !foundAll;
 
     #if BUNDLEMANAGER_DEBUG > 0
     cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
@@ -82,29 +82,20 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
 };
 
 
-void ClosePathPostProcess::removeEdges()
-{
-   pGraph_->setColors(GC_BLACK);
-   int numEdges = pGraph_->getNumEdges();                                                                                                
-   edgeTracker_.setEdgeColors(GC_WHITE);
-   int numRemoved = pGraph_->sweepEdges(GC_BLACK);
-   float fracRemoved = ((float) numRemoved)/numEdges;
-   std::cout << "Removed " << numRemoved << " low coverage edges out of "
-             << numEdges << " from the graph"
-             << " (" << 100.0*fracRemoved << " %)"
-             << std::endl;
-   pGraph_->writeASQG(outputPfx_ + ".edgesRemoved-graph.asqg.gz");
-}
-
-ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, int round) :
+ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx) :
     pGraph_(pGraph),
-    round_(round),
     outputPfx_(outputPfx),
-    numProcessed_(0),
-    numClosedUniquely_(0),
-    numClosed_(0),
-    numFailedOverlap_(0),
-    numFailedRepetative_(0)
+    numBundlesProcessed_(0),
+    numBundlesClosedUniquely_(0),
+    numBundlesClosed_(0),
+    numBundlesFailedOverlap_(0),
+    numBundlesFailedRepetitive_(0),
+    numReadPairsProcessed_(0),
+    numReadPairsClosedUniquely_(0),
+    numReadPairsClosed_(0),
+    numReadPairsFailedOverlap_(0),
+    numReadPairsFailedRepetitive_(0)
+
 {
 
     // Open output files
@@ -131,15 +122,28 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         writeResultToWalks(result);
         edgeTracker_.processResult(result);
 
-        numProcessed_++;
-        if (result.tooRepetative)
-            numFailedRepetative_++;
+        numBundlesProcessed_++;
+        numReadPairsProcessed_ += result.bundle->n;
+        if (result.tooRepetitive)
+        {
+            numBundlesFailedRepetitive_++;
+            numReadPairsFailedRepetitive_ += result.bundle->n;
+        }
         if (result.overlapTooLarge)
-            numFailedOverlap_++;
+        {
+            numBundlesFailedOverlap_++;
+            numReadPairsFailedOverlap_ += result.bundle->n;
+        }
         if (result.numClosures == 1)
-            numClosedUniquely_++;
+        {
+            numBundlesClosedUniquely_++;
+            numReadPairsClosedUniquely_ += result.bundle->n;
+        }
         if (result.numClosures > 0)
-            numClosed_++;
+        {
+            numBundlesClosed_++;
+            numReadPairsClosed_ += result.bundle->n;
+        }
 
         // Delete the bundle object
         delete item.b_;
@@ -171,7 +175,7 @@ void ClosePathPostProcess::writeStatusHeader()
 {
     statusFile_ << "bundle"
                 << "\tNumClosures"
-                << "\tTooRepetative"
+                << "\tTooRepetitive"
                 << "\tOverlapTooLarge"
                 << "\n";
 }
@@ -180,7 +184,7 @@ void ClosePathPostProcess::writeResultToStatus(const ClosePathResult & res)
 {
     statusFile_ << res.bundle->id
                 << "\t" << res.numClosures
-                << "\t" << res.tooRepetative
+                << "\t" << res.tooRepetitive
                 << "\t" << res.overlapTooLarge
                 << "\n";
 }
@@ -272,16 +276,19 @@ void ClosePathPostProcess::writeResultToWalks(const ClosePathResult & res)
 
 void ClosePathPostProcess::printSummary(std::ostream& os)
 {
-    int numClosedRepeat = numClosed_ - numClosedUniquely_;
+    int numBundlesClosedRepeat = numBundlesClosed_ - numBundlesClosedUniquely_;
+    int numReadPairsClosedRepeat = numReadPairsClosed_ - numReadPairsClosedUniquely_;
+    int numBundlesNoPath = numBundlesProcessed_ - numBundlesClosed_ - numBundlesFailedOverlap_ - numBundlesFailedRepetitive_;
+    int numReadPairsNoPath = numReadPairsProcessed_ - numReadPairsClosed_ - numReadPairsFailedOverlap_ - numReadPairsFailedRepetitive_;
     os << "\n----------------------------------------------------------\n"
-       << "sga close-path summary\n"
-       << "round " << round_ << "\n\n"
+       << "sga close-path summary\n\n\n"
 
-       << "Num. Bundles Processed:  " <<  numProcessed_ << "\n"
-       << "Num. Closed: " << numClosed_ << "\n"
-       << "Num. Closed Uniquely: " << numClosedUniquely_ << "\n"
-       << "Num. Closed > 1 Path: " << numClosedRepeat << "\n"
-       << "Num. Failed Overlap Too Large: " << numFailedOverlap_ << "\n"
-       << "Num. Failed Graph Repetative: " << numFailedRepetative_
+       << "Num. Bundles Processed:  " <<  numBundlesProcessed_ << " (" << numReadPairsProcessed_ << " read pairs)\n"
+       << "Num. Closed: " << numBundlesClosed_ << " (" << numReadPairsClosed_ << " read pairs)\n"
+       << "Num. Closed Uniquely: " << numBundlesClosedUniquely_ <<  " (" << numReadPairsClosedUniquely_ << " read pairs)\n"
+       << "Num. Closed > 1 Path: " << numBundlesClosedRepeat << " (" << numReadPairsClosedRepeat << " read pairs)\n"
+       << "Num. Failed Overlap Too Large: " << numBundlesFailedOverlap_ << " (" << numReadPairsFailedOverlap_ << " read pairs)\n"
+       << "Num. Failed Graph Repetitive: " << numBundlesFailedRepetitive_ << " (" << numReadPairsFailedRepetitive_ << " read pairs)\n"
+       << "Num. Failed Closure (no path): " << numBundlesNoPath << " (" << numReadPairsNoPath << " read pairs)\n"
        << "\n----------------------------------------------------------" << std::endl;
 }

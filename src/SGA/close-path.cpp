@@ -20,6 +20,7 @@
 #include "Timer.h"
 #include "SGACommon.h"
 #include "bundle.h"
+#include "edgeTracker.h"
 //#include "bundleManager.h"
 
 
@@ -42,8 +43,6 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      -s, maxNumStd=FLOAT              maximum number of standard deviations allowed in path length deviation. (Default 3.0)\n"
 "      --minStd=FLOAT                   minimum standard deviation to use for a bundle. If a bundle has a standard deviation less than FLOAT\n"
 "                                       then FLOAT will be used in its place.\n"
-"      --removeEdges                    Remove zero-coverage edges from the graph.\n"
-"      --secondRound                    Report how many bundles can be closed in a second round, after edge removal.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -59,8 +58,6 @@ namespace opt
     static std::string graphFile;
     static std::string bundleFile;
     static std::string outputPfx;
-    static bool bRemoveEdges = false;
-    static bool bSecondRound = false;
 }
 
 static const char* shortopts = "vm:s:t:p:o:";
@@ -69,8 +66,6 @@ enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_SECOND_ROUND
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
-    { "removeEdges",       no_argument,       NULL, OPT_REMOVE_EDGES},
-    { "secondRound",   no_argument,       NULL, OPT_SECOND_ROUND},
     { "threads",       required_argument, NULL, 't'},
     { "minOverlap",       required_argument, NULL, 'm' },
     { "minStd",        required_argument, NULL, OPT_MINSTD},
@@ -104,60 +99,44 @@ int closePathMain(int argc, char** argv)
     std::cout << "Reading Graph: " << opt::graphFile << std::endl;
     StringGraph * pGraph = SGUtil::loadASQG(opt::graphFile, opt::minOverlap);
     pGraph->stats();
-
+    std::cout << "\n\n\n";
 
     const size_t bufferSize = 500;
     const size_t reportInterval = 2000;
-    ClosePathProcessFramework processFramework("close-path", bufferSize, reportInterval);
 
-    BundleReader* bundleReader = new BundleReader(opt::bundleFile);
-    WorkGenerator* workGenerator = new WorkGenerator(bundleReader);
-    ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, opt::outputPfx);
+    std::vector<EdgeCovCriteria> covCriteria;
+    //covCriteria.push_back(EdgeCovCriteria(0,0,0,0.0001)); // Require a trace amount of read pair coverage for each edge
+    //covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
+    //covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
 
-    // Close bundles
-    if (opt::numThreads <= 1)
+    //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.000));  // Require 1 unique bundle closure
+    //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0)); 
+    //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0)); 
+
+    covCriteria.push_back(EdgeCovCriteria(0,0,1,0.0));  // Require the edge to be covered by 1 unique read pair closure
+    covCriteria.push_back(EdgeCovCriteria(0,0,1,0.0)); 
+
+    size_t numRounds = covCriteria.size();
+
+    for(size_t i = 0; i < numRounds; i ++)
     {
-        // Serial Mode
-        ClosePathProcess processor(pGraph, opt::maxNumStd);
-        processFramework.processWorkSerial(*workGenerator, &processor, postProcessor);
-    }
-    else
-    {
-        // Parallel Mode
-        std::vector<ClosePathProcess*> processorVector;
-        for(int i = 0; i < opt::numThreads; ++i)
-        {
-            ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd);
-            processorVector.push_back(pProcessor);
-        }
+        size_t roundNum = i + 1;
 
-        processFramework.processWorkParallel(*workGenerator, processorVector, postProcessor);
+        std::cout << "\n\n\n\n\n********************************************************\n"
+                  << "sga close-path round " << roundNum << std::endl;
 
-        for(int i = 0; i < opt::numThreads; ++i)
-        {
-            delete processorVector[i];
-        }
-    }
-
-    if (opt::bRemoveEdges)
-    {
-        postProcessor->removeEdges();
-    }
-
-    delete bundleReader;
-    delete workGenerator;
-    delete postProcessor;
-    
-
-    if (opt::bRemoveEdges && opt::bSecondRound)
-    {
-        ClosePathProcessFramework processFramework("close-path: round 2", bufferSize, reportInterval);
+        std::ostringstream ssProcessName;
+        ssProcessName << "close-path: round " << roundNum;
+        ClosePathProcessFramework processFramework(ssProcessName.str(), bufferSize, reportInterval);
         BundleReader* bundleReader = new BundleReader(opt::bundleFile);
         WorkGenerator* workGenerator = new WorkGenerator(bundleReader);
-        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, opt::outputPfx + ".round2", 2);
-        // Perform a second round of bundle closures on the simplified graph. 
-        // We hope that, after edge pruning, many of the bundles that previously could not be closed uniquely (either
-        // due to too many paths or graph too repetative) could now be closed
+
+        std::ostringstream ssOutputPfx;
+        ssOutputPfx << opt::outputPfx << ".round" << roundNum;
+        std::string roundOutputPfx = ssOutputPfx.str();
+        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, roundOutputPfx);
+
+        // Find path closures for all bundles
         if (opt::numThreads <= 1)
         {
             // Serial Mode
@@ -181,6 +160,13 @@ int closePathMain(int argc, char** argv)
                 delete processorVector[i];
             }
         }
+
+        // This will remove edges from the graph
+        postProcessor->removeEdges(covCriteria[i]);
+
+        std::cout << "Graph stats after round " << roundNum << " pruning:\n";
+        pGraph->stats();
+
         delete bundleReader;
         delete workGenerator;
         delete postProcessor;
@@ -210,8 +196,6 @@ void parseClosePathOptions(int argc, char** argv)
             case '?': die = true; break;
             case 'v': opt::verbose++; break;
             case OPT_MINSTD: arg >> opt::minStd; break;
-            case OPT_REMOVE_EDGES: opt::bRemoveEdges = true; break;
-            case OPT_SECOND_ROUND: opt::bSecondRound = true; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -270,8 +254,6 @@ void printOptions()
                   << "MinOverlap: " << opt::minOverlap << "\n"
                   << "MaxNumStd: " << opt::maxNumStd << "\n"
                   << "MinStd: " << opt::minStd << "\n"
-                  << "RemoveEdges: " << opt::bRemoveEdges << "\n"
-                  << "SecondRound: " << opt::bSecondRound << "\n"
                   << "graphFile: " << opt::graphFile << "\n"
                   << "bundleFile: " << opt::bundleFile << "\n"
                   << "outputPfx: " << opt::outputPfx << "\n"

@@ -3,53 +3,81 @@
 
 using namespace std;
 
+std::ostream& operator<<(std::ostream& os, const EdgeCov& cov)
+{                                                                                                                                                                                        
+    os << cov.bundleCov
+    << "\t" << cov.uniqueBundleCov
+    << "\t" << cov.uniqueReadCov
+    << "\t" << cov.readCovScore;
+    return os;
+}
+
 void EdgeTracker::processResult(const ClosePathResult& res)
 {
-    if (res.numClosures != 1)
-         return;
-    const EdgePtrVec edges = res.walks[0].getEdges();
-    for(size_t i = 0; i < edges.size(); i++)
+    if (res.numClosures == 0)
+        return;
+
+    const bool isUnique = (res.numClosures == 1);
+    const Bundle* bundle = res.bundle;
+
+    // Gather all of the edges from all of the walks, and their twins
+    vector<Edge *> edgeVec;
+    assert(res.numClosures == res.walks.size());
+    for(size_t i = 0; i < res.numClosures; i++)
     {
-        Edge * pEdge = edges[i];
-        Edge * pTwin = pEdge->getTwin();
-        pair<EdgeIntMap::iterator, bool> ret;
-
-        // Add the Edge
-        ret = edgeCov_.insert(EdgeIntMap::value_type(pEdge, 1));
-        if (!ret.second)
+        const SGWalk& walk = res.walks[i];
+        const EdgePtrVec walkEdges = walk.getEdges();
+        edgeVec.reserve(edgeVec.size() + 2*walkEdges.size());
+        for(size_t j=0; j < walkEdges.size(); j++)
         {
-            ret.first->second++;
-        }
-
-        // Add the Twin
-        ret = edgeCov_.insert(EdgeIntMap::value_type(pTwin, 1));
-        if (!ret.second)
-        {
-            ret.first->second++;
+            edgeVec.push_back(walkEdges[j]);
+            edgeVec.push_back(walkEdges[j]->getTwin());
         }
     }
-};
+    set<Edge *> edgeSet(edgeVec.begin(), edgeVec.end());
 
-
-void EdgeTracker::setEdgeColors(GraphColor c, int minCov)
-{
-    EdgeIntMap::const_iterator i = edgeCov_.begin();
-    EdgeIntMap::const_iterator ie = edgeCov_.end();
-    for(; i != ie; i++)
+    //  Add contributions to the read coverage score
+    assert(bundle->n > 0);
+    const float readCov = ((float) bundle->n)/res.numClosures;
+    for(size_t i = 0; i < edgeVec.size(); i++)
     {
-        if (i->second >= minCov)
-            (i->first)->setColor(c);
+        Edge * pEdge = edgeVec[i];
+        pair<EdgeCovMap::iterator, bool> ret;
+
+        // Add the Edge
+        ret = edgeCov_.insert(EdgeCovMap::value_type(pEdge, EdgeCov()));
+        ret.first->second.readCovScore += readCov;
+    }
+
+    set<Edge *>::const_iterator i = edgeSet.begin();
+    const set<Edge *>::const_iterator E = edgeSet.end();
+
+    // Update attributes bundleCov, uniqueBundleCov, and uniqueReadCov
+    for(; i != E; i++)
+    {
+        Edge * pEdge = *i;
+
+        // Add the Edge
+        EdgeCovMap::iterator iter = edgeCov_.find(pEdge);
+        assert(iter != edgeCov_.end());
+        iter->second.bundleCov++;
+        if (isUnique)
+        {
+            iter->second.uniqueBundleCov++;
+            iter->second.uniqueReadCov += bundle->n;
+        }
     }
 }
 
-
-
 void EdgeTracker::writeCoverageStats(ostream& os)
 {
-    EdgeIntMap::const_iterator i = edgeCov_.begin();
-    EdgeIntMap::const_iterator ie = edgeCov_.end();
+    EdgeCovMap::const_iterator i = edgeCov_.begin();
+    EdgeCovMap::const_iterator ie = edgeCov_.end();
     for(; i != ie; i++)
     {
-        os << "Edge: " << *(i->first) << " Coverage: " << i->second << endl;
+        const Edge* pEdge = (i->first);
+        const EdgeCov& cov = i->second;
+        string edgeStr = pEdge->getStartID() + "." + pEdge->getEndID();
+        os << edgeStr << "\t" << cov << "\n";
     }
 };
