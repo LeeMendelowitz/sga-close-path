@@ -90,6 +90,7 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     numBundlesClosed_(0),
     numBundlesFailedOverlap_(0),
     numBundlesFailedRepetitive_(0),
+    numOverlapsFound_(0),
     numReadPairsProcessed_(0),
     numReadPairsClosedUniquely_(0),
     numReadPairsClosed_(0),
@@ -143,6 +144,16 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         {
             numBundlesClosed_++;
             numReadPairsClosed_ += result.bundle->n;
+        }
+
+        // Look for overlap!
+        if ((result.numClosures == 0) && (result.bundle->n >= 5))
+        {
+            Overlap overlap;
+            bool foundOverlap = overlapFinder_.findOverlap(result.bundle, pGraph_, overlap);
+            if (foundOverlap)
+                numOverlapsFound_++;
+
         }
 
         // Delete the bundle object
@@ -290,5 +301,6 @@ void ClosePathPostProcess::printSummary(std::ostream& os)
        << "Num. Failed Overlap Too Large: " << numBundlesFailedOverlap_ << " (" << numReadPairsFailedOverlap_ << " read pairs)\n"
        << "Num. Failed Graph Repetitive: " << numBundlesFailedRepetitive_ << " (" << numReadPairsFailedRepetitive_ << " read pairs)\n"
        << "Num. Failed Closure (no path): " << numBundlesNoPath << " (" << numReadPairsNoPath << " read pairs)\n"
+       << "Num. Overlaps Found: " << numOverlapsFound_ << "\n"
        << "\n----------------------------------------------------------" << std::endl;
 }

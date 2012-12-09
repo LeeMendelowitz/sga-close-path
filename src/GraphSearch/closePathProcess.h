@@ -7,6 +7,7 @@
 #include "bundle.h"
 #include "bundleReader.h"
 #include "edgeTracker.h"
+#include "overlapFinder.h"
 #include "SGUtil.h"
 #include "SGWalk.h"
 
@@ -96,8 +97,6 @@ class ClosePathProcess
     const float numStd_;
 };
 
-
-
 // Post Processor to write results to file
 class ClosePathPostProcess
 {
@@ -121,6 +120,7 @@ class ClosePathPostProcess
         std::ofstream walksFile_;
         std::ofstream edgeCovFile_;
         EdgeTracker edgeTracker_;
+        OverlapFinder overlapFinder_;
 
         // Summary of closures
         int numBundlesProcessed_;
@@ -128,11 +128,13 @@ class ClosePathPostProcess
         int numBundlesClosed_;
         int numBundlesFailedOverlap_;
         int numBundlesFailedRepetitive_;
+        int numOverlapsFound_;
         int numReadPairsProcessed_;
         int numReadPairsClosedUniquely_;
         int numReadPairsClosed_;
         int numReadPairsFailedOverlap_;
         int numReadPairsFailedRepetitive_;
+
 
         // Write results to files
         void writeResultToStatus(const ClosePathResult & res);
