@@ -78,7 +78,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
 
     // Check for overlap if there is sufficient link evidence and if no path was found.
     bool checkOverlap = (numClosures == 0 ) && (result.bundle->n >= 5);
-    if ((numClosures == 0) && (result.bundle->n >= 5))
+    if (checkOverlap)
     {
         Overlap overlap;
         bool foundOverlap = overlapFinder_.findOverlap(result.bundle, pGraph_, overlap);
@@ -223,6 +223,8 @@ void ClosePathPostProcess::writeStatsHeader()
                << "\tstdEst"
                << "\tnumLinks"
                << "\tnumClosures"
+               << "\toverlap"
+               << "\toverlapDiff"
                << "\tclosureLengths"
                << "\n";
 }
@@ -235,7 +237,9 @@ void ClosePathPostProcess::writeResultToStats(const ClosePathResult & res)
                << "\t" << b->gap
                << "\t" << b->std
                << "\t" << b->n
-               << "\t" << res.walks.size();
+               << "\t" << res.walks.size()
+               << "\t" << res.overlap.getOverlapLength(0) << "/" << res.overlap.getOverlapLength(1)
+               << "\t" << res.overlap.match.numDiff;
 
     // Get the gap sizes from the paths
     statsFile_ << "\t";
