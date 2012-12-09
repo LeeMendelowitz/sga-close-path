@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <sstream>
 #include <string>
+#include <iostream>
 
 #include "closePathProcess.h"
 #include "PCSearch.h"
@@ -95,7 +96,8 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     numReadPairsClosedUniquely_(0),
     numReadPairsClosed_(0),
     numReadPairsFailedOverlap_(0),
-    numReadPairsFailedRepetitive_(0)
+    numReadPairsFailedRepetitive_(0),
+    numReadPairsOverlapFound_(0)
 
 {
 
@@ -152,8 +154,11 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
             Overlap overlap;
             bool foundOverlap = overlapFinder_.findOverlap(result.bundle, pGraph_, overlap);
             if (foundOverlap)
+            {
                 numOverlapsFound_++;
-
+                std::cout << "Found Overlap! Length:" << overlap.getOverlapLength(0) << " " << overlap.getOverlapLength(1) << " NumDiff: " << overlap.match.numDiff << std::endl;
+            }
+            numReadPairsOverlapFound_ += result.bundle->n;
         }
 
         // Delete the bundle object
@@ -301,6 +306,6 @@ void ClosePathPostProcess::printSummary(std::ostream& os)
        << "Num. Failed Overlap Too Large: " << numBundlesFailedOverlap_ << " (" << numReadPairsFailedOverlap_ << " read pairs)\n"
        << "Num. Failed Graph Repetitive: " << numBundlesFailedRepetitive_ << " (" << numReadPairsFailedRepetitive_ << " read pairs)\n"
        << "Num. Failed Closure (no path): " << numBundlesNoPath << " (" << numReadPairsNoPath << " read pairs)\n"
-       << "Num. Overlaps Found: " << numOverlapsFound_ << "\n"
+       << "Num. Overlaps Found: " << numOverlapsFound_ << " (" << numReadPairsOverlapFound_ << " read pairs)\n"
        << "\n----------------------------------------------------------" << std::endl;
 }

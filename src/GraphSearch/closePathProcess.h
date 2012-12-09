@@ -134,6 +134,7 @@ class ClosePathPostProcess
         int numReadPairsClosed_;
         int numReadPairsFailedOverlap_;
         int numReadPairsFailedRepetitive_;
+        int numReadPairsOverlapFound_;
 
 
         // Write results to files
