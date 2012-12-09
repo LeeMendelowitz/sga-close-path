@@ -67,19 +67,20 @@ class ClosePathResult
         bundle(b),
         tooRepetitive(false),
         overlapTooLarge(false),
-        numClosures(0) {};
+        foundOverlap(false)
+        {};
 
     void setWalks(const SGWalkVector& walksIn)
     {
         walks = walksIn;
-        numClosures = walks.size();
     }
 
     const Bundle * bundle;
     bool tooRepetitive; // Closure failed due to graph too repetitive
     bool overlapTooLarge; // Closure failed because bundle implies overlap too large
-    size_t numClosures;
+    bool foundOverlap;
     SGWalkVector walks;
+    Overlap overlap;
 };
 
 
@@ -94,6 +95,7 @@ class ClosePathProcess
 
     private:
     StringGraph * pGraph_;
+    OverlapFinder overlapFinder_;
     const float numStd_;
 };
 
@@ -120,7 +122,6 @@ class ClosePathPostProcess
         std::ofstream walksFile_;
         std::ofstream edgeCovFile_;
         EdgeTracker edgeTracker_;
-        OverlapFinder overlapFinder_;
 
         // Summary of closures
         int numBundlesProcessed_;

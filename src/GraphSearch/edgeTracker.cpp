@@ -14,16 +14,17 @@ std::ostream& operator<<(std::ostream& os, const EdgeCov& cov)
 
 void EdgeTracker::processResult(const ClosePathResult& res)
 {
-    if (res.numClosures == 0)
+    size_t numClosures = res.walks.size();
+    if (numClosures == 0)
         return;
 
-    const bool isUnique = (res.numClosures == 1);
+    const bool isUnique = (numClosures == 1);
     const Bundle* bundle = res.bundle;
 
     // Gather all of the edges from all of the walks, and their twins
     vector<Edge *> edgeVec;
-    assert(res.numClosures == res.walks.size());
-    for(size_t i = 0; i < res.numClosures; i++)
+    assert(numClosures == res.walks.size());
+    for(size_t i = 0; i < numClosures; i++)
     {
         const SGWalk& walk = res.walks[i];
         const EdgePtrVec walkEdges = walk.getEdges();
@@ -38,7 +39,7 @@ void EdgeTracker::processResult(const ClosePathResult& res)
 
     //  Add contributions to the read coverage score
     assert(bundle->n > 0);
-    const float readCov = ((float) bundle->n)/res.numClosures;
+    const float readCov = ((float) bundle->n)/numClosures;
     for(size_t i = 0; i < edgeVec.size(); i++)
     {
         Edge * pEdge = edgeVec[i];

@@ -74,6 +74,20 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks);
     result.setWalks(walks);
     result.tooRepetitive = !foundAll;
+    size_t numClosures = walks.size();
+
+    // Check for overlap if there is sufficient link evidence and if no path was found.
+    bool checkOverlap = (numClosures == 0 ) && (result.bundle->n >= 5);
+    if ((numClosures == 0) && (result.bundle->n >= 5))
+    {
+        Overlap overlap;
+        bool foundOverlap = overlapFinder_.findOverlap(result.bundle, pGraph_, overlap);
+        if (foundOverlap)
+        {
+            result.foundOverlap = true;
+            result.overlap = overlap;
+        }
+    }
 
     #if BUNDLEMANAGER_DEBUG > 0
     cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
@@ -127,6 +141,7 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
 
         numBundlesProcessed_++;
         numReadPairsProcessed_ += result.bundle->n;
+        size_t numClosures = result.walks.size();
         if (result.tooRepetitive)
         {
             numBundlesFailedRepetitive_++;
@@ -137,27 +152,21 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
             numBundlesFailedOverlap_++;
             numReadPairsFailedOverlap_ += result.bundle->n;
         }
-        if (result.numClosures == 1)
+        if (numClosures == 1)
         {
             numBundlesClosedUniquely_++;
             numReadPairsClosedUniquely_ += result.bundle->n;
         }
-        if (result.numClosures > 0)
+        if (numClosures > 0)
         {
             numBundlesClosed_++;
             numReadPairsClosed_ += result.bundle->n;
         }
 
         // Look for overlap!
-        if ((result.numClosures == 0) && (result.bundle->n >= 5))
+        if (result.foundOverlap)
         {
-            Overlap overlap;
-            bool foundOverlap = overlapFinder_.findOverlap(result.bundle, pGraph_, overlap);
-            if (foundOverlap)
-            {
-                numOverlapsFound_++;
-                std::cout << "Found Overlap! Length:" << overlap.getOverlapLength(0) << " " << overlap.getOverlapLength(1) << " NumDiff: " << overlap.match.numDiff << std::endl;
-            }
+            numOverlapsFound_++;
             numReadPairsOverlapFound_ += result.bundle->n;
         }
 
@@ -193,15 +202,17 @@ void ClosePathPostProcess::writeStatusHeader()
                 << "\tNumClosures"
                 << "\tTooRepetitive"
                 << "\tOverlapTooLarge"
+                << "\tFoundOverlap"
                 << "\n";
 }
 
 void ClosePathPostProcess::writeResultToStatus(const ClosePathResult & res)
 {
     statusFile_ << res.bundle->id
-                << "\t" << res.numClosures
+                << "\t" << res.walks.size()
                 << "\t" << res.tooRepetitive
                 << "\t" << res.overlapTooLarge
+                << "\t" << res.foundOverlap
                 << "\n";
 }
 
@@ -224,14 +235,14 @@ void ClosePathPostProcess::writeResultToStats(const ClosePathResult & res)
                << "\t" << b->gap
                << "\t" << b->std
                << "\t" << b->n
-               << "\t" << res.numClosures;
+               << "\t" << res.walks.size();
 
     // Get the gap sizes from the paths
     statsFile_ << "\t";
-    for(size_t i = 0; i < res.numClosures; i++)
+    for(size_t i = 0; i < res.walks.size(); i++)
     {
         statsFile_ << res.walks[i].getEndToStartDistance();
-        if (i != res.numClosures-1) statsFile_ << ",";
+        if (i != res.walks.size()-1) statsFile_ << ",";
     }
     statsFile_ << "\n";
 }
