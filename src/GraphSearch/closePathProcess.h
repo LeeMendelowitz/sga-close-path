@@ -107,6 +107,7 @@ class ClosePathPostProcess
     ~ClosePathPostProcess();
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
+    size_t addEdgesToGraph();
 
     // Remove edges 
     template <class T>
@@ -122,6 +123,7 @@ class ClosePathPostProcess
         std::ofstream walksFile_;
         std::ofstream edgeCovFile_;
         EdgeTracker edgeTracker_;
+        EdgePtrVec edgesToAdd_;
 
         // Summary of closures
         int numBundlesProcessed_;

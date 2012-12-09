@@ -105,16 +105,15 @@ int closePathMain(int argc, char** argv)
     const size_t reportInterval = 2000;
 
     std::vector<EdgeCovCriteria> covCriteria;
-    //covCriteria.push_back(EdgeCovCriteria(0,0,0,0.0001)); // Require a trace amount of read pair coverage for each edge
-    //covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
-    //covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
+    covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
+    covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
+    covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
 
-    //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.000));  // Require 1 unique bundle closure
-    //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0)); 
+    //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0));  // Require 1 unique bundle closure
     //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0)); 
 
-    covCriteria.push_back(EdgeCovCriteria(0,0,1,0.0));  // Require the edge to be covered by 1 unique read pair closure
-    covCriteria.push_back(EdgeCovCriteria(0,0,1,0.0)); 
+    //covCriteria.push_back(EdgeCovCriteria(0,0,1,0.0));  // Require the edge to be covered by 1 unique read pair closure
+    //covCriteria.push_back(EdgeCovCriteria(0,0,1,0.0)); 
 
     size_t numRounds = covCriteria.size();
 
@@ -161,9 +160,10 @@ int closePathMain(int argc, char** argv)
             }
         }
 
-        // This will remove edges from the graph
+        // Remove untrusted edges from the graph, and add missing edges
         postProcessor->removeEdges(covCriteria[i]);
-
+        size_t edgesAdded = postProcessor->addEdgesToGraph();
+        std::cout << "Added " << edgesAdded << " edges to the graph.\n";
         std::cout << "Graph stats after round " << roundNum << " pruning:\n";
         pGraph->stats();
 

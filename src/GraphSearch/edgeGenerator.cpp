@@ -155,9 +155,11 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
                 Edge * pEdge = *iEdge;
                 assert(pEdge->getStart() == pVertex);
                 const Vertex * pNextVertex = pEdge->getEnd();
-                int nextStartPos = endPos - pEdge->getMatchLength();
-                int nextStartPos2 = se.startPos + pEdge->getTwin()->getSeqLen();
-                assert(nextStartPos2 == nextStartPos);
+
+                // Take the minimum value for the next starting position.
+                // (There may be two possible values in the case of an inexact overlap).
+                int ol = max(pEdge->getMatchLength(), pEdge->getTwin()->getMatchLength());
+                int nextStartPos = endPos - ol;
 
                 // Example of vertex direction inferred from edges:
                 // Say A & B have this relative orientation:

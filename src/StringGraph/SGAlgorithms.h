@@ -48,6 +48,10 @@ void remodelVertexForExcision2(StringGraph* pGraph, Vertex* pVertex, Edge* pDele
 // Create the edges described by the overlap.
 Edge* createEdgesFromOverlap(StringGraph* pGraph, const Overlap& o, bool allowContained, size_t maxEdges = -1);
 
+// Create the edges described by the overlap, but do not add them to the string graph
+// Do not allow containment edges
+bool createEdgesFromOverlap(StringGraph* pGraph, const Overlap& o, EdgePtrVec& edgeVec);
+
 // Calculate the error rate between the two vertices
 double calcErrorRate(const Vertex* pX, const Vertex* pY, const Overlap& ovrXY);
 

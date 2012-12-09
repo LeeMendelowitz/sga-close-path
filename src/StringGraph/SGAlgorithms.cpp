@@ -113,6 +113,49 @@ Edge* SGAlgorithms::createEdgesFromOverlap(StringGraph* pGraph, const Overlap& o
     }
 }
 
+
+// Create the edges described by the overlap, but do not add them to the string graph
+// Do not allow contained edges
+bool SGAlgorithms::createEdgesFromOverlap(StringGraph* pGraph, const Overlap& o, EdgePtrVec& edgeVec)
+{
+    edgeVec.clear();
+    // Initialize data and perform checks
+    Vertex* pVerts[2];
+    EdgeComp comp = (o.match.isRC()) ? EC_REVERSE : EC_SAME;
+
+    bool isContainment = o.match.isContainment();
+    if (isContainment)
+        return false;
+
+    for(size_t idx = 0; idx < 2; ++idx)
+    {
+        pVerts[idx] = pGraph->getVertex(o.id[idx]);
+
+        // If one of the vertices is not in the graph, skip this edge
+        // This can occur if one of the verts is a strict substring of some other vertex so it will
+        // never be added to the graph
+        if(pVerts[idx] == NULL)
+            return false;
+    }
+
+    Edge* pEdges[2];
+    for(size_t idx = 0; idx < 2; ++idx)
+    {
+        EdgeDir dir = o.match.coord[idx].isLeftExtreme() ? ED_ANTISENSE : ED_SENSE;
+        const SeqCoord& coord = o.match.coord[idx];
+        pEdges[idx] = new(pGraph->getEdgeAllocator()) Edge(pVerts[1 - idx], dir, comp, coord);
+    }
+
+    pEdges[0]->setTwin(pEdges[1]);
+    pEdges[1]->setTwin(pEdges[0]);
+    edgeVec.push_back(pEdges[0]);
+    edgeVec.push_back(pEdges[1]);
+    return true;
+}
+
+
+
+
 // Find new edges for pVertex that are required if pDeleteEdge is removed from the graph
 void SGAlgorithms::remodelVertexForExcision(StringGraph* pGraph, Vertex* pVertex, Edge* pDeleteEdge)
 {

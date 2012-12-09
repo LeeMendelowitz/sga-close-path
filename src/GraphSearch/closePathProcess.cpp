@@ -8,6 +8,7 @@
 
 #include "closePathProcess.h"
 #include "PCSearch.h"
+#include "SGAlgorithms.h"
 
 using namespace std;
 
@@ -62,7 +63,8 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     params.minDistanceEnforced = true;
     params.maxDistanceEnforced = true;
     params.nodeLimit = 10000;
-    params.selfPrune = false;
+    //params.selfPrune = false;
+    params.selfPrune = true;
 
     assert(params.maxDistance > 0);
     assert(params.minDistance < params.maxDistance);
@@ -77,7 +79,8 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     size_t numClosures = walks.size();
 
     // Check for overlap if there is sufficient link evidence and if no path was found.
-    bool checkOverlap = (numClosures == 0 ) && (result.bundle->n >= 5);
+    bool checkOverlap = (numClosures == 0 ) && (result.bundle->n >= 2);
+    result.overlap.match.numDiff = 0;
     if (checkOverlap)
     {
         Overlap overlap;
@@ -168,10 +171,31 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         {
             numOverlapsFound_++;
             numReadPairsOverlapFound_ += result.bundle->n;
+
+            // Create the edge corresponding to this overlap and store it
+            EdgePtrVec edgeVec;
+            bool createdEdges = SGAlgorithms::createEdgesFromOverlap(pGraph_, result.overlap, edgeVec);
+            if (createdEdges)
+            {
+                for (size_t i = 0; i < edgeVec.size(); i++)
+                    edgesToAdd_.push_back(edgeVec[i]);
+            }
         }
 
         // Delete the bundle object
         delete item.b_;
+}
+
+size_t ClosePathPostProcess::addEdgesToGraph()
+{
+
+    size_t N = edgesToAdd_.size();
+    for (size_t i = 0; i < N; i++)
+    {
+        Edge * pEdge = edgesToAdd_[i];
+        pGraph_->addEdge(pEdge->getStart(), pEdge);
+    }
+    return N;
 }
 
 
