@@ -12,10 +12,13 @@
 
 using namespace std;
 
-ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap) :
+ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, bool checkOverlap) :
     pGraph_(pGraph),
     numStd_(numStd) ,
-    maxGap_(maxGap)
+    maxGap_(maxGap),
+    checkOverlap_(checkOverlap),
+    MAX_OL(150),
+    BOUND_FUZZ(75)
     { };
 
 ClosePathProcess::~ClosePathProcess() { };
@@ -34,11 +37,15 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     assert(pX);
     assert(pY);
 
-    int64_t maxGap = b->gap + numStd_*b->std;
-    int64_t minGap = b->gap - numStd_*b->std;
-    int64_t lX = pX->getSeqLen();
+    // Determine the upper and lower bounds for the graph search
+    // Add BOUND_FUZZ to make it very likely that the interval [minGap, maxGap]
+    // traps the true gap size value.
+    int maxGap = b->gap + numStd_*b->std + BOUND_FUZZ;
+    int minGap = b->gap - numStd_*b->std - BOUND_FUZZ;
+    int lX = pX->getSeqLen();
 
     if (maxGap > maxGap_) maxGap = maxGap_;
+    if (minGap < (-MAX_OL)) minGap = -MAX_OL;
 
     #if BUNDLEMANAGER_DEBUG > 0
     int64_t lY = pY->getSeqLen();
@@ -60,7 +67,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     SGSearchParams params(pX, pY, b->dir1, 0);
     params.goalDir = !b->dir2;
     params.maxDistance = maxGap + lX;
-    params.minDistance = max(minGap + lX, (int64_t) 0);
+    params.minDistance = max(minGap + lX, 0);
     params.allowGoalRepeat = true;
     params.goalOriented = true;
     params.minDistanceEnforced = true;
@@ -82,7 +89,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     size_t numClosures = walks.size();
 
     // Check for overlap if there is sufficient link evidence and if no path was found.
-    bool checkOverlap = (numClosures == 0 ) && (result.bundle->n >= 2);
+    bool checkOverlap = checkOverlap_ && (numClosures == 0 ) && (result.bundle->n >= 2);
     result.overlap.match.numDiff = 0;
     if (checkOverlap)
     {

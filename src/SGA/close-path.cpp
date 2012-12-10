@@ -59,6 +59,7 @@ namespace opt
     static std::string graphFile;
     static std::string bundleFile;
     static std::string outputPfx;
+    static bool findOverlaps = false;
 }
 
 static const char* shortopts = "vm:s:t:p:o:";
@@ -140,7 +141,7 @@ int closePathMain(int argc, char** argv)
         if (opt::numThreads <= 1)
         {
             // Serial Mode
-            ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap);
+            ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap, opt::findOverlaps);
             processFramework.processWorkSerial(*workGenerator, &processor, postProcessor);
         }
         else
@@ -149,7 +150,7 @@ int closePathMain(int argc, char** argv)
             std::vector<ClosePathProcess*> processorVector;
             for(int i = 0; i < opt::numThreads; ++i)
             {
-                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd, opt::maxGap);
+                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd, opt::maxGap, opt::findOverlaps);
                 processorVector.push_back(pProcessor);
             }
 
@@ -163,7 +164,11 @@ int closePathMain(int argc, char** argv)
 
         // Remove untrusted edges from the graph, and add missing edges
         postProcessor->removeEdges(covCriteria[i]);
-        size_t edgesAdded = postProcessor->addEdgesToGraph();
+        size_t edgesAdded = 0;
+        if (opt::findOverlaps)
+        {
+           edgesAdded = postProcessor->addEdgesToGraph();
+        }
         pGraph->writeASQG(roundOutputPfx + "-pruned.asqg.gz");
         std::cout << "Added " << edgesAdded << " edges to the graph.\n";
         std::cout << "Graph stats after round " << roundNum << " pruning:\n";

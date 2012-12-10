@@ -89,7 +89,7 @@ class ClosePathProcess
 {
 
     public:
-    ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap);
+    ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, bool checkOverlap);
     ~ClosePathProcess();
     ClosePathResult process(const ClosePathWorkItem& item);
 
@@ -98,6 +98,9 @@ class ClosePathProcess
     OverlapFinder overlapFinder_;
     const float numStd_;
     const int maxGap_;
+    bool checkOverlap_;
+    const int MAX_OL; // Maximum overlap to search for
+    const int BOUND_FUZZ; // Adjustments to the upper and lower bound for path search
 };
 
 // Post Processor to write results to file
