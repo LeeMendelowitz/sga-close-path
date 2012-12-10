@@ -163,6 +163,7 @@ int closePathMain(int argc, char** argv)
         // Remove untrusted edges from the graph, and add missing edges
         postProcessor->removeEdges(covCriteria[i]);
         size_t edgesAdded = postProcessor->addEdgesToGraph();
+        pGraph->writeASQG(roundOutputPfx + "-pruned.asqg.gz");
         std::cout << "Added " << edgesAdded << " edges to the graph.\n";
         std::cout << "Graph stats after round " << roundNum << " pruning:\n";
         pGraph->stats();

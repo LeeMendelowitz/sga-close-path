@@ -13,6 +13,7 @@ bool OverlapFinder::findOverlap(const Bundle* b, const StringGraph* pGraph, Over
     float maxGap = b->gap + maxStd_*b->std;
 
     const float MIN_OL = 20.0;
+    const float MAX_OL = 200.0;
 
     if (-minGap < MIN_OL)
         return false;
@@ -21,6 +22,7 @@ bool OverlapFinder::findOverlap(const Bundle* b, const StringGraph* pGraph, Over
     int minOverlap = -maxGap;
     if (minOverlap < MIN_OL) minOverlap = MIN_OL;
     int maxOverlap = -minGap;
+    if (maxOverlap > MAX_OL) maxOverlap = MAX_OL;
 
     // Use the bundle to obtain the sequence. Note that the boundedOverlap function
     // computes overlaps of the suffix of s1 with the prefix of s2
