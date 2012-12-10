@@ -121,9 +121,9 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     // Open output files
     statusFile_.open((outputPfx_ + ".status").c_str());
     statsFile_.open((outputPfx_ + ".stats").c_str());
-    fastaFile_.open((outputPfx_ + ".fasta").c_str());
-    fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
-    walksFile_.open((outputPfx_ + ".walks").c_str());
+    //fastaFile_.open((outputPfx_ + ".fasta").c_str());
+    //fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
+    //walksFile_.open((outputPfx_ + ".walks").c_str());
     edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
 
     // Write file headers
@@ -138,8 +138,8 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         // Write to the output files
         writeResultToStatus(result);
         writeResultToStats(result);
-        writeResultToFasta(result);
-        writeResultToWalks(result);
+    //    writeResultToFasta(result);
+     //   writeResultToWalks(result);
         edgeTracker_.processResult(result);
 
         numBundlesProcessed_++;
@@ -214,9 +214,9 @@ ClosePathPostProcess::~ClosePathPostProcess()
     // Close all output files
     statusFile_.close();
     statsFile_.close();
-    fastaFile_.close();
-    fastaFileUnique_.close();
-    walksFile_.close();
+    //fastaFile_.close();
+    //fastaFileUnique_.close();
+    //walksFile_.close();
     edgeCovFile_.close();
 }
 
