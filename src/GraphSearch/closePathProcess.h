@@ -89,7 +89,7 @@ class ClosePathProcess
 {
 
     public:
-    ClosePathProcess(StringGraph * pGraph, float numStd);
+    ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap);
     ~ClosePathProcess();
     ClosePathResult process(const ClosePathWorkItem& item);
 
@@ -97,6 +97,7 @@ class ClosePathProcess
     StringGraph * pGraph_;
     OverlapFinder overlapFinder_;
     const float numStd_;
+    const int maxGap_;
 };
 
 // Post Processor to write results to file

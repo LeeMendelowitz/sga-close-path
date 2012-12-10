@@ -12,9 +12,10 @@
 
 using namespace std;
 
-ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd) : 
+ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap) :
     pGraph_(pGraph),
-    numStd_(numStd) 
+    numStd_(numStd) ,
+    maxGap_(maxGap)
     { };
 
 ClosePathProcess::~ClosePathProcess() { };
@@ -36,6 +37,8 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     int64_t maxGap = b->gap + numStd_*b->std;
     int64_t minGap = b->gap - numStd_*b->std;
     int64_t lX = pX->getSeqLen();
+
+    if (maxGap > maxGap_) maxGap = maxGap_;
 
     #if BUNDLEMANAGER_DEBUG > 0
     int64_t lY = pY->getSeqLen();

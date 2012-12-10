@@ -55,6 +55,7 @@ namespace opt
     static int numThreads = 1;
     static float maxNumStd = 3.0;
     static float minStd = 0.0;
+    static int maxGap = 200;
     static std::string graphFile;
     static std::string bundleFile;
     static std::string outputPfx;
@@ -139,7 +140,7 @@ int closePathMain(int argc, char** argv)
         if (opt::numThreads <= 1)
         {
             // Serial Mode
-            ClosePathProcess processor(pGraph, opt::maxNumStd);
+            ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap);
             processFramework.processWorkSerial(*workGenerator, &processor, postProcessor);
         }
         else
@@ -148,7 +149,7 @@ int closePathMain(int argc, char** argv)
             std::vector<ClosePathProcess*> processorVector;
             for(int i = 0; i < opt::numThreads; ++i)
             {
-                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd);
+                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd, opt::maxGap);
                 processorVector.push_back(pProcessor);
             }
 
