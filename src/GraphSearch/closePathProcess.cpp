@@ -42,13 +42,13 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     // traps the true gap size value.
     int maxGap = b->gap + numStd_*b->std + BOUND_FUZZ;
     int minGap = b->gap - numStd_*b->std - BOUND_FUZZ;
-    int lX = pX->getSeqLen();
-
     if (maxGap > maxGap_) maxGap = maxGap_;
     if (minGap < (-MAX_OL)) minGap = -MAX_OL;
+    int lX = pX->getSeqLen();
+
 
     #if BUNDLEMANAGER_DEBUG > 0
-    int64_t lY = pY->getSeqLen();
+    int lY = pY->getSeqLen();
     cout << "*****************************\n";
     cout << " V1: " << b->vertex1ID << " Length: " << lX
          << " V2: " << b->vertex2ID << " Length: " << lY
@@ -57,11 +57,13 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     #endif
 
     // Skip this search if the maximum allowed gap implies too large of an overlap
-    if ( (maxGap < 0) && (-maxGap >= lX))
+    if ( (maxGap < 0) && ((-maxGap >= lX) || (maxGap <= (-MAX_OL))) )
     {
         result.overlapTooLarge = true;
         return result;
     }
+
+    assert(minGap <= maxGap);
 
     // Create search params for path closure search
     SGSearchParams params(pX, pY, b->dir1, 0);
@@ -77,7 +79,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     params.selfPrune = true;
 
     assert(params.maxDistance > 0);
-    assert(params.minDistance < params.maxDistance);
+    assert(params.minDistance <= params.maxDistance);
     assert(params.minDistance >= 0);
 
     // Find paths and save results
