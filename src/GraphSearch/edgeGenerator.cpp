@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <queue>
+#include <deque>
 #include <set>
 //#include <pair>
 #include <cassert>
@@ -73,6 +74,39 @@ ostream& operator<<(ostream& os, EdgePtrVec& evec)
     return os;
 }
 
+// Given a list of xEdges and yEdges, return:
+// xEdgeSet: The set of edges in xEdges whos twin is in yEdges.
+// yEdgeSet: The set of edges in yEdges whos twin is in xEdges.
+void edgeIntersection(const EdgePtrVec& xEdges, const EdgePtrVec& yEdges, EdgePtrSet& xEdgeSet, EdgePtrSet& yEdgeSet)
+{
+    // Form the yEdgeSet
+    yEdgeSet = EdgePtrSet(yEdges.begin(), yEdges.end());
+
+    // Populate the xEdgeSet by taking the intersection
+    xEdgeSet.clear();
+    for(EdgePtrVec::const_iterator iter; 
+        iter != xEdges.end();
+        iter++)
+    {
+        if (yEdgeSet.count((*iter)->getTwin()) != 0)
+            xEdgeSet.insert(*iIter);
+
+            // NOTE: We can prune the yEdgeSet here if we use the find function instead of count!
+    }
+
+    // Remove elements from the yEdgeSet which are not in the intersection
+    for(EdgeSetConstIter iter = yEdgeSet.begin(); 
+        iter != yEdgeSet.end();)
+    {
+        if(xEdgeSet.count((*iter)->getTwin() == 0))
+        {
+            yEdgeSet.erase(iter++);
+        }
+        else
+            iter++;
+    }
+}
+
 
 // Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
 // This is done using modified Dijkstra's. We allow a node to appear once on a path in each possible orientation.
@@ -101,15 +135,13 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
     EdgePtrVec edges;
 
     typedef pair<const Vertex *, EdgeDir> VDirPair;
-    typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison> SearchQueue;
+    typedef priority_queue<SearchEntry, deque<SearchEntry>, SearchEntryComparison> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
 
     // Maintain a queue of vertices and their starting distance and orientation.
-    vector<SearchEntry> entryVec;
-    entryVec.reserve(10000);
-    SearchQueue vQueue(SearchEntryComparison(), entryVec);
+    SearchQueue vQueue;
 
     // Add the first vertex to the queue
     vQueue.push(SearchEntry(pVertex, dir, 0));
@@ -169,19 +201,164 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
                 // The edge B->A has direction: ED_SENSE
                 // If we take the edge A->B, then node B is ED_ANTISENSE! We figure this out
                 // by negating the direction of edge B->A
-                            
+
                 EdgeDir nextDir = !pEdge->getTwinDir();
-                SearchEntry se(pNextVertex, nextDir, nextStartPos);
                 bool tooFar = (nextStartPos > maxDistance);
 
                 if (!tooFar)
                 {
                     edges.push_back(pEdge);
-                    vQueue.push(se);
+
+                    // Check if the next vertex was already seen before adding to the vQueue
+                    VDirPair vdir(pVertex, nextDir);
+                    bool alreadySeen = (seen.count(vdir)>0);
+
+                    if (!alreadySeen)
+                    {
+                        SearchEntry se(pNextVertex, nextDir, nextStartPos);
+                        #if BFS_DEBUG != 0
+                        cout << "Adding edge from " << pVertex->getID()
+                          << ": " << se  << endl;
+                        #endif
+                        vQueue.push(se);
+                    }
+                } else {
                     #if BFS_DEBUG != 0
-                    cout << "Adding edge from " << pVertex->getID()
-                      << ": " << se  << endl;
+                    cout << "Skipping edge from " << pVertex->getID()
+                         << " " << se 
+                         << " because it is too far." << endl;
                     #endif
+                }
+            }
+        }
+    }
+    return edges;
+}
+
+// Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
+// Only use edges in the allowableEdges set.
+// This is done using modified Dijkstra's. We allow a node to appear once on a path in each possible orientation.
+// As in Dijkstra's. we maintain a priority_queue of nodes with their distance from source (and their orientation)
+//
+// Search distance is measured from the beginning of the starting vertex.
+// |----------> A
+// 
+// | 
+// 0
+//
+//          <-----| B
+// |<------>| distance from A to B.
+//
+// Distance 0 is at the start of vertex A
+// A vertex reachable from A is measured as the distance between 0 and the start of that vertex.
+
+// If dir == ED_SENSE, looking for path that exits 3' end
+// If dir == ED_ANTISENSE, looking for path that exits 5' end
+// The start of pVertex is considered to be offset 0.
+// If dir == ED_SENSE, then the 5' end is at offset 0.
+// If dir == ED_ANTISENSE, then the 3' end is at offset 0.
+EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, const EdgePtrSet& allowableEdges)
+{
+    
+    EdgePtrVec edges;
+
+    typedef pair<const Vertex *, EdgeDir> VDirPair;
+    typedef priority_queue<SearchEntry, deque<SearchEntry>, SearchEntryComparison> SearchQueue;
+
+    // Maintain a set of seen vertices and their orientation.
+    set<VDirPair> seen;
+
+    // Maintain a queue of vertices and their starting distance and orientation.
+    SearchQueue vQueue;
+
+    // Add the first vertex to the queue
+    vQueue.push(SearchEntry(pVertex, dir, 0));
+
+    #if BFS_DEBUG!=0
+    cout << "*************************************\n"
+         << "BFS: pVertex: " << pVertex->getID() << " dir: " << dir << " maxDist: " << maxDistance << endl;
+    #endif
+    
+    while ( !vQueue.empty() ) {
+
+        size_t N = vQueue.size();
+        for(unsigned int i=0; i<N; i++)
+        {
+            // Get the next vertex. This entry will be the next closest vertex to the source.
+            SearchEntry se = vQueue.top();
+            vQueue.pop();
+
+            assert(se.startPos <= maxDistance);
+            const Vertex * pVertex = se.pVertex;
+            VDirPair vdir(pVertex, se.dir);
+            bool alreadySeen = (seen.count(vdir)>0);
+
+            #if BFS_DEBUG!=0
+            cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
+            #endif
+
+            assert(!alreadySeen);
+            //if (alreadySeen) continue;
+
+            seen.insert(vdir);
+
+            #if BFS_DEBUG!=0
+            cout << "**************************************\n"
+                 << "Searching edges from: " << se << endl;
+            #endif
+
+            // Get edges from the next vertex
+            EdgePtrVec nextEdges = pVertex->getEdges(se.dir);
+            EdgePtrVec::iterator iEdge = nextEdges.begin();
+            const EdgePtrVec::iterator E = nextEdges.end();
+            int endPos = se.startPos + pVertex->getSeqLen();
+            for(; iEdge != E; iEdge++)
+            {
+                Edge * pEdge = *iEdge;
+                // If this edge is not in the allowable edge set, do not use it.
+                if (allowableEdges.count(pEdge)==0)
+                {
+                    continue;
+                }
+
+                assert(pEdge->getStart() == pVertex);
+                const Vertex * pNextVertex = pEdge->getEnd();
+
+                // Take the minimum value for the next starting position.
+                // (There may be two possible values in the case of an inexact overlap).
+                int ol = max(pEdge->getMatchLength(), pEdge->getTwin()->getMatchLength());
+                int nextStartPos = endPos - ol;
+
+                // Example of vertex direction inferred from edges:
+                // Say A & B have this relative orientation:
+                // A |------>
+                //        <-----| B
+                // The edge A->B has directon: ED_SENSE
+                // The edge B->A has direction: ED_SENSE
+                // If we take the edge A->B, then node B is ED_ANTISENSE! We figure this out
+                // by negating the direction of edge B->A
+                            
+                EdgeDir nextDir = !pEdge->getTwinDir();
+                bool tooFar = (nextStartPos > maxDistance);
+
+                if (!tooFar)
+                {
+                    edges.push_back(pEdge);
+
+                    // Check if the next vertex was already seen before adding to the vQueue
+                    VDirPair vdir(pVertex, nextDir);
+                    bool alreadySeen = (seen.count(vdir)>0);
+
+                    if (!alreadySeen)
+                    {
+                        SearchEntry se(pNextVertex, nextDir, nextStartPos);
+                        #if BFS_DEBUG != 0
+                        cout << "Adding edge from " << pVertex->getID()
+                          << ": " << se  << endl;
+                        #endif
+                        vQueue.push(se);
+                    }
+
                 } else {
                     #if BFS_DEBUG != 0
                     cout << "Skipping edge from " << pVertex->getID()
@@ -430,7 +607,6 @@ bool pruneGraph(StringGraph * pSubgraph,
 // Collect edges that are on gauranteed to be on paths from Vertex pX to pY
 // with distance less than maxDistance.
 // See description for boundedBFS for how distance is measured.
-// Return a pointer to the subgraph, or NULL if the subgraph is empty.
 
 // dX: direction of edge out of pX on walk to pY.
 // dY: direction of edge out of pY on walk to pX.
@@ -493,12 +669,49 @@ EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir d
 
     // Find those edges that appear in xEdges with a twin that appears in yEdges.
     pathEdges.reserve(max(xEdges.size(), yEdges.size()));
+    typedef std::set<Edge *>::const_iterator EdgeSetConstIter;
+    typedef std::set<Edge *>::iterator EdgeSetIter;
+
     std::set<Edge *> yEdgeSet(yEdges.begin(), yEdges.end());
-    EdgePtrVec::const_iterator E = xEdges.end();
-    EdgePtrVec::const_iterator xIter = xEdges.begin();
-    for(; xIter != E; xIter++)
+    std::set<Edge *> xEdgeSet;
+    for(EdgePtrVec::const_iterator iter; 
+        iter != xEdges.end();
+        iter++)
+    {
         if (yEdgeSet.count((*xIter)->getTwin()) != 0)
-            pathEdges.push_back(*xIter);
+            xEdgeSet.insert(*xIter);
+    }
+    yEdgeSet.clear();
+    for(EdgeSetConstIter iter = xEdgeSet.begin(); 
+        iter != xEdgeSet.end();
+        iter++)
+    {
+        yEdgeSet.insert((*iter)->getTwin());
+    }
+
+     // Iteratively refine the list of edges, until it stops changing.
+     // Some of these edges are not gauranteed to be reachable from both
+     // X & Y for the given distance constraints.
+     // For example, and edge may be reachable from X with one path which satisfies maxDistanceX, and from Y
+     // using a different path which satisfies maxDistanceY, but there is no path from X to Y which includes this edge.
+     // Allowing extraneous edges to end up in the pathEdges vector can result in a repetetive graph when we search
+     // for all possible paths in PCSearch.
+     size_t numEdges = xEdgeSet.size();
+     assert(numEdges == yEdgeSet.size());
+     int numPruneIterations = 0;
+     while (true)
+     {
+        // Search forwards from pX
+        xEdges = boundedBFS(pX, dX, maxDistanceX, xEdgeSet);
+        assert(xEdges.size() <= numEdges);
+        // Search backwards from pY
+        yEdges = boundedBFS(pY, dY, maxDistanceY, yEdgeSet);
+        assert(yEdges.size() <= numEdges);
+
+
+     }
+
+
 
     return pathEdges;
 }

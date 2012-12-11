@@ -8,7 +8,7 @@
 
 #include <set>
 
-//typedef std::set<Edge *> EdgePtrSet;
+typedef std::set<Edge *> EdgePtrSet;
 
 // Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
 // NOTE: This search differs from the search functionality provided in SGSearch.
@@ -24,6 +24,22 @@
 // Distance 0 is at the start of vertex A
 // A vertex reachable from A is measured as the distance between 0 and the start of that vertex.
 EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance);
+
+// Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
+// Use only the edges in the allowableEdges set.
+// NOTE: This search differs from the search functionality provided in SGSearch.
+// Search distance is measured from the beginning of the start vertex.
+// |----------> A
+// 
+// | 
+// 0
+//
+//          <-----| B
+// |<------>| distance from A to B.
+//
+// Distance 0 is at the start of vertex A
+// A vertex reachable from A is measured as the distance between 0 and the start of that vertex.
+EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, const EdgePtrSet& allowableEdges);
 
 // This version copies StringGraphAttributes from pGraph
 // Make a subgraph of nodes that are on gauranteed to be on paths from Vertex pX to pY
