@@ -42,6 +42,7 @@ class GraphSearchParams
         maxDistance(maxDist),
         minDistance(-1),
         allowGoalRepeat(false),
+        allowInteriorRepeat(false),
         goalOriented(false),
         minDistanceEnforced(false),
         maxDistanceEnforced(false),
@@ -59,6 +60,7 @@ class GraphSearchParams
                          // a node with distance > maxDistance.
     int64_t minDistance; // The minimum distance to the goal vertex.
     bool allowGoalRepeat; // Allow a goal vertex to be repeated on a walk.
+    bool allowInteriorRepeat; // Allow a vertex other than the start or goal vertex to be repeated on a walk.
     bool goalOriented; // Only accept the goal if it has orientation goalDir.
     bool minDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at least minDistance.
     bool maxDistanceEnforced; // We only accept the endVertex as a goal if it's distance is is at most maxDistanceEnforced.
@@ -80,6 +82,7 @@ class GraphSearchParams
              << "maxDistance: " << maxDistance << "\n"
              << "minDistance: " << minDistance << "\n"
              << "allowGoalRepeat: " << allowGoalRepeat << "\n"
+             << "allowInteriorRepeat: " << allowInteriorRepeat << "\n"
              << "goalOriented: " << goalOriented << "\n"
              << "minDistanceEnforced: " << minDistanceEnforced << "\n"
              << "maxDistanceEnforced: " << maxDistanceEnforced << "\n"
@@ -242,7 +245,7 @@ class GraphSearchTree
         // The expand queue contains nodes that have not yet been explored.
         // The done queue contains nodes that will not be expanded further.
         // Together, the expand queue and done queue represent all leafs of the tree
-        // NOTE: Each node in the qoal queue is duplicated in either the expand queue or
+        // NOTE: Each node in the qoal queue may be duplicated in either the expand queue or
         // done queue. This depends on whether we allow a goal vertex to be repeated
         // on a walk from start to goal (controlled by m_searchParams.allowGoalRepeat).
         _SearchNodePtrDeque m_goalQueue;
