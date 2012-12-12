@@ -660,6 +660,8 @@ EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDi
     EdgePtrSet xEdgeSet, yEdgeSet;
     edgeIntersection(xEdges, yEdges, xEdgeSet, yEdgeSet);
 
+
+
      // Iteratively refine the list of edges, until it stops changing.
      // Some of these edges are not gauranteed to be reachable from both
      // X & Y for the given distance constraints.
@@ -669,6 +671,11 @@ EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDi
      // for all possible paths in PCSearch.
      size_t numEdges = xEdgeSet.size();
      assert(numEdges == yEdgeSet.size());
+     #if PATHS_DEBUG!=0
+     cout << "XY edges in intersection: " << numEdges << std::endl;
+     #endif
+     if (numEdges == 0)
+        return pathEdges;
      int numPruneIterations = 0;
      while (true)
      {
@@ -688,6 +695,11 @@ EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDi
         // Determine if the edge set has changed
         size_t numEdgesNew = xEdgeSetNew.size();
         assert(numEdgesNew == yEdgeSetNew.size());
+
+        #if PATHS_DEBUG!=0
+        cout << "Prune Round: " << numPruneIterations << ": Old edge set size: " << numEdges << " New size: " << numEdgesNew << std::endl;
+        #endif
+
         if (numEdgesNew == numEdges || numEdgesNew == 0)
             break;
         xEdgeSet = xEdgeSetNew;
