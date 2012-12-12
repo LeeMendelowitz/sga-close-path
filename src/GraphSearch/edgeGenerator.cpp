@@ -200,7 +200,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
                     edges.push_back(pEdge);
 
                     // Check if the next vertex was already seen before adding to the vQueue
-                    VDirPair vdir(pVertex, nextDir);
+                    VDirPair vdir(pNextVertex, nextDir);
                     bool alreadySeen = (seen.count(vdir)>0);
 
                     if (!alreadySeen)
@@ -335,7 +335,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
                     edges.push_back(pEdge);
 
                     // Check if the next vertex was already seen before adding to the vQueue
-                    VDirPair vdir(pVertex, nextDir);
+                    VDirPair vdir(pNextVertex, nextDir);
                     bool alreadySeen = (seen.count(vdir)>0);
 
                     if (!alreadySeen)
