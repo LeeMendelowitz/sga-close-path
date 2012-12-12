@@ -74,36 +74,26 @@ ostream& operator<<(ostream& os, EdgePtrVec& evec)
     return os;
 }
 
-// Given a list of xEdges and yEdges, return:
-// xEdgeSet: The set of edges in xEdges whos twin is in yEdges.
-// yEdgeSet: The set of edges in yEdges whos twin is in xEdges.
+// Given a list of xEdges and yEdges, take the "intersection". More specifically, return:
+// xEdgeSet: The set of edges in xEdges whose twin is in yEdges.
+// yEdgeSet: The set of edges in yEdges whose twin is in xEdges.
 void edgeIntersection(const EdgePtrVec& xEdges, const EdgePtrVec& yEdges, EdgePtrSet& xEdgeSet, EdgePtrSet& yEdgeSet)
 {
-    // Form the yEdgeSet
-    yEdgeSet = EdgePtrSet(yEdges.begin(), yEdges.end());
-
-    // Populate the xEdgeSet by taking the intersection
+    EdgePtrSet yEdgeSetOrig = EdgePtrSet(yEdges.begin(), yEdges.end());
+    yEdgeSet.clear();
     xEdgeSet.clear();
-    for(EdgePtrVec::const_iterator iter; 
+
+    for(EdgePtrVec::const_iterator iter = xEdges.begin(); 
         iter != xEdges.end();
         iter++)
     {
-        if (yEdgeSet.count((*iter)->getTwin()) != 0)
-            xEdgeSet.insert(*iIter);
-
-            // NOTE: We can prune the yEdgeSet here if we use the find function instead of count!
-    }
-
-    // Remove elements from the yEdgeSet which are not in the intersection
-    for(EdgeSetConstIter iter = yEdgeSet.begin(); 
-        iter != yEdgeSet.end();)
-    {
-        if(xEdgeSet.count((*iter)->getTwin() == 0))
+        Edge * xEdge = *iter;
+        Edge * yEdge = xEdge->getTwin();
+        if (yEdgeSetOrig.count(yEdge) != 0)
         {
-            yEdgeSet.erase(iter++);
+            xEdgeSet.insert(xEdge);
+            yEdgeSet.insert(yEdge);
         }
-        else
-            iter++;
     }
 }
 
@@ -297,8 +287,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
             cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
             #endif
 
-            assert(!alreadySeen);
-            //if (alreadySeen) continue;
+            if (alreadySeen) continue;
 
             seen.insert(vdir);
 
@@ -614,7 +603,7 @@ bool pruneGraph(StringGraph * pSubgraph,
 // Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
 // Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
-EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX)
+EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX)
 {
     using namespace std;
 
@@ -668,31 +657,13 @@ EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir d
     #endif
 
     // Find those edges that appear in xEdges with a twin that appears in yEdges.
-    pathEdges.reserve(max(xEdges.size(), yEdges.size()));
-    typedef std::set<Edge *>::const_iterator EdgeSetConstIter;
-    typedef std::set<Edge *>::iterator EdgeSetIter;
-
-    std::set<Edge *> yEdgeSet(yEdges.begin(), yEdges.end());
-    std::set<Edge *> xEdgeSet;
-    for(EdgePtrVec::const_iterator iter; 
-        iter != xEdges.end();
-        iter++)
-    {
-        if (yEdgeSet.count((*xIter)->getTwin()) != 0)
-            xEdgeSet.insert(*xIter);
-    }
-    yEdgeSet.clear();
-    for(EdgeSetConstIter iter = xEdgeSet.begin(); 
-        iter != xEdgeSet.end();
-        iter++)
-    {
-        yEdgeSet.insert((*iter)->getTwin());
-    }
+    EdgePtrSet xEdgeSet, yEdgeSet;
+    edgeIntersection(xEdges, yEdges, xEdgeSet, yEdgeSet);
 
      // Iteratively refine the list of edges, until it stops changing.
      // Some of these edges are not gauranteed to be reachable from both
      // X & Y for the given distance constraints.
-     // For example, and edge may be reachable from X with one path which satisfies maxDistanceX, and from Y
+     // For example, an edge may be reachable from X with one path which satisfies maxDistanceX, and from Y
      // using a different path which satisfies maxDistanceY, but there is no path from X to Y which includes this edge.
      // Allowing extraneous edges to end up in the pathEdges vector can result in a repetetive graph when we search
      // for all possible paths in PCSearch.
@@ -701,17 +672,30 @@ EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir d
      int numPruneIterations = 0;
      while (true)
      {
+        EdgePtrSet xEdgeSetNew, yEdgeSetNew;
+
         // Search forwards from pX
         xEdges = boundedBFS(pX, dX, maxDistanceX, xEdgeSet);
         assert(xEdges.size() <= numEdges);
+
         // Search backwards from pY
         yEdges = boundedBFS(pY, dY, maxDistanceY, yEdgeSet);
         assert(yEdges.size() <= numEdges);
 
+        // Take the edge intersection
+        edgeIntersection(xEdges, yEdges, xEdgeSetNew, yEdgeSetNew);
 
+        // Determine if the edge set has changed
+        size_t numEdgesNew = xEdgeSetNew.size();
+        assert(numEdgesNew == yEdgeSetNew.size());
+        if (numEdgesNew == numEdges || numEdgesNew == 0)
+            break;
+        xEdgeSet = xEdgeSetNew;
+        yEdgeSet = yEdgeSetNew;
+        numEdges = xEdgeSet.size();
+        numPruneIterations++;
      }
 
-
-
+    pathEdges = EdgePtrVec(xEdgeSet.begin(), xEdgeSet.end());
     return pathEdges;
 }

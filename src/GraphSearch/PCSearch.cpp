@@ -122,7 +122,7 @@ bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exha
     // Note: params.maxDistance is the distance from the start of X to the start of Y:
     // |-----------> X               Y <----------------|
     // |<----------------------------->| maxDistance
-    EdgePtrVec allowedEdges = getPathEdges(pGraph, pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
+    EdgePtrVec allowedEdges = getPathEdges(pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
 
     if (allowedEdges.size() == 0)
     {
