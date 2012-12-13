@@ -86,6 +86,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     SGWalkVector walks;
     bool exhaustive = true;
     bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks);
+    //bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, walks);
     result.setWalks(walks);
     result.tooRepetitive = !foundAll;
     size_t numClosures = walks.size();

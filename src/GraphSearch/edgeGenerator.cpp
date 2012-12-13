@@ -91,38 +91,6 @@ inline void makeUnique(EdgePtrVec& vec)
     vec.resize(vec.end() - it);
 }
 
-// Given a list of xEdges and yEdges, return:
-// xEdgeSet: The set of edges in xEdges whos twin is in yEdges.
-// yEdgeSet: The set of edges in yEdges whos twin is in xEdges.
-void edgeIntersection(const EdgePtrVec& xEdges, const EdgePtrVec& yEdges, EdgePtrSet& xEdgeSet, EdgePtrSet& yEdgeSet)
-{
-    // Form the yEdgeSet
-    yEdgeSet = EdgePtrSet(yEdges.begin(), yEdges.end());
-
-    // Populate the xEdgeSet by taking the intersection
-    xEdgeSet.clear();
-    for(EdgePtrVec::const_iterator iter; 
-        iter != xEdges.end();
-        iter++)
-    {
-        if (yEdgeSet.count((*iter)->getTwin()) != 0)
-            xEdgeSet.insert(*iter);
-
-    }
-
-    // Remove elements from the yEdgeSet which are not in the intersection
-    for(EdgePtrSet::const_iterator iter = yEdgeSet.begin(); 
-        iter != yEdgeSet.end();)
-    {
-        if(xEdgeSet.count((*iter)->getTwin()) == 0)
-        {
-            yEdgeSet.erase(iter++);
-        }
-        else
-            iter++;
-    }
-}
-
 
 // Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
 // This is done using modified Dijkstra's. We allow a node to appear once on a path in each possible orientation.
@@ -226,7 +194,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
                     edges.push_back(pEdge);
 
                     // Check if the next vertex was already seen before adding to the vQueue
-                    VDirPair vdir(pVertex, nextDir);
+                    VDirPair vdir(pNextVertex, nextDir);
                     bool alreadySeen = (seen.count(vdir)>0);
 
                     if (!alreadySeen)
@@ -313,8 +281,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
             cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
             #endif
 
-            assert(!alreadySeen);
-            //if (alreadySeen) continue;
+            if (alreadySeen) continue;
 
             seen.insert(vdir);
 
@@ -361,7 +328,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
                     edges.push_back(pEdge);
 
                     // Check if the next vertex was already seen before adding to the vQueue
-                    VDirPair vdir(pVertex, nextDir);
+                    VDirPair vdir(pNextVertex, nextDir);
                     bool alreadySeen = (seen.count(vdir)>0);
 
                     if (!alreadySeen)
