@@ -88,7 +88,7 @@ inline void makeUnique(EdgePtrVec& vec)
 {
     sort(vec.begin(), vec.end());
     EdgePtrVec::const_iterator it = unique(vec.begin(), vec.end());
-    vec.resize(vec.end() - it);
+    vec.resize(it - vec.begin());
 }
 
 
@@ -260,7 +260,9 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
 
     #if BFS_DEBUG!=0
     cout << "*************************************\n"
-         << "BFS: pVertex: " << pVertex->getID() << " dir: " << dir << " maxDist: " << maxDistance << endl;
+         << "BFS: pVertex: " << pVertex->getID() << " dir: " << dir
+         << " maxDist: " << maxDistance
+         << " numAllowableEdges: " << allowableEdges.size() << endl;
     #endif
     
     while ( !vQueue.empty() ) {
@@ -301,7 +303,12 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
                 // If this edge is not in the allowable edge set, do not use it.
                 bool useEdge = binary_search(allowableEdges.begin(), allowableEdges.end(), pEdge);
                 if (!useEdge)
+                {
+                    #if BFS_DEBUG!=0
+                    cout << "Skipping edge " << *pEdge << " becuase it is not allowable." << endl;
+                    #endif
                     continue;
+                }
 
                 assert(pEdge->getStart() == pVertex);
                 const Vertex * pNextVertex = pEdge->getEnd();
@@ -667,8 +674,18 @@ EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDi
         xEdges.push_back((*iter)->getTwin());
     }
 
+    #if PATHS_DEBUG!=0
+    cout << "X Edges before make unique:" << xEdges.size() << endl;
+    cout << xEdges << endl;
+    #endif
+
     // Sort the X edges and make a unique vector
     makeUnique(xEdges);
+
+    #if PATHS_DEBUG!=0
+    cout << "X Edges after make unique:" << xEdges.size() << endl;
+    cout << xEdges << endl;
+    #endif
 
     // Iteratively search from X towards Y, and then from Y towards X,
     // using only the allowed edges.
@@ -715,7 +732,7 @@ EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDi
 
     #if PATHS_DEBUG!=0
     cout << "Number of prune rounds: " << numPruneRounds << endl;
-    cout << "After Subgraph nodes removed: " << xEdges.size() << endl;
+    cout << "After pruning edges: " << xEdges.size() << endl;
     #endif
 
     sort(xEdges.begin(), xEdges.end());
