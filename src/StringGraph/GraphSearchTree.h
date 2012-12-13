@@ -19,6 +19,7 @@
 #include <queue>
 #include <iostream>
 #include <set>
+#include <algorithm>
 
 #define GRAPHSEARCH_DEBUG 0
 #define GRAPHDELETE_DEBUG 0
@@ -69,8 +70,9 @@ class GraphSearchParams
 
     bool selfPrune; // If true, prune any search nodes which do not lead to the goal.
 
-    bool enforceAllowedEdges; // If true, only followed edges where are in the pAllowedEdgesSet
-    const std::set<EDGE *> * pAllowedEdgeSet; // The set of edges which can be used in the graph search.
+    bool enforceAllowedEdges; // If true, only followed edges where are in pAllowedEdges
+    //const std::set<EDGE *> * pAllowedEdgeSet; // The set of edges which can be used in the graph search.
+    const std::vector<EDGE *> * pAllowedEdges;
 
     void print() const
     {
@@ -87,9 +89,11 @@ class GraphSearchParams
              << "minDistanceEnforced: " << minDistanceEnforced << "\n"
              << "maxDistanceEnforced: " << maxDistanceEnforced << "\n"
              << "nodeLimit: " << nodeLimit << "\n"
+
+
              << "selfPrune: " << selfPrune << "\n"
              << "enforceAllowedEdges: " << enforceAllowedEdges << "\n"
-             << "pAllowedEdgeSet->size(): " << ( pAllowedEdgeSet ? pAllowedEdgeSet->size() : 0 ) << std::endl;
+             << "pAllowedEdges->size(): " << ( pAllowedEdges ? pAllowedEdges->size() : 0 ) << std::endl;
     }
 };
 
@@ -337,8 +341,8 @@ int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodeAllocat
     {
         // Check if we are allowed to take this edge
         if ( params.enforceAllowedEdges && 
-             params.pAllowedEdgeSet &&
-             params.pAllowedEdgeSet->count(edges[i]) == 0 )
+             params.pAllowedEdges &&
+             !binary_search(params.pAllowedEdges->begin(), params.pAllowedEdges->end(), edges[i]) )
         {
             continue;
         }

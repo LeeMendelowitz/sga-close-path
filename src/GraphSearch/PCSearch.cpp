@@ -122,14 +122,12 @@ bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exha
     // Note: params.maxDistance is the distance from the start of X to the start of Y:
     // |-----------> X               Y <----------------|
     // |<----------------------------->| maxDistance
-    EdgePtrVec allowedEdges = getPathEdges(pGraph, pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
+    EdgePtrVec allowedEdges = getPathEdges(pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
 
     if (allowedEdges.size() == 0)
     {
         return true; // Search completed, found no paths
     }
-
-    const std::set<Edge *> allowedEdgeSet(allowedEdges.begin(), allowedEdges.end());
 
     // Modify the search parameters for SGSearch:
     //  - Convert the maxDistance and minDistance from to the distance expected by SGSearch,
@@ -145,7 +143,7 @@ bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exha
     sgParams.minDistanceEnforced = true;
     sgParams.maxDistanceEnforced = true;
     sgParams.enforceAllowedEdges = true;
-    sgParams.pAllowedEdgeSet = &allowedEdgeSet;
+    sgParams.pAllowedEdges = &allowedEdges;
     SGWalkVector subgraphWalks;
     bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, subgraphWalks);
 

@@ -74,6 +74,23 @@ ostream& operator<<(ostream& os, EdgePtrVec& evec)
     return os;
 }
 
+inline void copyTwinEdges(const EdgePtrVec& source, EdgePtrVec& dest)
+{
+    dest.clear();
+    dest.reserve(source.size());
+    for(EdgePtrVec::const_iterator iter = source.begin();
+        iter != source.end();
+        iter++)
+        dest.push_back((*iter)->getTwin());
+}
+
+inline void makeUnique(EdgePtrVec& vec)
+{
+    sort(vec.begin(), vec.end());
+    EdgePtrVec::const_iterator it = unique(vec.begin(), vec.end());
+    vec.resize(vec.end() - it);
+}
+
 // Given a list of xEdges and yEdges, return:
 // xEdgeSet: The set of edges in xEdges whos twin is in yEdges.
 // yEdgeSet: The set of edges in yEdges whos twin is in xEdges.
@@ -89,16 +106,15 @@ void edgeIntersection(const EdgePtrVec& xEdges, const EdgePtrVec& yEdges, EdgePt
         iter++)
     {
         if (yEdgeSet.count((*iter)->getTwin()) != 0)
-            xEdgeSet.insert(*iIter);
+            xEdgeSet.insert(*iter);
 
-            // NOTE: We can prune the yEdgeSet here if we use the find function instead of count!
     }
 
     // Remove elements from the yEdgeSet which are not in the intersection
-    for(EdgeSetConstIter iter = yEdgeSet.begin(); 
+    for(EdgePtrSet::const_iterator iter = yEdgeSet.begin(); 
         iter != yEdgeSet.end();)
     {
-        if(xEdgeSet.count((*iter)->getTwin() == 0))
+        if(xEdgeSet.count((*iter)->getTwin()) == 0)
         {
             yEdgeSet.erase(iter++);
         }
@@ -257,7 +273,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
 // The start of pVertex is considered to be offset 0.
 // If dir == ED_SENSE, then the 5' end is at offset 0.
 // If dir == ED_ANTISENSE, then the 3' end is at offset 0.
-EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, const EdgePtrSet& allowableEdges)
+EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, const EdgePtrVec& allowableEdges)
 {
     
     EdgePtrVec edges;
@@ -316,10 +332,9 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
             {
                 Edge * pEdge = *iEdge;
                 // If this edge is not in the allowable edge set, do not use it.
-                if (allowableEdges.count(pEdge)==0)
-                {
+                bool useEdge = binary_search(allowableEdges.begin(), allowableEdges.end(), pEdge);
+                if (!useEdge)
                     continue;
-                }
 
                 assert(pEdge->getStart() == pVertex);
                 const Vertex * pNextVertex = pEdge->getEnd();
@@ -603,10 +618,10 @@ bool pruneGraph(StringGraph * pSubgraph,
     return graphModified;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////
-// Collect edges that are on gauranteed to be on paths from Vertex pX to pY
+// Return edges that are on gauranteed to be on paths from Vertex pX to pY
 // with distance less than maxDistance.
 // See description for boundedBFS for how distance is measured.
+// Return a pointer to the subgraph, or NULL if the subgraph is empty.
 
 // dX: direction of edge out of pX on walk to pY.
 // dY: direction of edge out of pY on walk to pX.
@@ -614,11 +629,9 @@ bool pruneGraph(StringGraph * pSubgraph,
 // Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
 // Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
-EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX)
+EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX)
 {
     using namespace std;
-
-    EdgePtrVec pathEdges;
 
     // |-----------> X          Y  <------------|
     // |<-------------------------------------->| startToEnd
@@ -632,7 +645,7 @@ EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir d
         #if PATHS_DEBUG!=0
         cout << "Warning: maxDistanceX must be >= 0. Returning empty subgraph" << endl;
         #endif
-        return pathEdges;
+        return EdgePtrVec();
     }
 
     // Avoid a situation where we are detecting a path from X to Y which implies
@@ -645,73 +658,99 @@ EdgePtrVec getPathEdges(const StringGraph * pGraph, const Vertex * pX, EdgeDir d
         #if PATHS_DEBUG!=0
         cout << "Warning: PathGraph implies containment. Returning empty subgraph" << endl;
         #endif
-        return pathEdges;
+        return EdgePtrVec();
     }
 
     int startToEnd = maxDistanceX + pY->getSeqLen();
     int maxDistanceY = startToEnd - pX->getSeqLen();
-    assert(maxDistanceY >= 0);
-    EdgePtrVec xEdges, yEdges;
+    int maxDistance_2 = (maxDistanceX+1)/2;
+    int halfDistanceX = maxDistance_2; // Half the distance from start of X to start of Y
+    int halfDistanceY =  startToEnd - halfDistanceX; // Half the distance from start of Y
 
-    // Search forward from pX
-    xEdges = boundedBFS(pX, dX, maxDistanceX);
+    assert(maxDistanceY >= 0);
+    assert(halfDistanceY >= 0);
+
+    VertexID xId = pX->getID();
+    VertexID yId = pY->getID();
+
+    ///////////////////////////////////////////////////////////////
+    // Create subgraph using BFS from pX and pY
+
+    EdgePtrVec xEdges, yEdges, xyEdges;
+    // Search from pX
+    xEdges = boundedBFS(pX, dX, halfDistanceX);
     #if PATHS_DEBUG!=0
     cout << "X Edges: " << xEdges.size() << endl;
     cout << xEdges << endl;
     #endif
 
-    // Search backwards from pY
-    yEdges = boundedBFS(pY, dY, maxDistanceY);
+    // Search from pY
+    yEdges = boundedBFS(pY, dY, halfDistanceY);
     #if PATHS_DEBUG!=0
     cout << "Y Edges: " << yEdges.size() << endl;
     cout << yEdges << endl;
     #endif
 
-    // Find those edges that appear in xEdges with a twin that appears in yEdges.
-    pathEdges.reserve(max(xEdges.size(), yEdges.size()));
-    typedef std::set<Edge *>::const_iterator EdgeSetConstIter;
-    typedef std::set<Edge *>::iterator EdgeSetIter;
-
-    std::set<Edge *> yEdgeSet(yEdges.begin(), yEdges.end());
-    std::set<Edge *> xEdgeSet;
-    for(EdgePtrVec::const_iterator iter; 
-        iter != xEdges.end();
+    // Extend the X edges by the twins of the Y edges
+    xEdges.reserve(xEdges.size() + yEdges.size());
+    for(EdgePtrVec::const_iterator iter = yEdges.begin();
+        iter != yEdges.end();
         iter++)
     {
-        if (yEdgeSet.count((*xIter)->getTwin()) != 0)
-            xEdgeSet.insert(*xIter);
+        xEdges.push_back((*iter)->getTwin());
     }
-    yEdgeSet.clear();
-    for(EdgeSetConstIter iter = xEdgeSet.begin(); 
-        iter != xEdgeSet.end();
-        iter++)
+
+    // Sort the X edges and make a unique vector
+    makeUnique(xEdges);
+
+    // Iteratively search from X towards Y, and then from Y towards X,
+    // using only the allowed edges.
+    int numPruneRounds = 0;
+    size_t oldEdgeCount = xEdges.size();
+    size_t curEdgeCount;
+    while (true)
     {
-        yEdgeSet.insert((*iter)->getTwin());
+        #if PATHS_DEBUG!=0
+        cout << "**********************\n"
+             << "Pruning Round " << numPruneRounds << endl;
+        #endif
+
+        // Search from X. Note: xEdges must be sorted when passed to boundedBFS
+        xEdges = boundedBFS(pX, dX, maxDistanceX, xEdges);
+        curEdgeCount = xEdges.size();
+
+        if ((curEdgeCount == 0) ||
+           (curEdgeCount == oldEdgeCount) )
+            break;
+
+        oldEdgeCount = curEdgeCount;
+
+        // Convert to Y edges.
+        copyTwinEdges(xEdges, yEdges);
+        sort(yEdges.begin(), yEdges.end());
+
+        // Search from Y. Note: yEdges must be sorted when passed to boundedBFS
+        yEdges = boundedBFS(pY, dY, maxDistanceY, yEdges);
+
+        // Convert to X edges.
+        copyTwinEdges(yEdges, xEdges);
+        curEdgeCount = xEdges.size();
+
+        if ((curEdgeCount == 0) ||
+            (curEdgeCount == oldEdgeCount))
+            break;
+
+        oldEdgeCount = curEdgeCount;
+
+        sort(xEdges.begin(), xEdges.end());
+        numPruneRounds++;
     }
 
-     // Iteratively refine the list of edges, until it stops changing.
-     // Some of these edges are not gauranteed to be reachable from both
-     // X & Y for the given distance constraints.
-     // For example, and edge may be reachable from X with one path which satisfies maxDistanceX, and from Y
-     // using a different path which satisfies maxDistanceY, but there is no path from X to Y which includes this edge.
-     // Allowing extraneous edges to end up in the pathEdges vector can result in a repetetive graph when we search
-     // for all possible paths in PCSearch.
-     size_t numEdges = xEdgeSet.size();
-     assert(numEdges == yEdgeSet.size());
-     int numPruneIterations = 0;
-     while (true)
-     {
-        // Search forwards from pX
-        xEdges = boundedBFS(pX, dX, maxDistanceX, xEdgeSet);
-        assert(xEdges.size() <= numEdges);
-        // Search backwards from pY
-        yEdges = boundedBFS(pY, dY, maxDistanceY, yEdgeSet);
-        assert(yEdges.size() <= numEdges);
+    #if PATHS_DEBUG!=0
+    cout << "Number of prune rounds: " << numPruneRounds << endl;
+    cout << "After Subgraph nodes removed: " << xEdges.size() << endl;
+    #endif
 
-
-     }
-
-
-
-    return pathEdges;
+    sort(xEdges.begin(), xEdges.end());
+    return xEdges;
 }
