@@ -264,7 +264,9 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
 // The start of pVertex is considered to be offset 0.
 // If dir == ED_SENSE, then the 5' end is at offset 0.
 // If dir == ED_ANTISENSE, then the 3' end is at offset 0.
-void boundedBFS(const Vertex * pVertex, EdgeDir dir, int halfDistance, int maxDistance, EdgePtrVec& halfDistEdges, EdgePtrVec& maxDistEdges)
+void boundedBFS(const Vertex * pVertex, EdgeDir dir, int halfDistance, int maxDistance,
+                const Vertex * pGoal, EdgeDir goalDir,
+                EdgePtrVec& halfDistEdges, EdgePtrVec& maxDistEdges)
 {
     halfDistEdges.clear();
     maxDistEdges.clear();
@@ -309,6 +311,11 @@ void boundedBFS(const Vertex * pVertex, EdgeDir dir, int halfDistance, int maxDi
             if (alreadySeen) continue;
 
             seen.insert(vdir);
+
+            // If this is the goal node with the proper orientation, do not look further
+            if ((pVertex == pGoal) && (se.dir == goalDir))
+                continue;
+
 
             #if BFS_DEBUG!=0
             cout << "**************************************\n"
@@ -943,12 +950,13 @@ EdgePtrVec getPathEdges2(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     }
 
     int startToEnd = maxDistanceX + pY->getSeqLen();
+    int startToEnd_2 = (startToEnd+1)/2;
     int maxDistanceY = startToEnd - pX->getSeqLen();
-    int maxDistance_2 = (maxDistanceX+1)/2;
     //int halfDistanceX = maxDistance_2; // Half the distance from start of X to start of Y
     //int halfDistanceY =  startToEnd - halfDistanceX; // Half the distance from start of Y
-    int halfDistanceX = (startToEnd+1)/2;
-    int halfDistanceY = halfDistanceX;
+    int halfDistanceX = min(startToEnd_2, maxDistanceX);
+    int halfDistanceY = min(startToEnd_2, maxDistanceY);
+    bool refineToHalfEdges = (halfDistanceX < maxDistanceX) || (halfDistanceY < maxDistanceY);
 
     assert(maxDistanceY >= 0);
     assert(halfDistanceY >= 0);
@@ -962,14 +970,14 @@ EdgePtrVec getPathEdges2(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     EdgePtrVec xEdges, yEdges, xHalfEdges, yHalfEdges;
     // Search from pX
     //xEdges = boundedBFS(pX, dX, maxDistanceX);
-    boundedBFS(pX, dX, halfDistanceX, maxDistanceX, xHalfEdges, xEdges);
+    boundedBFS(pX, dX, halfDistanceX, maxDistanceX, pY, !dY, xHalfEdges, xEdges);
     #if PATHS_DEBUG!=0
     cout << "X Edges: " << xEdges.size() << endl;
     cout << xEdges << endl;
     #endif
 
     // Search from pY
-    boundedBFS(pY, dY, halfDistanceY, maxDistanceY, yHalfEdges, yEdges);
+    boundedBFS(pY, dY, halfDistanceY, maxDistanceY, pX, !dX, yHalfEdges, yEdges);
     #if PATHS_DEBUG!=0
     cout << "Y Edges: " << yEdges.size() << endl;
     cout << yEdges << endl;
@@ -1001,32 +1009,91 @@ EdgePtrVec getPathEdges2(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
         if (xyIntersect.size() == 0)
             return intersection;
 
-        // Refine this to contain only edges in either xHalfEdge or yHalfEdges
         makeUnique(xyIntersect);
-    //    return xyIntersect;
-        intersection.reserve(xyIntersect.size());
-        const EdgePtrVec::const_iterator xyB = xyIntersect.begin();
-        const EdgePtrVec::const_iterator xyE = xyIntersect.end();
-        const EdgePtrVec::const_iterator xHalfE = xHalfEdges.end();
-        const EdgePtrVec::const_iterator yHalfE = yHalfEdges.end();
-        for (EdgePtrVec::const_iterator iter = xHalfEdges.begin();
-             iter != xHalfE;
-             iter++)
+
+        // Refine this to contain only edges in either xHalfEdge or yHalfEdges
+        if (refineToHalfEdges)
         {
-            if (binary_search(xyB, xyE, *iter))
-                intersection.push_back(*iter);
+            intersection.reserve(xyIntersect.size());
+            const EdgePtrVec::const_iterator xyB = xyIntersect.begin();
+            const EdgePtrVec::const_iterator xyE = xyIntersect.end();
+            const EdgePtrVec::const_iterator xHalfE = xHalfEdges.end();
+            const EdgePtrVec::const_iterator yHalfE = yHalfEdges.end();
+            for (EdgePtrVec::const_iterator iter = xHalfEdges.begin();
+                 iter != xHalfE;
+                 iter++)
+            {
+                if (binary_search(xyB, xyE, *iter))
+                    intersection.push_back(*iter);
+            }
+            for (EdgePtrVec::const_iterator iter = yHalfEdges.begin();
+                 iter != yHalfE;
+                 iter++)
+            {
+                Edge * yEdge = *iter;
+                Edge * xEdge = yEdge->getTwin();
+                if (binary_search(xyB, xyE, xEdge))
+                    intersection.push_back(xEdge);
+            }
+            makeUnique(intersection);
         }
-        for (EdgePtrVec::const_iterator iter = yHalfEdges.begin();
-             iter != yHalfE;
-             iter++)
+        else
         {
-            Edge * yEdge = *iter;
-            Edge * xEdge = yEdge->getTwin();
-            if (binary_search(xyB, xyE, xEdge))
-                intersection.push_back(xEdge);
+            intersection = xyIntersect;
         }
-        makeUnique(intersection);
     }
 
-    return intersection;
+    // Iteratively search from X towards Y, and then from Y towards X,
+    // using only the allowed edges.
+    int numPruneRounds = 0;
+    xEdges = intersection;
+    size_t oldEdgeCount = xEdges.size();
+    size_t curEdgeCount;
+    while (true)
+    {
+        #if PATHS_DEBUG!=0
+        cout << "**********************\n"
+             << "Pruning Round " << numPruneRounds << endl;
+        #endif
+
+        // Search from X. Note: xEdges must be sorted when passed to boundedBFS
+        xEdges = boundedBFS(pX, dX, maxDistanceX, xEdges);
+        curEdgeCount = xEdges.size();
+
+        if ((curEdgeCount == 0) ||
+           (curEdgeCount == oldEdgeCount) )
+            break;
+
+        oldEdgeCount = curEdgeCount;
+
+        // Convert to Y edges.
+        copyTwinEdges(xEdges, yEdges);
+        sort(yEdges.begin(), yEdges.end());
+
+        // Search from Y. Note: yEdges must be sorted when passed to boundedBFS
+        yEdges = boundedBFS(pY, dY, maxDistanceY, yEdges);
+
+        // Convert to X edges.
+        copyTwinEdges(yEdges, xEdges);
+        curEdgeCount = xEdges.size();
+
+        if ((curEdgeCount == 0) ||
+            (curEdgeCount == oldEdgeCount))
+            break;
+
+        oldEdgeCount = curEdgeCount;
+
+        sort(xEdges.begin(), xEdges.end());
+        numPruneRounds++;
+    }
+
+    #if PATHS_DEBUG!=0
+    cout << "Number of prune rounds: " << numPruneRounds << endl;
+    cout << "After pruning edges: " << xEdges.size() << endl;
+    #endif
+
+    sort(xEdges.begin(), xEdges.end());
+    return xEdges;
+
+    //return intersection;
 }

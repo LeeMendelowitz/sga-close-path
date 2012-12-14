@@ -40,7 +40,9 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance);
 // Distance 0 is at the start of vertex A
 // A vertex reachable from A is measured as the distance between 0 and the start of that vertex.
 EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, const EdgePtrSet& allowableEdges);
-void boundedBFS(const Vertex * pVertex, EdgeDir dir, int halfDistance, int maxDistance, EdgePtrVec& halfDistEdges, EdgePtrVec& maxDistEdges);
+void boundedBFS(const Vertex * pVertex, EdgeDir dir, int halfDistance, int maxDistance,
+                const Vertex * pGoal, EdgeDir goalDir,
+                EdgePtrVec& halfDistEdges, EdgePtrVec& maxDistEdges);
 
 // This version copies StringGraphAttributes from pGraph
 // Make a subgraph of nodes that are on gauranteed to be on paths from Vertex pX to pY
