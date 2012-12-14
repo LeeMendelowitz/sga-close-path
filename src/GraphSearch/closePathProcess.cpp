@@ -238,7 +238,7 @@ void ClosePathPostProcess::writeSubgraphToFile(const ClosePathWorkItem& item)
     int lX = pX->getSeqLen();
     assert(minGap <= maxGap);
     int maxDistance = maxGap + lX;
-    EdgePtrVec allowedEdges = getPathEdges2(pX, b->dir1, pY, b->dir2, maxDistance);
+    EdgePtrVec allowedEdges = getPathEdges3(pX, b->dir1, pY, b->dir2, maxDistance);
     StringGraph * pSubgraph = Subgraph::copyGraph(pGraph_);
     Subgraph::copyEdgesToSubgraph(pSubgraph, allowedEdges);
 

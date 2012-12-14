@@ -5,10 +5,12 @@
 #define EDGE_GEN_H
 
 #include "SGUtil.h"
-
 #include <set>
+#include <map>
 
 typedef std::set<Edge *> EdgePtrSet;
+typedef std::pair<const Vertex *, EdgeDir> VDirPair;
+typedef std::map<VDirPair, int> DistanceMap;
 
 // Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
 // NOTE: This search differs from the search functionality provided in SGSearch.
@@ -72,4 +74,7 @@ StringGraph * makePathGraph(const StringGraph * pGraph, const Vertex * pX, EdgeD
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
 EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
 EdgePtrVec getPathEdges2(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
+EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
+EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, DistanceMap& distMap);
+EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, DistanceMap& distMap, const EdgePtrSet& allowableEdges);
 #endif
