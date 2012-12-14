@@ -9,20 +9,22 @@
 #include "closePathProcess.h"
 #include "PCSearch.h"
 #include "SGAlgorithms.h"
+#include "edgeGenerator.h"
+#include "subgraph.h"
 
 using namespace std;
+
+const int MAX_OL = 150;
+const int BOUND_FUZZ = 75;
 
 ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, bool checkOverlap) :
     pGraph_(pGraph),
     numStd_(numStd) ,
     maxGap_(maxGap),
-    checkOverlap_(checkOverlap),
-    MAX_OL(150),
-    BOUND_FUZZ(75)
+    checkOverlap_(checkOverlap)
     { };
 
 ClosePathProcess::~ClosePathProcess() { };
-
 
 // Given the work item, find the paths which close the bundle
 ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
@@ -85,7 +87,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     // Find paths and save results
     SGWalkVector walks;
     bool exhaustive = true;
-    bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks);
+    bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks); //bool foundAll = PCSearch::findWalks3(pGraph_, params, exhaustive, walks);
     //bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, walks);
     result.setWalks(walks);
     result.tooRepetitive = !foundAll;
@@ -113,9 +115,12 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
 };
 
 
-ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx) :
+ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, float numStd, int maxGap, bool writeSubgraphs) :
     pGraph_(pGraph),
     outputPfx_(outputPfx),
+    numStd_(numStd),
+    maxGap_(maxGap),
+    writeSubgraphs_(writeSubgraphs),
     numBundlesProcessed_(0),
     numBundlesClosedUniquely_(0),
     numBundlesClosed_(0),
@@ -128,7 +133,6 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     numReadPairsFailedOverlap_(0),
     numReadPairsFailedRepetitive_(0),
     numReadPairsOverlapFound_(0)
-
 {
 
     // Open output files
@@ -162,6 +166,8 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         {
             numBundlesFailedRepetitive_++;
             numReadPairsFailedRepetitive_ += result.bundle->n;
+
+            if(writeSubgraphs_) writeSubgraphToFile(item);
         }
         if (result.overlapTooLarge)
         {
@@ -209,6 +215,38 @@ size_t ClosePathPostProcess::addEdgesToGraph()
         pGraph_->addEdge(pEdge->getStart(), pEdge);
     }
     return N;
+}
+
+void ClosePathPostProcess::writeSubgraphToFile(const ClosePathWorkItem& item)
+{
+
+    // Gather the edges for the subgraph
+    Bundle * b = item.b_;
+    Vertex * pX = pGraph_->getVertex(b->vertex1ID);
+    Vertex * pY = pGraph_->getVertex(b->vertex2ID);
+    assert(pX);
+    assert(pY);
+
+
+    // Determine the upper and lower bounds for the graph search
+    // Add BOUND_FUZZ to make it very likely that the interval [minGap, maxGap]
+    // traps the true gap size value.
+    int maxGap = b->gap + numStd_*b->std + BOUND_FUZZ;
+    int minGap = b->gap - numStd_*b->std - BOUND_FUZZ;
+    if (maxGap > maxGap_) maxGap = maxGap_;
+    if (minGap < (-MAX_OL)) minGap = -MAX_OL;
+    int lX = pX->getSeqLen();
+    assert(minGap <= maxGap);
+    int maxDistance = maxGap + lX;
+    EdgePtrVec allowedEdges = getPathEdges2(pX, b->dir1, pY, b->dir2, maxDistance);
+    StringGraph * pSubgraph = Subgraph::copyGraph(pGraph_);
+    Subgraph::copyEdgesToSubgraph(pSubgraph, allowedEdges);
+
+
+    // Write to asqg
+    string subgraphFile = b->id + ".asqg.gz";
+    pSubgraph->writeASQG(subgraphFile);
+    delete pSubgraph;
 }
 
 

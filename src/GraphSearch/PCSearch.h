@@ -27,6 +27,12 @@ namespace PCSearch
                     SGSearchParams params,
                     bool exhaustive,
                     SGWalkVector& outWalks);
+
+    // Find walks without creating a subgraph. Using a single sided search
+    bool findWalks3(StringGraph * pGraph,
+                    SGSearchParams params,
+                    bool exhaustive,
+                    SGWalkVector& outWalks);
 };
 
 #endif

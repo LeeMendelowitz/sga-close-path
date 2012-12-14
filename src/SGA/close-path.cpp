@@ -43,6 +43,8 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      -s, maxNumStd=FLOAT              maximum number of standard deviations allowed in path length deviation. (Default 3.0)\n"
 "      --minStd=FLOAT                   minimum standard deviation to use for a bundle. If a bundle has a standard deviation less than FLOAT\n"
 "                                       then FLOAT will be used in its place.\n"
+"      --numRounds=NUM                  Perform NUM rounds of edge pruning.\n"
+"      --writeSubgraph                  Write out the subgraph for any repetitive region.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -56,6 +58,8 @@ namespace opt
     static float maxNumStd = 3.0;
     static float minStd = 0.0;
     static int maxGap = 200;
+    static int numRounds = 1;
+    static bool writeSubgraph = false;
     static std::string graphFile;
     static std::string bundleFile;
     static std::string outputPfx;
@@ -64,7 +68,7 @@ namespace opt
 
 static const char* shortopts = "vm:s:t:p:o:";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_SECOND_ROUND};
+enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
@@ -72,6 +76,8 @@ static const struct option longopts[] = {
     { "minOverlap",       required_argument, NULL, 'm' },
     { "minStd",        required_argument, NULL, OPT_MINSTD},
     { "maxNumStd",        required_argument, NULL, 's' },
+    { "numRounds",    required_argument, NULL, OPT_NUMROUNDS}, 
+    { "writeSubgraph", no_argument, NULL, OPT_WRITESUBGRAPH},
     { "output",       required_argument, NULL, 'o' },
     { "help",          no_argument,       NULL, OPT_HELP },
     { "version",       no_argument,       NULL, OPT_VERSION },
@@ -107,9 +113,8 @@ int closePathMain(int argc, char** argv)
     const size_t reportInterval = 2000;
 
     std::vector<EdgeCovCriteria> covCriteria;
-    covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
-    covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
-    covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
+    for (int i=0; i < opt::numRounds; i++)
+        covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
 
     //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0));  // Require 1 unique bundle closure
     //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0)); 
@@ -135,7 +140,7 @@ int closePathMain(int argc, char** argv)
         std::ostringstream ssOutputPfx;
         ssOutputPfx << opt::outputPfx << ".round" << roundNum;
         std::string roundOutputPfx = ssOutputPfx.str();
-        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, roundOutputPfx);
+        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, roundOutputPfx, opt::maxNumStd, opt::maxGap, opt::writeSubgraph);
 
         // Find path closures for all bundles
         if (opt::numThreads <= 1)
@@ -203,6 +208,8 @@ void parseClosePathOptions(int argc, char** argv)
             case '?': die = true; break;
             case 'v': opt::verbose++; break;
             case OPT_MINSTD: arg >> opt::minStd; break;
+            case OPT_WRITESUBGRAPH: opt::writeSubgraph = true; break;
+            case OPT_NUMROUNDS: arg >> opt::numRounds; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -234,6 +241,12 @@ void parseClosePathOptions(int argc, char** argv)
     if (opt::maxNumStd < 0)
     {
         std::cerr << SUBPROGRAM ": std must be positive\n";
+        die = true;
+    }
+
+    if (opt::numRounds < 0)
+    {
+        std::cerr << SUBPROGRAM ": numRounds must be positive\n";
         die = true;
     }
 

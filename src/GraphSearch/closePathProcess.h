@@ -99,15 +99,15 @@ class ClosePathProcess
     const float numStd_;
     const int maxGap_;
     bool checkOverlap_;
-    const int MAX_OL; // Maximum overlap to search for
-    const int BOUND_FUZZ; // Adjustments to the upper and lower bound for path search
+    //const int MAX_OL; // Maximum overlap to search for
+    //const int BOUND_FUZZ; // Adjustments to the upper and lower bound for path search
 };
 
 // Post Processor to write results to file
 class ClosePathPostProcess
 {
     public:
-    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx);
+    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, float numStd, int maxGap, bool writeSubgraphs);
     ~ClosePathPostProcess();
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
@@ -120,6 +120,9 @@ class ClosePathPostProcess
     private:
         StringGraph * pGraph_;
         std::string outputPfx_;
+        float numStd_;
+        int maxGap_;
+        bool writeSubgraphs_; // write subgraphs for repetitive items
         std::ofstream statusFile_;
         std::ofstream statsFile_;
         std::ofstream fastaFile_;
@@ -151,6 +154,7 @@ class ClosePathPostProcess
         void writeResultToWalks(const ClosePathResult & res);
         void writeStatusHeader();
         void writeStatsHeader();
+        void writeSubgraphToFile(const ClosePathWorkItem& item); // write the subgraph searched to file
 };
 
 template <class T>
@@ -166,5 +170,6 @@ void ClosePathPostProcess::removeEdges(T keepCriteria)
              << " (" << 100.0*fracRemoved << " %)"
              << std::endl;
 }
+
 
 #endif
