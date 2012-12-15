@@ -176,13 +176,26 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
 
             if(writeSubgraphs_) writeSubgraphToFile(item);
         }
+        else
+        {
+            if (numClosures == 1)
+            {
+                numBundlesClosedUniquely_++;
+                numReadPairsClosedUniquely_ += result.bundle->n;
+            }
+            if (numClosures > 0)
+            {
+                numBundlesClosed_++;
+                numReadPairsClosed_ += result.bundle->n;
+            }
+        }
 
         if (result.overlapTooLarge)
         {
             numBundlesFailedOverlap_++;
             numReadPairsFailedOverlap_ += result.bundle->n;
         }
-        if (numClosures == 1)
+        if (numClosures == 1 && !result.tooRepetitive)
         {
             numBundlesClosedUniquely_++;
             numReadPairsClosedUniquely_ += result.bundle->n;
@@ -193,7 +206,6 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
             numReadPairsClosed_ += result.bundle->n;
         }
 
-        // Look for overlap!
         if (result.foundOverlap)
         {
             numOverlapsFound_++;

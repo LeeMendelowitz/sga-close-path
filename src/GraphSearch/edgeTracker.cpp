@@ -15,7 +15,7 @@ std::ostream& operator<<(std::ostream& os, const EdgeCov& cov)
 void EdgeTracker::processResult(const ClosePathResult& res)
 {
     size_t numClosures = res.walks.size();
-    if (numClosures == 0)
+    if (numClosures == 0 || res.tooRepetitive)
         return;
 
     const bool isUnique = (numClosures == 1);
