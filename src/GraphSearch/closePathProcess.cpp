@@ -195,16 +195,6 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
             numBundlesFailedOverlap_++;
             numReadPairsFailedOverlap_ += result.bundle->n;
         }
-        if (numClosures == 1 && !result.tooRepetitive)
-        {
-            numBundlesClosedUniquely_++;
-            numReadPairsClosedUniquely_ += result.bundle->n;
-        }
-        if (numClosures > 0 && !result.tooRepetitive)
-        {
-            numBundlesClosed_++;
-            numReadPairsClosed_ += result.bundle->n;
-        }
 
         if (result.foundOverlap)
         {
