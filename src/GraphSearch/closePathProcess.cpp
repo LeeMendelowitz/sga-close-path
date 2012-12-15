@@ -42,8 +42,10 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     // Determine the upper and lower bounds for the graph search
     // Add BOUND_FUZZ to make it very likely that the interval [minGap, maxGap]
     // traps the true gap size value.
-    int maxGap = b->gap + numStd_*b->std + BOUND_FUZZ;
-    int minGap = b->gap - numStd_*b->std - BOUND_FUZZ;
+    //int maxGap = b->gap + numStd_*b->std + BOUND_FUZZ;
+    //int minGap = b->gap - numStd_*b->std - BOUND_FUZZ;
+    int maxGap = b->gap + BOUND_FUZZ;
+    int minGap = b->gap - BOUND_FUZZ;
     if (maxGap > maxGap_) maxGap = maxGap_;
     if (minGap < (-MAX_OL)) minGap = -MAX_OL;
     int lX = pX->getSeqLen();
