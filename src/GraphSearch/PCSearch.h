@@ -33,6 +33,14 @@ namespace PCSearch
                     SGSearchParams params,
                     bool exhaustive,
                     SGWalkVector& outWalks);
+
+    // Find walks without creating a subgraph. Using a double sided search, followed
+    // by dFS.
+    bool findWalksDFS(StringGraph * pGraph,
+                    SGSearchParams params,
+                    bool exhaustive,
+                    SGWalkVector& outWalks,
+                    int& shortestDistance);
 };
 
 #endif

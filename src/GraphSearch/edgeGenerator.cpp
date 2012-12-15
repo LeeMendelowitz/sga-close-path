@@ -114,8 +114,8 @@ inline void takeIntersection(EdgePtrVec& xSet, EdgePtrVec& ySet)
    xSet = intersection;
 }
 
-
-
+// Using the shortest paths from X and from Y, return all edges between nodes
+// that appear on valid paths from X to Y with total path length less than startToEndDist.
 inline EdgePtrVec dijkstraFilterEdges(const DistanceMap& xMap, const DistanceMap& yMap, 
                                 const EdgePtrVec& xEdges, int startToEndDist)
 {
@@ -1419,15 +1419,15 @@ EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, Distan
 // Case 2: pX Forward, pY Forward, then dX = ED_SENSE, dY = ED_ANTISENSE     |--->.......|---->
 // Case 3: pX Reverse, pX Forward, then dX = ED_ANTISENSE, dY = ED_ANTISENSE <---|......|----->
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
-EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX)
+EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX, int& shortestDistance)
 {
     using namespace std;
 
     // |-----------> X          Y  <------------|
     // |<-------------------------------------->| startToEnd
-    // |<------------------------->| maxDistanceX
-    // |<------------>| halfDistanceX
-    //                |<----------------------->| halfDistanceY
+    // |<------------------------->| maxDistanceX (half of startToEnd)
+    // |<---------------->| halfDistanceX
+    //                   |<-------------------->| halfDistanceY
     //             |<---------------------------| maxDistanceY
 
     if (maxDistanceX <= 0)
@@ -1458,7 +1458,6 @@ EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     //int halfDistanceY =  startToEnd - halfDistanceX; // Half the distance from start of Y
     int halfDistanceX = min(startToEnd_2, maxDistanceX);
     int halfDistanceY = min(startToEnd_2, maxDistanceY);
-    bool refineToHalfEdges = (halfDistanceX < maxDistanceX) || (halfDistanceY < maxDistanceY);
 
     assert(maxDistanceY >= 0);
     assert(halfDistanceY >= 0);
@@ -1469,9 +1468,8 @@ EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     ///////////////////////////////////////////////////////////////
     // Create subgraph using BFS from pX and pY
 
-    EdgePtrVec xEdges, yEdges, xHalfEdges, yHalfEdges;
-    // Search from pX
-    //xEdges = boundedBFS(pX, dX, maxDistanceX);
+    EdgePtrVec xEdges, yEdges;
+    // Search from pX. Note: xDistMap has the orientation of the vertices relative to the walk out of pX in direction dX
     DistanceMap xDistMap, yDistMap;
     xEdges = dijkstra(pX, dX, maxDistanceX, xDistMap);
     #if PATHS_DEBUG!=0
@@ -1479,18 +1477,22 @@ EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     cout << xEdges << endl;
     #endif
 
-    // Search from pY
+    // Test if Y is reachable from X with the distance constraint.
+    DistanceMap::iterator xyDistIter = xDistMap.find(VDirPair(pY,!dY));
+    if (xyDistIter == xDistMap.end())
+        return EdgePtrVec();
+
+    shortestDistance = xyDistIter->second;
+
+    // Search from pY. Note: yDistMap has the orientation of the vertices relative to the walk out of pY in direction dY
     yEdges = dijkstra(pY, dY, maxDistanceY, yDistMap);
     #if PATHS_DEBUG!=0
     cout << "Y Edges: " << yEdges.size() << endl;
     cout << yEdges << endl;
     #endif
 
-    if ((xEdges.size() == 0) || (yEdges.size() == 0))
-        return EdgePtrVec();
-
     // Take the intersection of xEdges and yEdges and place in xEdges.
-    // Then, use the shortest path distances to refined the list of xEges.
+    // Then, use the shortest path distances to refine the list of xEges.
     takeIntersection(xEdges, yEdges);
     makeUnique(xEdges);
     xEdges = dijkstraFilterEdges(xDistMap, yDistMap, xEdges, startToEnd);
@@ -1499,12 +1501,12 @@ EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     if (xEdges.size() == 0)
         return EdgePtrVec();
 
-
     // Iteratively search from X towards Y, and then from Y towards X,
     // using only the allowed edges, until the allowed edge set stops changing.
     int numPruneRounds = 0;
     size_t oldEdgeCount = xEdges.size();
     size_t curEdgeCount;
+    //while (false)
     while (true)
     {
         #if PATHS_DEBUG!=0

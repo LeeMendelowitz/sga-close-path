@@ -74,7 +74,7 @@ StringGraph * makePathGraph(const StringGraph * pGraph, const Vertex * pX, EdgeD
 // Case 4: pX Reverse, pY Reverse, then dX = ED_ANTISENSE, dY = ED_SENSE  <----|......<----|
 EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
 EdgePtrVec getPathEdges2(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
-EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
+EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX, int& shortestDistance);
 EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, DistanceMap& distMap);
 EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, DistanceMap& distMap, const EdgePtrSet& allowableEdges);
 #endif

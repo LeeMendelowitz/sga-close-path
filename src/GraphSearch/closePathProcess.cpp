@@ -87,8 +87,15 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     // Find paths and save results
     SGWalkVector walks;
     bool exhaustive = true;
-    bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks); //bool foundAll = PCSearch::findWalks3(pGraph_, params, exhaustive, walks);
+    //bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks);
+    bool foundAll = PCSearch::findWalksDFS(pGraph_, params, exhaustive, walks, result.shortestPath);
+    //bool foundAll = PCSearch::findWalks3(pGraph_, params, exhaustive, walks);
     //bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, walks);
+
+    // Convert the shortest distance to the gap length
+    if (walks.size() > 0)
+        result.shortestPath -= pX->getSeqLen();
+
     result.setWalks(walks);
     result.tooRepetitive = !foundAll;
     size_t numClosures = walks.size();
@@ -169,6 +176,7 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
 
             if(writeSubgraphs_) writeSubgraphToFile(item);
         }
+
         if (result.overlapTooLarge)
         {
             numBundlesFailedOverlap_++;
@@ -179,7 +187,7 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
             numBundlesClosedUniquely_++;
             numReadPairsClosedUniquely_ += result.bundle->n;
         }
-        if (numClosures > 0)
+        if (numClosures > 0 && !result.tooRepetitive)
         {
             numBundlesClosed_++;
             numReadPairsClosed_ += result.bundle->n;
@@ -238,7 +246,8 @@ void ClosePathPostProcess::writeSubgraphToFile(const ClosePathWorkItem& item)
     int lX = pX->getSeqLen();
     assert(minGap <= maxGap);
     int maxDistance = maxGap + lX;
-    EdgePtrVec allowedEdges = getPathEdges3(pX, b->dir1, pY, b->dir2, maxDistance);
+    int dummy;
+    EdgePtrVec allowedEdges = getPathEdges3(pX, b->dir1, pY, b->dir2, maxDistance, dummy);
     StringGraph * pSubgraph = Subgraph::copyGraph(pGraph_);
     Subgraph::copyEdgesToSubgraph(pSubgraph, allowedEdges);
 
@@ -298,6 +307,8 @@ void ClosePathPostProcess::writeStatsHeader()
                << "\tstdEst"
                << "\tnumLinks"
                << "\tnumClosures"
+               << "\tfoundAll"
+               << "\tshortestPath"
                << "\toverlap"
                << "\toverlapDiff"
                << "\tclosureLengths"
@@ -313,6 +324,8 @@ void ClosePathPostProcess::writeResultToStats(const ClosePathResult & res)
                << "\t" << b->std
                << "\t" << b->n
                << "\t" << res.walks.size()
+               << "\t" << !res.tooRepetitive
+               << "\t" << res.shortestPath
                << "\t" << res.overlap.getOverlapLength(0) << "/" << res.overlap.getOverlapLength(1)
                << "\t" << res.overlap.match.numDiff;
 

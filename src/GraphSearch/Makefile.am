@@ -20,5 +20,6 @@ libgraphsearch_a_SOURCES = \
    bundleReader.h bundleReader.cpp \
    edgeTracker.h edgeTracker.cpp \
    closePathProcess.h closePathProcess.cpp \
-   overlapFinder.h overlapFinder.cpp
+   overlapFinder.h overlapFinder.cpp \
+   dfs.h dfs.cpp
 #   bundleManager.h bundleManager.cpp

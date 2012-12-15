@@ -67,7 +67,8 @@ class ClosePathResult
         bundle(b),
         tooRepetitive(false),
         overlapTooLarge(false),
-        foundOverlap(false)
+        foundOverlap(false),
+        shortestPath(0)
         {};
 
     void setWalks(const SGWalkVector& walksIn)
@@ -79,6 +80,7 @@ class ClosePathResult
     bool tooRepetitive; // Closure failed due to graph too repetitive
     bool overlapTooLarge; // Closure failed because bundle implies overlap too large
     bool foundOverlap;
+    int shortestPath;
     SGWalkVector walks;
     Overlap overlap;
 };

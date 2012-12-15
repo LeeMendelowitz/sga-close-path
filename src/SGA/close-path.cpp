@@ -45,6 +45,7 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "                                       then FLOAT will be used in its place.\n"
 "      --numRounds=NUM                  Perform NUM rounds of edge pruning.\n"
 "      --writeSubgraph                  Write out the subgraph for any repetitive region.\n"
+"      --noRemoveEdges                  Do not remove low coverage edges after path search.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -64,11 +65,12 @@ namespace opt
     static std::string bundleFile;
     static std::string outputPfx;
     static bool findOverlaps = false;
+    static bool removeEdges = true;
 }
 
 static const char* shortopts = "vm:s:t:p:o:";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH};
+enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
@@ -78,6 +80,7 @@ static const struct option longopts[] = {
     { "maxNumStd",        required_argument, NULL, 's' },
     { "numRounds",    required_argument, NULL, OPT_NUMROUNDS}, 
     { "writeSubgraph", no_argument, NULL, OPT_WRITESUBGRAPH},
+    { "noRemoveEdges", no_argument, NULL, OPT_NOREMOVEEDGES},
     { "output",       required_argument, NULL, 'o' },
     { "help",          no_argument,       NULL, OPT_HELP },
     { "version",       no_argument,       NULL, OPT_VERSION },
@@ -168,16 +171,19 @@ int closePathMain(int argc, char** argv)
         }
 
         // Remove untrusted edges from the graph, and add missing edges
-        postProcessor->removeEdges(covCriteria[i]);
-        size_t edgesAdded = 0;
-        if (opt::findOverlaps)
+        if (opt::removeEdges)
         {
-           edgesAdded = postProcessor->addEdgesToGraph();
+            postProcessor->removeEdges(covCriteria[i]);
+            size_t edgesAdded = 0;
+            if (opt::findOverlaps)
+            {
+               edgesAdded = postProcessor->addEdgesToGraph();
+            }
+            pGraph->writeASQG(roundOutputPfx + "-pruned.asqg.gz");
+            std::cout << "Added " << edgesAdded << " edges to the graph.\n";
+            std::cout << "Graph stats after round " << roundNum << " pruning:\n";
+            pGraph->stats();
         }
-        pGraph->writeASQG(roundOutputPfx + "-pruned.asqg.gz");
-        std::cout << "Added " << edgesAdded << " edges to the graph.\n";
-        std::cout << "Graph stats after round " << roundNum << " pruning:\n";
-        pGraph->stats();
 
         delete bundleReader;
         delete workGenerator;
@@ -209,6 +215,7 @@ void parseClosePathOptions(int argc, char** argv)
             case 'v': opt::verbose++; break;
             case OPT_MINSTD: arg >> opt::minStd; break;
             case OPT_WRITESUBGRAPH: opt::writeSubgraph = true; break;
+            case OPT_NOREMOVEEDGES: opt::removeEdges = false; break;
             case OPT_NUMROUNDS: arg >> opt::numRounds; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
