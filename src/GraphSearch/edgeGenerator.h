@@ -10,7 +10,8 @@
 
 typedef std::set<Edge *> EdgePtrSet;
 typedef std::pair<const Vertex *, EdgeDir> VDirPair;
-typedef std::map<VDirPair, int> DistanceMap;
+typedef std::map<VDirPair, int> VDistanceMap;
+typedef std::map<Edge *, int> EDistanceMap;
 
 // Perform a bounded BFS to collect edges starting from pVertex in direction dir, up to a maximum distance.
 // NOTE: This search differs from the search functionality provided in SGSearch.
@@ -75,6 +76,6 @@ StringGraph * makePathGraph(const StringGraph * pGraph, const Vertex * pX, EdgeD
 EdgePtrVec getPathEdges(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
 EdgePtrVec getPathEdges2(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX);
 EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeDir dY, int maxDistanceX, int& shortestDistance);
-EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, DistanceMap& distMap);
-EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, DistanceMap& distMap, const EdgePtrSet& allowableEdges);
+EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDistanceMap& distMap, bool useTwin);
+EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDistanceMap& distMap, const EdgePtrSet& allowableEdges, bool useTwin);
 #endif
