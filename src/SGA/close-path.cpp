@@ -40,9 +40,14 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      -v, --verbose                    display verbose output\n"
 "      -t, --threads=NUM                use NUM threads to find path closures\n"
 "      -o, --output=NAME                use output prefix NAME. Defaults to bundle filename prefix.\n"
+"\n\nInterval Options:\n"
 "      -s, maxNumStd=FLOAT              maximum number of standard deviations allowed in path length deviation. (Default 3.0)\n"
-"      --minStd=FLOAT                   minimum standard deviation to use for a bundle. If a bundle has a standard deviation less than FLOAT\n"
-"                                       then FLOAT will be used in its place.\n"
+"      --minStd=FLOAT                   minimum standard deviation to use for a bundle. All bundle standard deviations will\n"
+"                                       be set to MAX(bundle.std, FLOAT)\n"
+"      --intervalWidth=INT              If no paths are found in interval +/- N*std, try the fixed interval +/- F.\n"
+"      --maxOL=INT                      Maximum Overlap allowed when searching for paths. (Default: 150)\n"
+"      --maxGap=INT                     Upper bound on gap interval. (Default: 200)\n"
+"\n\nMiscellaneous Options:\n"
 "      --numRounds=NUM                  Perform NUM rounds of edge pruning.\n"
 "      --writeSubgraph                  Write out the subgraph for any repetitive region.\n"
 "      --noRemoveEdges                  Do not remove low coverage edges after path search.\n"
@@ -53,35 +58,47 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 
 namespace opt
 {
+    // Standard options
     static unsigned int verbose = 0;
-    static int minOverlap = 0;
     static int numThreads = 1;
+    static std::string outputPfx;
+
+    // Interval options
     static float maxNumStd = 3.0;
     static float minStd = 0.0;
+    static int intervalWidth = 50;
+    static int maxOL = 150;
     static int maxGap = 200;
+
+    // Miscellaneous
     static int numRounds = 1;
     static bool writeSubgraph = false;
-    static std::string graphFile;
-    static std::string bundleFile;
-    static std::string outputPfx;
+    static int minOverlap = 0; // Minimum overlap to use when loading graph
     static bool findOverlaps = false;
     static bool removeEdges = true;
+    
+    // Required
+    static std::string graphFile;
+    static std::string bundleFile;
 }
 
 static const char* shortopts = "vm:s:t:p:o:";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES};
+enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES, OPT_MAXOL, OPT_MAXGAP, OPT_INTERVALWIDTH};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
     { "threads",       required_argument, NULL, 't'},
+    { "output",       required_argument, NULL, 'o' },
     { "minOverlap",       required_argument, NULL, 'm' },
-    { "minStd",        required_argument, NULL, OPT_MINSTD},
     { "maxNumStd",        required_argument, NULL, 's' },
+    { "minStd",        required_argument, NULL, OPT_MINSTD},
     { "numRounds",    required_argument, NULL, OPT_NUMROUNDS}, 
     { "writeSubgraph", no_argument, NULL, OPT_WRITESUBGRAPH},
     { "noRemoveEdges", no_argument, NULL, OPT_NOREMOVEEDGES},
-    { "output",       required_argument, NULL, 'o' },
+    { "maxOL", required_argument, NULL, OPT_MAXOL},
+    { "maxGap", required_argument, NULL, OPT_MAXGAP},
+    { "intervalWidth", required_argument, NULL, OPT_INTERVALWIDTH},
     { "help",          no_argument,       NULL, OPT_HELP },
     { "version",       no_argument,       NULL, OPT_VERSION },
     { NULL, 0, NULL, 0 }
@@ -149,7 +166,7 @@ int closePathMain(int argc, char** argv)
         if (opt::numThreads <= 1)
         {
             // Serial Mode
-            ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap, opt::findOverlaps);
+            ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap, opt::maxOL, opt::intervalWidth, opt::findOverlaps);
             processFramework.processWorkSerial(*workGenerator, &processor, postProcessor);
         }
         else
@@ -158,7 +175,7 @@ int closePathMain(int argc, char** argv)
             std::vector<ClosePathProcess*> processorVector;
             for(int i = 0; i < opt::numThreads; ++i)
             {
-                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd, opt::maxGap, opt::findOverlaps);
+                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd, opt::maxGap, opt::maxOL, opt::intervalWidth, opt::findOverlaps);
                 processorVector.push_back(pProcessor);
             }
 
@@ -217,6 +234,9 @@ void parseClosePathOptions(int argc, char** argv)
             case OPT_WRITESUBGRAPH: opt::writeSubgraph = true; break;
             case OPT_NOREMOVEEDGES: opt::removeEdges = false; break;
             case OPT_NUMROUNDS: arg >> opt::numRounds; break;
+            case OPT_MAXOL: arg >> opt::maxOL; break;
+            case OPT_MAXGAP: arg >> opt::maxGap; break;
+            case OPT_INTERVALWIDTH: arg >> opt::intervalWidth; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -251,6 +271,24 @@ void parseClosePathOptions(int argc, char** argv)
         die = true;
     }
 
+    if (opt::maxOL < 0)
+    {
+        std::cerr << SUBPROGRAM ": maxOL must be positive\n";
+        die = true;
+    }
+
+    if (opt::intervalWidth < 0)
+    {
+        std::cerr << SUBPROGRAM ": intervalWidth must be positive\n";
+        die = true;
+    }
+
+    if (opt::maxGap < 0)
+    {
+        std::cerr << SUBPROGRAM ": maxGap must be positive\n";
+        die = true;
+    }
+
     if (opt::numRounds < 0)
     {
         std::cerr << SUBPROGRAM ": numRounds must be positive\n";
@@ -281,6 +319,9 @@ void printOptions()
                   << "MinOverlap: " << opt::minOverlap << "\n"
                   << "MaxNumStd: " << opt::maxNumStd << "\n"
                   << "MinStd: " << opt::minStd << "\n"
+                  << "maxOL: " << opt::maxOL << "\n"
+                  << "maxGap: " << opt::maxGap << "\n"
+                  << "intervalWidth: " << opt::intervalWidth << "\n"
                   << "graphFile: " << opt::graphFile << "\n"
                   << "bundleFile: " << opt::bundleFile << "\n"
                   << "outputPfx: " << opt::outputPfx << "\n"

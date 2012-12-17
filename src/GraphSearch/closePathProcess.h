@@ -10,6 +10,8 @@
 #include "overlapFinder.h"
 #include "SGUtil.h"
 #include "SGWalk.h"
+#include "SGSearch.h"
+
 
 // Class for an item of work for sga close-path
 // This simply wraps a pointer to a Bundle
@@ -68,7 +70,8 @@ class ClosePathResult
         tooRepetitive(false),
         overlapTooLarge(false),
         foundOverlap(false),
-        shortestPath(0)
+        shortestPath(0),
+        usedFixedInterval(false)
         {};
 
     void setWalks(const SGWalkVector& walksIn)
@@ -81,6 +84,7 @@ class ClosePathResult
     bool overlapTooLarge; // Closure failed because bundle implies overlap too large
     bool foundOverlap;
     int shortestPath;
+    bool usedFixedInterval;
     SGWalkVector walks;
     Overlap overlap;
 };
@@ -91,18 +95,24 @@ class ClosePathProcess
 {
 
     public:
-    ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, bool checkOverlap);
+    ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, int maxOL, int fixedIntervalWidth, bool checkOverlap);
     ~ClosePathProcess();
     ClosePathResult process(const ClosePathWorkItem& item);
 
     private:
+
+    // Find walks. First, try a single sided BFS. If the graph is too repetitive,
+    // try a double sided BFS to collected edges which appear on a valid walk, and then
+    // do a bounded DFS to find the walks.
+    bool findWalks(SGSearchParams& params, ClosePathResult& res); 
+
     StringGraph * pGraph_;
     OverlapFinder overlapFinder_;
     const float numStd_;
     const int maxGap_;
+    const int maxOL_;
+    const int fixedIntervalWidth_;
     bool checkOverlap_;
-    //const int MAX_OL; // Maximum overlap to search for
-    //const int BOUND_FUZZ; // Adjustments to the upper and lower bound for path search
 };
 
 // Post Processor to write results to file

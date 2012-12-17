@@ -17,10 +17,12 @@ using namespace std;
 const int MAX_OL = 150;
 const int BOUND_FUZZ = 75;
 
-ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, bool checkOverlap) :
+ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, int maxOL, int fixedIntervalWidth, bool checkOverlap) :
     pGraph_(pGraph),
     numStd_(numStd) ,
     maxGap_(maxGap),
+    maxOL_(maxOL), 
+    fixedIntervalWidth_(fixedIntervalWidth),
     checkOverlap_(checkOverlap)
     { };
 
@@ -31,80 +33,80 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
 {
 
     Bundle * b = item.b_;
-
-    ClosePathResult result(b);
-
     Vertex * pX = pGraph_->getVertex(b->vertex1ID);
     Vertex * pY = pGraph_->getVertex(b->vertex2ID);
     assert(pX);
     assert(pY);
-
-    // Determine the upper and lower bounds for the graph search
-    // Add BOUND_FUZZ to make it very likely that the interval [minGap, maxGap]
-    // traps the true gap size value.
-    //int maxGap = b->gap + numStd_*b->std + BOUND_FUZZ;
-    //int minGap = b->gap - numStd_*b->std - BOUND_FUZZ;
-    int maxGap = b->gap + BOUND_FUZZ;
-    int minGap = b->gap - BOUND_FUZZ;
-    if (maxGap > maxGap_) maxGap = maxGap_;
-    if (minGap < (-MAX_OL)) minGap = -MAX_OL;
     int lX = pX->getSeqLen();
 
-
-    #if BUNDLEMANAGER_DEBUG > 0
-    int lY = pY->getSeqLen();
-    cout << "*****************************\n";
-    cout << " V1: " << b->vertex1ID << " Length: " << lX
-         << " V2: " << b->vertex2ID << " Length: " << lY
-         << " Gap: " << b->gap << " std: " << b->std
-         << " maxGap: " << maxGap << " minGap: " << minGap << "\n";
-    #endif
-
-    // Skip this search if the maximum allowed gap implies too large of an overlap
-    if ( (maxGap < 0) && ((-maxGap >= lX) || (maxGap <= (-MAX_OL))) )
-    {
-        result.overlapTooLarge = true;
-        return result;
-    }
-
-    assert(minGap <= maxGap);
-
-    // Create search params for path closure search
+    // Set path search parameters
     SGSearchParams params(pX, pY, b->dir1, 0);
     params.goalDir = !b->dir2;
-    params.maxDistance = maxGap + lX;
-    params.minDistance = max(minGap + lX, 0);
     params.allowGoalRepeat = true;
     params.goalOriented = true;
     params.minDistanceEnforced = true;
     params.maxDistanceEnforced = true;
     params.nodeLimit = 10000;
-    //params.selfPrune = false;
     params.selfPrune = true;
 
-    assert(params.maxDistance > 0);
-    assert(params.minDistance <= params.maxDistance);
-    assert(params.minDistance >= 0);
 
-    // Find paths and save results
-    SGWalkVector walks;
-    bool exhaustive = true;
-    //bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks);
-    bool foundAll = PCSearch::findWalksDFS(pGraph_, params, exhaustive, walks, result.shortestPath);
-    //bool foundAll = PCSearch::findWalksOneSidedBFS(pGraph_, params, exhaustive, walks);
-    //bool foundAll = PCSearch::findWalks3(pGraph_, params, exhaustive, walks);
-    //bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, walks);
 
-    // Convert the shortest distance to the gap length
-    if (walks.size() > 0)
-        result.shortestPath -= pX->getSeqLen();
+    // Determine the upper and lower bounds for the graph search
+    // First, use +/- N*b->std to set the interval
+    int minStdGap, maxStdGap; // Gap bounds determined by standard deviation estimate
+    int stdDelta = (int) (numStd_ * b->std + 1);
+    maxStdGap = min((int) (b->gap + stdDelta), maxGap_);
+    minStdGap = max((int) (b->gap - stdDelta), -maxOL_);
+    params.maxDistance = lX + maxStdGap;
+    params.minDistance = max(lX + minStdGap,0);
+    ClosePathResult result1(b);
+    result1.overlapTooLarge =  (maxStdGap < 0) && (maxStdGap <= max(-lX, -maxOL_));
+    if (!result1.overlapTooLarge)
+        findWalks(params, result1);
 
-    result.setWalks(walks);
-    result.tooRepetitive = !foundAll;
-    size_t numClosures = walks.size();
+    // Being here means either that:
+    // 1. No path existed for the initial interval (and the graph was not too repetitive).
+    // 2. No path was found because the graph was too repetitive.
+    // 3. The overlap for the initial interval was too large.
 
-    // Check for overlap if there is sufficient link evidence and if no path was found.
-    bool checkOverlap = checkOverlap_ && (numClosures == 0 ) && (result.bundle->n >= 2);
+    // We proceed with case 1 only if the fixed interval is larger than the initial iterval.
+    // We process with case 2 only if the fixed interval is smaller than the initial interval.
+    // We will try case 3 no matter what.
+
+    // Second, use the fixed interval size: +/- fixedIntervalWidth_
+    int minFixedGap, maxFixedGap; // Gap bounds determined by fixed interval
+    maxFixedGap = min((int) (b->gap + fixedIntervalWidth_), maxGap_);
+    minFixedGap = max((int) (b->gap - fixedIntervalWidth_), -maxOL_);
+    bool fixedIntervalIsLarger = (maxFixedGap > maxStdGap);
+    params.maxDistance = lX + maxFixedGap;
+    params.minDistance = max(lX + minFixedGap,0);
+    ClosePathResult result2(b);
+    result2.overlapTooLarge =  (maxFixedGap < 0) && (maxFixedGap <= max(-lX, -maxOL_));
+    bool useFixedIntervalResult = false;
+    if (!result2.overlapTooLarge)
+    {
+        if (fixedIntervalIsLarger && result1.walks.size()==0 && !result1.tooRepetitive)
+        {
+            // With the initial interval, no walks valid walks existed. See if any walks
+            // exist in this wider interval.
+            findWalks(params, result2);
+            result2.usedFixedInterval = true;
+            useFixedIntervalResult = true;
+        }
+        else if (!fixedIntervalIsLarger && result1.tooRepetitive)
+        {
+            // With the intitial interval, the graph was too repetitive. See if any walks
+            // exist in this smaller interval.
+            findWalks(params, result2);
+            result2.usedFixedInterval = true;
+            useFixedIntervalResult = true;
+        }
+    }
+
+    ClosePathResult result = (useFixedIntervalResult ? result2 : result1);
+
+    // Check for a sequence overlap if there is sufficient link evidence and if no path was found.
+    bool checkOverlap = checkOverlap_ && (result.walks.size() == 0 ) && (result.bundle->n >= 2);
     result.overlap.match.numDiff = 0;
     if (checkOverlap)
     {
@@ -116,13 +118,43 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
             result.overlap = overlap;
         }
     }
-
-    #if BUNDLEMANAGER_DEBUG > 0
-    cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
-    #endif
-
     return result;
 };
+
+
+// Find walks. First, try a single sided BFS. If the graph is too repetitive,
+// try a double sided BFS to collected edges which appear on a valid walk, and then
+// do a bounded DFS to find the walks.
+bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result)
+{
+    // Do one sided BFS from pX to pY
+    SGWalkVector walks;
+    bool foundAll = PCSearch::findWalksOneSidedBFS(pGraph_, params, true, walks);
+    bool noPaths = walks.empty();
+    bool tooRepetitive = !foundAll;
+
+    // We expect regions that are tooRepetitive to have noPaths.
+    if (tooRepetitive) assert(noPaths);
+
+    // If no walks were found because graph was too repetitive, repeat the search
+    // on the same interval using double sided BFS, followed by DFS.
+    //
+    // Note: This is more expensive than the one sided BFS, but can handle repetitive regions better,
+    // which is why we try it as a second resort. The double sided search repeats some of the work done
+    // in the one sided search, but it would require some code reorganization to resolve this.
+    // We expect a relatively small fraction of the bundle searches to fall into this tooRepetitive category.
+    if (tooRepetitive)
+    {
+        foundAll = PCSearch::findWalksDFS(pGraph_, params, true, walks, result.shortestPath);
+        noPaths = walks.empty();
+        tooRepetitive = !foundAll;
+    }
+
+    result.setWalks(walks);
+    result.tooRepetitive = tooRepetitive;
+
+    return !tooRepetitive;
+}
 
 
 ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, float numStd, int maxGap, bool writeSubgraphs) :
@@ -230,6 +262,8 @@ size_t ClosePathPostProcess::addEdgesToGraph()
     return N;
 }
 
+// NOTE: THIS FUNCTION MAY NEED TO BE REVISED, IF NEEDED. MAX_OL AND BOUND_FUZZ
+// ARE NOW OPTIONS TO SGA CLOSE-PATH.
 void ClosePathPostProcess::writeSubgraphToFile(const ClosePathWorkItem& item)
 {
 
@@ -292,6 +326,7 @@ void ClosePathPostProcess::writeStatusHeader()
                 << "\tTooRepetitive"
                 << "\tOverlapTooLarge"
                 << "\tFoundOverlap"
+                << "\tUsedFixedInterval"
                 << "\n";
 }
 
@@ -302,6 +337,7 @@ void ClosePathPostProcess::writeResultToStatus(const ClosePathResult & res)
                 << "\t" << res.tooRepetitive
                 << "\t" << res.overlapTooLarge
                 << "\t" << res.foundOverlap
+                << "\t" << res.usedFixedInterval
                 << "\n";
 }
 
