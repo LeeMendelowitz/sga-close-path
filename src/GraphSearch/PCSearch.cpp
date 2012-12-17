@@ -159,7 +159,7 @@ bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exha
 // Then it searches for all possible valid paths in the subgraph
 //
 // Return true if the search completed, else return false
-bool PCSearch::findWalks3(StringGraph * pGraph, SGSearchParams params, bool exhaustive, SGWalkVector& outWalks)
+bool PCSearch::findWalksOneSidedBFS(StringGraph * pGraph, SGSearchParams params, bool exhaustive, SGWalkVector& outWalks)
 {
     ///////////////////////////////////////////////////
     // DEBUG

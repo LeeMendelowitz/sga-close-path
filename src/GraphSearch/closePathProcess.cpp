@@ -91,6 +91,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     bool exhaustive = true;
     //bool foundAll = PCSearch::findWalks2(pGraph_, params, exhaustive, walks);
     bool foundAll = PCSearch::findWalksDFS(pGraph_, params, exhaustive, walks, result.shortestPath);
+    //bool foundAll = PCSearch::findWalksOneSidedBFS(pGraph_, params, exhaustive, walks);
     //bool foundAll = PCSearch::findWalks3(pGraph_, params, exhaustive, walks);
     //bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, walks);
 
