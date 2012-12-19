@@ -14,4 +14,5 @@ libconcurrency_a_SOURCES = \
         SequenceWorkItem.h \
         ProcessFramework.h \
         ThreadWorker.h \
+        ThreadBase.h \
 		MkqsThread.h
