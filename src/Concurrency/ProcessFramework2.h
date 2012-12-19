@@ -38,13 +38,230 @@ void semGetValueFailed()
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Data type exchanged with a ProcessorThread
+template <class Input, class Output>
+struct ProcessorData
+{
+    typedef std::vector<Input> InputItemVector;
+    typedef std::vector<Output> OutputItemVector;
+    InputItemVector  inputItems;
+    OutputItemVector outputItems;
+};
+
+// Data type exchanged with a GeneratorThread
+template <class Input>
+struct GeneratorData
+{
+    typedef std::vector<Input> InputItemVector;
+    typedef std::vector<InputItemVector> InputBufferVector;
+    InputBufferVector bufferVector;
+}:
+
+// Data type exchanged with a PostProcessorThread
+template <class Input, class Output>
+struct PostProcessorData
+{
+    typedef ProcessorData<Input, Output> PairedData;
+    typedef std::vector<PairedData> PairedDataVector;
+    PairedDataVector pairedDataVector;
+}:
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// Define a Generator thread which fills a buffer of InputItemVectors, which will
+// eventually get passed to a worker Thread.
+template <class Input, class Generator>
+class GeneratorThread : public ThreadBase< GeneratorData<Input> >
+{
+
+    typedef std::vector<Input> InputItemVector;
+    typedef std::vector<InputItemVector> InputBufferVector;
+
+    public:
+    GeneratorThread(sem_t * pReadySemShared, Generator * pGenerator, size_t bufferSize, size_t numBuffers) :
+        ThreadBase< GeneratorData<Input> >(pReadySemShared),
+        pGenerator_(pGenerator),
+        bufferSize_(bufferSize),
+        numBuffers_(numBuffers),
+        numGenerated_(0),
+        bool done_(false)
+
+    { 
+        inputBuffer_ = InputBufferVector(numBuffers);
+    };
+
+    private:
+    Generator * pGenerator_;
+    const size_t bufferSize;
+    const size_t numBuffers;
+    size_t numGenerated;
+    InputBufferVector inputBuffer_;
+    bool done_;
+
+    void doWork();
+    void exchange(GeneratorData<Input>& data);
+};
+
+// Fill up the inputBuffer_ until it is of size numBuffers
+template <class Input, class Generator>
+void GeneratorThread<Input, Generator>::doWork()
+{
+    if (done_) return;
+
+    assert(inputBuffer_.size() == 0);
+
+    Input workItem;
+    inputBuffer_.reserve(numBuffers);
+    for (size_t i = 0; i < numBuffers && !done_; i++)
+    {
+        // Generate items and place them into the items vector,
+        // until either the generator has run out of items or the
+        // items vector is full.
+        inputBuffer_.push_back(InputItemVector())
+        InputItemVector& items = inputBuffer_.back();
+        items.reserve(bufferSize);
+        while(items.size() < bufferSize)
+        {
+            bool success = pGenerator_->generate(workItem);
+            if (!success)
+            {
+                done_ = true;
+                break;
+            }
+            items.push_back(workItem);
+            numGenerated_++;
+        }
+    }
+}
+
+template <class Input, class Generator>
+void GeneratorThread<Input, Generator>::exchange(GeneratorData<Input>& data)
+{
+    data.inputBufferVector.swap(inputBuffer_);
+    inputBuffer_.clear();
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// Define a Post processor thread which consumes paired buffers of InputItemVectors and OutputItemVectors
+template <class Input, class Output, class PostProcessor>
+class PostProcessorThread : public ThreadBase< PostProcessorData<Input, Output> >
+{
+
+    typedef std::vector<Input> InputItemVector;
+    typedef std::vector<Output> OutputItemVector;
+    typedef std::vector<Output> OutputItemVector;
+    typedef std::vector<OutputItemVector> OutputBufferVector;
+    typedef ProcessorData<Input, Output> PairedData;
+    typedef std::vector<PairedData> PairedDataVector;
+
+    public:
+    PostProcessorThread(sem_t * pReadySemShared, PostProcessor * pPostProcessor) :
+        ThreadBase< PostProcessorData<Input, Output> >(pReadySemShared),
+        pPostProcessor_(pPostProcessor),
+        numConsumed_(0)
+    { }
+
+    private:
+    PostProcess * pPostProcessor_;
+    PairedDataVector pairedData_;
+    size_t numConsumed_;
+
+    void doWork();
+    void exchange(PostProcessorData<Input, Output>& data);
+};
+
+// Run the PostProcessor on all of the data
+template <class Input, class Output, class PostProcessor>
+void PostProcessorThread<Input, Output, PostProcessor>::doWork()
+{
+    size_t numBuffers = pairedData_.size();
+    for (size_t i = 0; i < numBuffers; i++)
+    {
+        PairedData& pairedData = pairedData_[i];
+        InputItemVector& inputItems = pairedData.inputItems;
+        OutputItemVector& outputItems = pairedData.outputItems;
+        assert(inputItems.size() == outputItems.size());
+        size_t numItems = itemsItems.size();
+        for (size_t j = 0; j < numItems; j++)
+        {
+            pPostProcessor->process(inputItems[j], outputItems[j]);
+            numConsumed_++;
+        }
+        inputItems.clear();
+        outputItems.clear();
+    }
+    pairedData_.clear();
+}
+
+template <class Input, class Output, class PostProcessor>
+void PostProcessorThread<Input, Output, PostProcessor>::exchange(PostProcessorData<Input, Output>& data)
+{
+    data.pairedDataVector.swap(pairedData_);
+    data.pairedDataVector.clear();
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// Define a Processor thread which performs work on an InputItemVector and populated an outputItemVector
+template <class Input, class Output, class Processor>
+class ProcessorThread : public ThreadBase< ProcessorData<Input, Output> >
+{
+
+    typedef std::vector<Input> InputItemVector;
+    typedef std::vector<Output> OutputItemVector;
+    typedef std::vector<Output> OutputItemVector;
+    typedef std::vector<OutputItemVector> OutputBufferVector;
+
+    public:
+    ProcessorThread(sem_t * pReadySemShared, Processor * pProcessor) :
+        ThreadBase< ProcessorData<Input, Output> >(pReadySemShared),
+        pProcessor_(pProcessor),
+        numWorked_(0)
+    { }
+
+    private:
+    PostProcess * pPostProcessor_;
+    ProcessorData<Input, Output> data_;
+    size_t numWorked_;
+
+    void doWork();
+    void exchange(ProcessorData<Input, Output>& data);
+};
+
+// Run the Processor on all of the data
+template <class Input, class Output, class Processor>
+void ProcessorThread<Input, Output, Processor>::doWork()
+{
+    size_t numItems = data.inputItems.size();
+    data.outputItems_.clear();
+    data.outputItems_.reserve(numItems);
+    for (size_t j = 0; j < numItems; j++)
+    {
+        Output output = pProcessor->process(workItem);
+        data.outputItems_.push_back(output);
+        numWorked_++;
+    }
+}
+
+template <class Input, class Output, class Processor>
+void ProcessorThread<Input, Output, Processor>::exchange(ProcessorData<Input, Output>& data)
+{
+    data_.inputItems_.swap(data.inputItems_); // Get new items to work
+    data_.outputItems_.swap(data.outputItems_); // Give results
+    data_.outputItems_.clear();
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
 template <class Input, class Output, class Generator, class Processor, class PostProcessor>
-class ProcessFramework
+class ThreadScheduler
 {
 
     public:
 
-    ProcessFramework(const std::string& name, size_t bufferSize = 1000, const size_t reportInterval = 1000) :
+    ThreadScheduler(const std::string& name, size_t bufferSize = 1000, const size_t reportInterval = 1000) :
         name_(name),
         bufferSize_(bufferSize),
         reportInterval_(reportInterval)
@@ -53,7 +270,6 @@ class ProcessFramework
     // Generic function to process n work items from a file. 
     // With the default value of -1, n becomes the largest value representable for
     // a size_t and all values will be read
-//    template<class Input, class Output, class Generator, class Processor, class PostProcessor>
     size_t processWorkSerial(Generator& generator, Processor* pProcessor, PostProcessor* pPostProcessor, size_t n = -1)
     {
         Timer timer(name_, true);
@@ -104,8 +320,9 @@ class ProcessFramework
         Timer timer(name_, true);
 
         // Helpful typedefs
-        typedef ThreadWorker<Input, Output, Processor> Thread;
-        typedef std::vector<Thread*> ThreadPtrVector;
+
+        typedef ProcessorThread<Input, Output, Processor> Worker;
+        typedef std::vector<Worker *> ThreadPtrVector;
 
         typedef std::vector<Input> InputItemVector;
         typedef std::vector<InputItemVector*> InputBufferVector;
@@ -114,61 +331,47 @@ class ProcessFramework
         typedef std::vector<OutputVector*> OutputBufferVector;
         typedef std::vector<sem_t*> SemaphorePtrVector;
 
-        // The generator creates InputItemVector's, one for each thread
-        typedef ThreadWorker<bool, InputItemVector, Generator> GeneratorThread;
+        typedef GeneratorThread<Input, Generator> GenThread;
+        typedef PostProcessorThread<Input, Output, PostProcessor> PostProcThread;
+        typedef ProcessorThread<Input, Output, Processor> ProcThread;
 
-        // The post processor takes OutputVector's, one from each thread
-        typedef ThreadWorker<OutputVector, bool, PostProcessor> PostProcessThread;
+        typedef ProcessorData<Input, Output> ProcData;
+        typedef GeneratorData<Input> GenData;
+        typedef PostProcessorData<Input, Output> PostProcData;
+
+        const int numThreads = processPtrVector.size();
+
+        // Create the Generator thread. Get the generator going by exchanging with it.
+        sem_t * genSem = makeSemaphore();
+        GenThread * pGenThread = new GenThread(genSem, &generator, bufferSize_, numThreads);
+        GenData dummy;
+        pGenThread->exchangeData(dummy);
+
+        // Create the Post Processor thread
+        sem_t * postSem = makeSemaphore();
+        PostPocThread * pPostProcThread = new PostProcThread(postSem, pPostProcessor);
 
         // Initialize worker threads, one thread per processor that was passed in
-        const int numThreads = processPtrVector.size();
-        const size_t numGeneratorItems = numThreads;
-        const size_t MAX_BUFFER_VECTOR = 2*numThreads; 
-
         ThreadPtrVector threadVec(numThreads);
-        InputBufferVector inputBuffers(numThreads);
-        OutputBufferVector outputBuffers(numThreads);
-        SemaphorePtrVector semVec(numThreads);
-
-        // Create and start the generator thread.
-        // The generator will create numThreads InputItemVectors,
-        sem_t * genSem = makeSemaphore();
-        GeneratorThread * pGenWorker = new GeneratorThread(genSem, &generator, numGeneratorItems);
-
-        // Generator dummy bool vectors to swap as input or output for the GeneratorThread and 
-        // PostProcessThread. We need these dummies because we use the generic ThreadWorkerClass.
-        std::vector<bool> dummyGeneratorInput(numGeneratorItems);
-        std::vector<bool> dummyPostProcessorOutput;
-
-        // Store InputItemVectors generated by the generator in a buffer.
-        // These IntputItemVectors are handed to the worker threads whenever they become available.
-        std::deque<InputItemVector *> inputBuffer;
-        inputBuffer.reserve(MAX_BUFFER_VECTOR);
-
-        // Create and start the post processor thread
-        // The post processor will accept OutputVector's to process
-        sem_t * postSem = makeSemaphore();
-        PostProcessThread * pPostWorker = new PostProcessThread(postSem, pPostProcessor, numThreads);
-
-
-        // Workers will post to the workerSem when they are ready to receive more
-        // work.
-        sem_t * workerSem = makeSemaphore();
+        sem_t * sharedWorkerSem = makeSemaphore();
 
         // Create and start the worker threads
         for(int i = 0; i < numThreads; ++i)
         {
-
             // Create and start the thread
-            threadVec[i] = new Thread(workerSem, processPtrVector[i], bufferSize_);
+            threadVec[i] = new ProcThread(sharedWorkerSem, processPtrVector[i]);
             threadVec[i]->start();
-
-            inputBuffers[i] = new InputItemVector;
-            inputBuffers[i]->reserve(bufferSize_);
-
-            outputBuffers[i] = new OutputVector;
-            outputBuffers[i]->reserve(bufferSize_);
         }
+
+
+        // TO DO:
+        // - Write code for exchanging with generator
+        // - Wait until thread is available. Get Results, store for PostProcessor.
+        // - Hand to PostProcessor
+        // FIFO queue for storing InputItemVector's generated by the Generator Thread
+        std::deque<InputItemVector> inputDataQueue;
+
+
 
         size_t numWorkItemsRead = 0;
         size_t numWorkItemsWrote = 0;

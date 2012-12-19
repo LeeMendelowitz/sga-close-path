@@ -32,7 +32,7 @@ class ThreadBase
         // This is called externally.
         // Accept new inputs and communicate outputs,
         // through the Data object.
-        // The real exchange is done in storeData(), provided by the derived class.
+        // The real exchange is done in exchange(), provided by the derived class.
         void exchangeData(Data& D);
 
         // External control functions
@@ -51,7 +51,7 @@ class ThreadBase
 
         // Communicate results and accept new inputs.
         // Derived class must provide this function.
-        virtual void storeData(Data& D) = 0;
+        virtual void exchange(Data& D) = 0;
 
         // Thread entry point
         static void* startThread(void* obj);
