@@ -12,7 +12,7 @@
 #ifndef PROCESSFRAMEWORK2_H
 #define PROCESSFRAMEWORK2_H
 
-#define PROCESS_DEBUG 0
+#define PROCESS_DEBUG 1
 
 #include "ThreadBase.h"
 #include "Timer.h"
@@ -139,7 +139,7 @@ void GeneratorThread<Input, Generator>::doWork()
         inputBuffer_.push_back(InputItemVector());
         InputItemVector& items = inputBuffer_.back();
         items.reserve(bufferSize_);
-        while(items.size() < bufferSize_)
+        for (size_t j =0; j < bufferSize_; j++)
         {
             bool success = pGenerator_->generate(workItem);
             if (!success)
@@ -218,7 +218,11 @@ void PostProcessorThread<Input, Output, PostProcessor>::doWork()
 template <class Input, class Output, class PostProcessor>
 void PostProcessorThread<Input, Output, PostProcessor>::exchange(PostProcessorData<Input, Output>& data)
 {
+
+    // All work should be complete before accepting more
+    assert(items_.empty());
     const size_t numItems = data.items.size();
+    items_.reserve(numItems);
     for (size_t i = 0; i < numItems; i++)
     {
         items_.push_back(ProcData());
@@ -407,6 +411,9 @@ class ThreadScheduler
             // Get data from Generator, if necessary
             if (inputDataQueue.empty() && !pGenThread->isDone())
             {
+                #if PROCESS_DEBUG > 0
+                std::cout << "Getting input data from generator" << std::endl;
+                #endif
                 GenData data;
                 sem_wait(genSem);
                 pGenThread->exchangeData(data);
@@ -476,6 +483,9 @@ class ThreadScheduler
             // If the processed buffer is full, share with the post processor
             if(processed.size() >= (size_t) numThreads)
             {
+                #if PROCESS_DEBUG > 0
+                std::cout << "Sending output to post processor" << std::endl;
+                #endif
                 sem_wait(postSem);
                 PostProcData data;
                 data.items.swap(processed);

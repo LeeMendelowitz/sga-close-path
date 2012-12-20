@@ -67,6 +67,8 @@ class ScaffoldVertex
 
         ScaffoldEdgePtrVector getEdges();
         ScaffoldEdgePtrVector getEdges(EdgeDir dir);
+        ScaffoldEdgePtrVector::const_iterator getEdgesBegin(){ return m_edges.begin(); }
+        ScaffoldEdgePtrVector::const_iterator getEdgesEnd(){ return m_edges.end(); }
 
         // I/O
         void writeDot(std::ostream* pWriter) const;

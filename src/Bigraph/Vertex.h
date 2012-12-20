@@ -105,6 +105,8 @@ class Vertex
         EdgePtrVec findEdgesTo(VertexID id);
         EdgePtrVec getEdges(EdgeDir dir) const;
         EdgePtrVec getEdges() const;
+        EdgePtrVec::const_iterator getEdgesBegin() const { return m_edges.begin(); }
+        EdgePtrVec::const_iterator getEdgesEnd() const { return m_edges.end(); }
         EdgePtrVecIter findEdge(const EdgeDesc& ed);
         EdgePtrVecConstIter findEdge(const EdgeDesc& ed) const;
         Edge* getLongestOverlapEdge(EdgeDir dir) const;

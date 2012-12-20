@@ -52,6 +52,7 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      --numRounds=NUM                  Perform NUM rounds of edge pruning.\n"
 "      --writeSubgraph                  Write out the subgraph for any repetitive region.\n"
 "      --noRemoveEdges                  Do not remove low coverage edges after path search.\n"
+"      --useDFS                         Use a bounded DFS in cases where one sided BFS yields too many paths.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -71,6 +72,9 @@ namespace opt
     static int maxOL = 150;
     static int maxGap = 200;
 
+    // Effort
+    static bool useDFS = false;
+
     // Miscellaneous
     static int numRounds = 1;
     static bool writeSubgraph = false;
@@ -85,7 +89,8 @@ namespace opt
 
 static const char* shortopts = "vm:s:t:p:o:";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES, OPT_MAXOL, OPT_MAXGAP, OPT_INTERVALWIDTH};
+enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES, OPT_MAXOL, OPT_MAXGAP, OPT_INTERVALWIDTH,
+       OPT_USEDFS};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
@@ -97,6 +102,7 @@ static const struct option longopts[] = {
     { "numRounds",    required_argument, NULL, OPT_NUMROUNDS}, 
     { "writeSubgraph", no_argument, NULL, OPT_WRITESUBGRAPH},
     { "noRemoveEdges", no_argument, NULL, OPT_NOREMOVEEDGES},
+    { "useDFS", no_argument, NULL, OPT_USEDFS},
     { "maxOL", required_argument, NULL, OPT_MAXOL},
     { "maxGap", required_argument, NULL, OPT_MAXGAP},
     { "intervalWidth", required_argument, NULL, OPT_INTERVALWIDTH},
@@ -176,7 +182,7 @@ int closePathMain(int argc, char** argv)
         if (opt::numThreads <= 1)
         {
             // Serial Mode
-            ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap, opt::maxOL, opt::intervalWidth, opt::findOverlaps);
+            ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap, opt::maxOL, opt::intervalWidth, opt::useDFS, opt::findOverlaps);
             threadScheduler.processWorkSerial(*workGenerator, &processor, postProcessor);
         }
         else
@@ -185,7 +191,7 @@ int closePathMain(int argc, char** argv)
             std::vector<ClosePathProcess*> processorVector;
             for(int i = 0; i < opt::numThreads; ++i)
             {
-                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd, opt::maxGap, opt::maxOL, opt::intervalWidth, opt::findOverlaps);
+                ClosePathProcess* pProcessor = new ClosePathProcess(pGraph, opt::maxNumStd, opt::maxGap, opt::maxOL, opt::intervalWidth, opt::useDFS, opt::findOverlaps);
                 processorVector.push_back(pProcessor);
             }
 
@@ -248,6 +254,7 @@ void parseClosePathOptions(int argc, char** argv)
             case OPT_MAXOL: arg >> opt::maxOL; break;
             case OPT_MAXGAP: arg >> opt::maxGap; break;
             case OPT_INTERVALWIDTH: arg >> opt::intervalWidth; break;
+            case OPT_USEDFS: opt::useDFS = true; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -329,10 +336,12 @@ void printOptions()
                   << "Threads: " << opt::numThreads << "\n"
                   << "MinOverlap: " << opt::minOverlap << "\n"
                   << "MaxNumStd: " << opt::maxNumStd << "\n"
+                  << "findOverlaps: " << opt::findOverlaps << "\n"
                   << "MinStd: " << opt::minStd << "\n"
                   << "maxOL: " << opt::maxOL << "\n"
                   << "maxGap: " << opt::maxGap << "\n"
                   << "intervalWidth: " << opt::intervalWidth << "\n"
+                  << "useDFS: " << opt::useDFS << "\n"
                   << "graphFile: " << opt::graphFile << "\n"
                   << "bundleFile: " << opt::bundleFile << "\n"
                   << "outputPfx: " << opt::outputPfx << "\n"

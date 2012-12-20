@@ -276,12 +276,12 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
             #endif
 
             // Get edges from the next vertex
-            EdgePtrVec nextEdges = pVertex->getEdges(se.dir);
-            EdgePtrVec::iterator iEdge = nextEdges.begin();
-            const EdgePtrVec::iterator E = nextEdges.end();
             int endPos = se.startPos + pVertex->getSeqLen();
-            for(; iEdge != E; iEdge++) {
+            const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
+            for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
                 Edge * pEdge = *iEdge;
+                if (pEdge->getDir() != se.dir) continue;
+
                 assert(pEdge->getStart() == pVertex);
                 const Vertex * pNextVertex = pEdge->getEnd();
 
@@ -414,12 +414,11 @@ void boundedBFS(const Vertex * pVertex, EdgeDir dir, int halfDistance, int maxDi
             #endif
 
             // Get edges from the next vertex
-            EdgePtrVec nextEdges = pVertex->getEdges(se.dir);
-            EdgePtrVec::iterator iEdge = nextEdges.begin();
-            const EdgePtrVec::iterator E = nextEdges.end();
             int endPos = se.startPos + pVertex->getSeqLen();
-            for(; iEdge != E; iEdge++) {
+            const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
+            for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
                 Edge * pEdge = *iEdge;
+                if (pEdge->getDir() != se.dir) continue;
                 assert(pEdge->getStart() == pVertex);
                 const Vertex * pNextVertex = pEdge->getEnd();
 
@@ -548,13 +547,12 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
             #endif
 
             // Get edges from the next vertex
-            EdgePtrVec nextEdges = pVertex->getEdges(se.dir);
-            EdgePtrVec::iterator iEdge = nextEdges.begin();
-            const EdgePtrVec::iterator E = nextEdges.end();
             int endPos = se.startPos + pVertex->getSeqLen();
-            for(; iEdge != E; iEdge++)
+            const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
+            for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++)
             {
                 Edge * pEdge = *iEdge;
+                if (pEdge->getDir() != se.dir) continue;
                 // If this edge is not in the allowable edge set, do not use it.
                 bool useEdge = binary_search(allowableEdges.begin(), allowableEdges.end(), pEdge);
                 if (!useEdge)
@@ -1265,12 +1263,11 @@ EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDista
             #endif
 
             // Get edges from the next vertex
-            EdgePtrVec nextEdges = pVertex->getEdges(se.dir);
-            EdgePtrVec::iterator iEdge = nextEdges.begin();
-            const EdgePtrVec::iterator E = nextEdges.end();
             int endPos = se.startPos + pVertex->getSeqLen();
-            for(; iEdge != E; iEdge++) {
+            const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
+            for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
                 Edge * pEdge = *iEdge;
+                if (pEdge->getDir() != se.dir) continue;
                 assert(pEdge->getStart() == pVertex);
                 const Vertex * pNextVertex = pEdge->getEnd();
 
@@ -1382,12 +1379,11 @@ EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDista
             #endif
 
             // Get edges from the next vertex
-            EdgePtrVec nextEdges = pVertex->getEdges(se.dir);
-            EdgePtrVec::iterator iEdge = nextEdges.begin();
-            const EdgePtrVec::iterator E = nextEdges.end();
             int endPos = se.startPos + pVertex->getSeqLen();
-            for(; iEdge != E; iEdge++) {
+            const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
+            for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
                 Edge * pEdge = *iEdge;
+                if (pEdge->getDir() != se.dir) continue;
                 Edge * pEdgeToUse = (useTwin ? pEdge->getTwin() : pEdge);
 
                 // If this edge is not in the allowable edge set, do not use it.
@@ -1505,10 +1501,10 @@ EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     }
 
     int startToEnd = maxDistanceX + pY->getSeqLen();
-    int startToEnd_2 = (startToEnd+1)/2;
     int maxDistanceY = startToEnd - pX->getSeqLen();
     //int halfDistanceX = maxDistance_2; // Half the distance from start of X to start of Y
     //int halfDistanceY =  startToEnd - halfDistanceX; // Half the distance from start of Y
+    //int startToEnd_2 = (startToEnd+1)/2;
     //int halfDistanceX = min(startToEnd_2, maxDistanceX);
     //int halfDistanceY = min(startToEnd_2, maxDistanceY);
     //assert(halfDistanceY >= 0);
@@ -1533,13 +1529,12 @@ EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
 
     // Test if Y is reachable from X with the distance constraint.
     // Must query all edges into Y.
-    EdgePtrVec edgesIntoY = pY->getEdges(dY);
     shortestDistance = maxDistanceX + 1;
     bool foundY = false;
-    for(EdgePtrVec::const_iterator iter = edgesIntoY.begin();
-        iter != edgesIntoY.end();
-        iter++)
+    const EdgePtrVec::const_iterator E = pY->getEdgesEnd();
+    for(EdgePtrVec::const_iterator iter = pY->getEdgesBegin(); iter != E; iter ++)
     {
+        if ((*iter)->getDir() != dY) continue;
         EDistanceMap::const_iterator eiter = xDistMap.find((*iter)->getTwin());
         if (eiter != xDistMap.end())
         {

@@ -95,7 +95,7 @@ class ClosePathProcess
 {
 
     public:
-    ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, int maxOL, int fixedIntervalWidth, bool checkOverlap);
+    ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, int maxOL, int fixedIntervalWidth, bool useDFS, bool checkOverlap);
     ~ClosePathProcess();
     ClosePathResult process(const ClosePathWorkItem& item);
 
@@ -112,6 +112,7 @@ class ClosePathProcess
     const int maxGap_;
     const int maxOL_;
     const int fixedIntervalWidth_;
+    bool useDFS_;
     bool checkOverlap_;
 };
 

@@ -104,6 +104,7 @@ class GraphSearchNode
     public:
         typedef std::deque<GraphSearchNode<VERTEX,EDGE,DISTANCE>* > GraphSearchNodePtrDeque;
         typedef std::vector<EDGE*> _EDGEPtrVector;
+        typedef typename _EDGEPtrVector::const_iterator _EDGEPtrVectorConstIter;
         typedef SimpleAllocator< GraphSearchNode<VERTEX,EDGE,DISTANCE> > GraphSearchNodeAllocator;
         typedef GraphSearchParams<VERTEX, EDGE> SearchParams;
 
@@ -172,6 +173,9 @@ class GraphSearchTree
     
     typedef std::vector<VERTEX*> VertexPtrVector;
     typedef std::vector<VertexPtrVector> VertexPtrVectorVector;
+
+    typedef std::vector<EDGE*> _EDGEPtrVector;
+    typedef typename _EDGEPtrVector::const_iterator _EDGEPtrVectorConstIter;
 
     public:
 
@@ -334,21 +338,22 @@ int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(GraphSearchNodeAllocat
 {
     assert(m_numChildren == 0);
 
-    _EDGEPtrVector edges = m_pVertex->getEdges(m_expandDir);
-
     size_t numCreated = 0;
-    for(size_t i = 0; i < edges.size(); ++i)
+    const _EDGEPtrVectorConstIter E = m_pVertex->getEdgesEnd();
+    for(_EDGEPtrVectorConstIter iEdge = m_pVertex->getEdgesBegin(); iEdge != E; iEdge++)
     {
+        EDGE * pEdge = *iEdge;
+        if (pEdge->getDir() != m_expandDir) continue;
         // Check if we are allowed to take this edge
         if ( params.enforceAllowedEdges && 
              params.pAllowedEdges &&
-             !binary_search(params.pAllowedEdges->begin(), params.pAllowedEdges->end(), edges[i]) )
+             !binary_search(params.pAllowedEdges->begin(), params.pAllowedEdges->end(), pEdge) )
         {
             continue;
         }
 
-        EdgeDir childExpandDir = !edges[i]->getTwin()->getDir();
-        GraphSearchNode* pNode = new(allocator) GraphSearchNode(edges[i]->getEnd(), childExpandDir, this, edges[i], distanceFunc(edges[i]));
+        EdgeDir childExpandDir = !pEdge->getTwin()->getDir();
+        GraphSearchNode* pNode = new(allocator) GraphSearchNode(pEdge->getEnd(), childExpandDir, this, pEdge, distanceFunc(pEdge));
         //GraphSearchNode* pNode = new GraphSearchNode(edges[i]->getEnd(), childExpandDir, this, edges[i], distanceFunc(edges[i]));
         outDeque.push_back(pNode);
         m_numChildren += 1;
@@ -884,10 +889,10 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE>::connectedComponents(VertexPtrVector 
             pCurr->setColor(GC_BLACK); //done with this vertex
 
             // Enqueue edges if they havent been visited already
-            std::vector<EDGE*> edges = pCurr->getEdges();
-            for(size_t i = 0; i < edges.size(); ++i)
+            const _EDGEPtrVectorConstIter E = pCurr->getEdgesEnd();
+            for (_EDGEPtrVectorConstIter iEdge = pCurr->getEdgesBegin(); iEdge != E; iEdge++)
             {
-                EDGE* pEdge = edges[i];
+                EDGE* pEdge = *iEdge;
                 VERTEX* pNext = pEdge->getEnd();
                 if(pNext->getColor() == GC_WHITE)
                 {

@@ -17,12 +17,13 @@ using namespace std;
 const int MAX_OL = 150;
 const int BOUND_FUZZ = 75;
 
-ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, int maxOL, int fixedIntervalWidth, bool checkOverlap) :
+ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, int maxOL, int fixedIntervalWidth, bool useDFS, bool checkOverlap) :
     pGraph_(pGraph),
     numStd_(numStd) ,
     maxGap_(maxGap),
     maxOL_(maxOL), 
     fixedIntervalWidth_(fixedIntervalWidth),
+    useDFS_(useDFS),
     checkOverlap_(checkOverlap)
     { };
 
@@ -143,7 +144,7 @@ bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result
     // which is why we try it as a second resort. The double sided search repeats some of the work done
     // in the one sided search, but it would require some code reorganization to resolve this.
     // We expect a relatively small fraction of the bundle searches to fall into this tooRepetitive category.
-    if (tooRepetitive)
+    if (tooRepetitive && useDFS_)
     {
         foundAll = PCSearch::findWalksDFS(pGraph_, params, true, walks, result.shortestPath);
         noPaths = walks.empty();
