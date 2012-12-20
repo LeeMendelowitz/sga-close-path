@@ -20,6 +20,7 @@
 
 #include <semaphore.h>
 #include "Util.h"
+#include <iostream>
 
 template <class Data>
 class ThreadBase
@@ -38,24 +39,30 @@ class ThreadBase
         // External control functions
         void start();
         void stop();
-        bool isReady();
+        bool isReady() const;
 
     protected:
 
-        // Main work loop
-        void run();
-
-        // Derived class should provide this function to
-        // do the work.
+        // Perform work.
+        // Derived class must provide this function.
+        // Should be private in the derived class.
         virtual void doWork() = 0;
 
         // Communicate results and accept new inputs.
         // Derived class must provide this function.
+        // Should be private in derived class.
         virtual void exchange(Data& D) = 0;
 
         // Derived class can override this to actually do stuff before the thread enters
-        // the main run() loop. See the run() function for where this is called.
+        // the main run() loop.
+        // See the run() function for where this is called.
+        // Should be private in the derived class.
         virtual void setup() {};
+
+    private:
+
+        // Main work loop
+        void run();
 
         // Thread entry point
         static void* startThread(void* obj);
@@ -69,7 +76,7 @@ class ThreadBase
 
         // Internal semaphore to post to when
         // the thread is ready to receive data
-        sem_t m_readySem;
+        //sem_t m_readySem;
 
         // Semaphore the external caller posts to when
         // data is ready to consume
@@ -79,7 +86,7 @@ class ThreadBase
         pthread_mutex_t m_mutex;
 
         volatile bool m_stopRequested;
-        bool m_isReady;
+        volatile bool m_isReady;
 };
 
 // Implementation
@@ -90,16 +97,16 @@ ThreadBase<Data>::ThreadBase(sem_t* pReadySemShared) :
                                                   m_isReady(false)
 {
     // Set up semaphores and mutexes
-    int ret1 = sem_init(&m_readySem, PTHREAD_PROCESS_PRIVATE, 0 );
-    int ret2 = sem_init(&m_producedSem, PTHREAD_PROCESS_PRIVATE, 0 );
-    if( (ret1!=0) || (ret2!=0))
+    //int ret1 = sem_init(&m_readySem, PTHREAD_PROCESS_PRIVATE, 0 );
+    int ret = sem_init(&m_producedSem, PTHREAD_PROCESS_PRIVATE, 0 );
+    if( ret != 0)
     {
-        std::cerr << "Semaphore initialization failed with error " << ret1 << " and " << ret2 <<  "\n";
+        std::cerr << "Semaphore initialization failed with error " << ret <<  "\n";
         std::cerr << "You are probably running on OSX which does not provide unnamed semaphores\n";
         exit(EXIT_FAILURE);
     }
 
-    int ret = pthread_mutex_init(&m_mutex, NULL);
+    ret = pthread_mutex_init(&m_mutex, NULL);
     if(ret != 0)
     {
         std::cerr << "Mutex initialization failed with error " << ret << ", aborting" << std::endl;
@@ -112,7 +119,7 @@ template<class Data>
 ThreadBase<Data>::~ThreadBase()
 {
     sem_destroy(&m_producedSem);
-    sem_destroy(&m_readySem);
+    //sem_destroy(&m_readySem);
     int ret = pthread_mutex_destroy(&m_mutex);
     if(ret != 0)
     {
@@ -142,11 +149,13 @@ void ThreadBase<Data>::stop()
     // Wait for the work thread to finish
     // with the data its processing then set the stop
     // flag and unblock the work process
-    sem_wait(&m_readySem);
     pthread_mutex_lock(&m_mutex);
     m_stopRequested = true;
     pthread_mutex_unlock(&m_mutex);
+
+    // Signal that there is work, just to unblock the thread in run()
     sem_post(&m_producedSem);
+
     int ret = pthread_join(m_thread, NULL);
     if(ret != 0)
     {
@@ -159,7 +168,6 @@ void ThreadBase<Data>::stop()
 template<class Data>
 void ThreadBase<Data>::exchangeData(Data& d)
 {
-    sem_wait(&m_readySem);
     pthread_mutex_lock(&m_mutex);
     m_isReady = false;
     exchange(d);
@@ -175,7 +183,6 @@ void ThreadBase<Data>::run()
     pthread_mutex_lock(&m_mutex);
     setup();
     m_isReady = true;
-    sem_post(&m_readySem);
     sem_post(m_pReadySemShared);
     pthread_mutex_unlock(&m_mutex);
 
@@ -198,13 +205,12 @@ void ThreadBase<Data>::run()
 
         // Post to the semaphore
         sem_post(m_pReadySemShared);
-        sem_post(&m_readySem);
     }
 }
 
 // 
 template<class Data>
-bool ThreadBase<Data>::isReady()
+bool ThreadBase<Data>::isReady() const
 {
     return m_isReady;
 }

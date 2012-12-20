@@ -12,7 +12,7 @@
 #ifndef PROCESSFRAMEWORK2_H
 #define PROCESSFRAMEWORK2_H
 
-#define PROCESS_DEBUG 1
+#define PROCESS_DEBUG 0
 
 #include "ThreadBase.h"
 #include "Timer.h"
@@ -22,7 +22,7 @@ sem_t * makeSemaphore()
 {
     sem_t * sem = NULL;
     sem = new sem_t;
-    int ret = sem_init( sem, PTHREAD_PROCESS_PRIVATE, 0 );
+    int ret = sem_init(sem, PTHREAD_PROCESS_PRIVATE, 0 );
     if(ret != 0)
     {
         std::cerr << "Semaphore initialization failed with error " << ret << "\n";
@@ -31,6 +31,18 @@ sem_t * makeSemaphore()
     }
     return sem;
 }
+
+#if PROCESS_DEBUG > 0
+template <class T>
+void printThreadStates(const std::vector<T*>& threadVec)
+{
+    for(size_t i = 0; i < threadVec.size(); i++)
+    {
+        const T * pThread = threadVec[i];
+        std::cout << "Thread " << i << ": addr=" << pThread << " ready=" << (pThread ? pThread->isReady() : 0) << std::endl;
+    }
+}
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,11 +96,13 @@ class GeneratorThread : public ThreadBase< GeneratorData<Input> >
 
     { };
 
-    void exchange(GeneratorData<Input>& data);
-
     bool isDone() const { return done_; }
 
     private:
+    void exchange(GeneratorData<Input>& data);
+    void setup();
+    void doWork();
+
     Generator * pGenerator_;
     const size_t bufferSize_;
     const size_t numBuffers_;
@@ -97,8 +111,6 @@ class GeneratorThread : public ThreadBase< GeneratorData<Input> >
     volatile bool generatorDone_;
     volatile bool done_;
 
-    void setup();
-    void doWork();
 };
 
 
@@ -114,8 +126,6 @@ template <class Input, class Generator>
 void GeneratorThread<Input, Generator>::doWork()
 {
     if (generatorDone_) return;
-
-    std::cout << "num buffers stored: " << inputBuffer_.size() << " numGenerated: " << numGenerated_ << std::endl;
 
     assert(inputBuffer_.size() == 0);
 
@@ -169,16 +179,17 @@ class PostProcessorThread : public ThreadBase< PostProcessorData<Input, Output> 
         ThreadBase< PostProcessorData<Input, Output> >(pReadySemShared),
         pPostProcessor_(pPostProcessor),
         numConsumed_(0)
-    { }
+    { };
 
-    void exchange(PostProcessorData<Input, Output>& data);
 
     private:
+    void exchange(PostProcessorData<Input, Output>& data);
+    void doWork();
+
     PostProcessor * pPostProcessor_;
     ProcDataVector items_;
     size_t numConsumed_;
 
-    void doWork();
 };
 
 // Run the PostProcessor on all of the data
@@ -212,8 +223,8 @@ void PostProcessorThread<Input, Output, PostProcessor>::exchange(PostProcessorDa
     {
         items_.push_back(ProcData());
         ProcData& procData = items_.back();
-        procData.inputItems.swap(items_[i].inputItems);
-        procData.outputItems.swap(items_[i].outputItems);
+        procData.inputItems.swap(data.items[i].inputItems);
+        procData.outputItems.swap(data.items[i].outputItems);
     }
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,16 +244,17 @@ class ProcessorThread : public ThreadBase< ProcessorData<Input, Output> >
         ThreadBase< ProcessorData<Input, Output> >(pReadySemShared),
         pProcessor_(pProcessor),
         numWorked_(0)
-    { }
+    { };
 
-    void exchange(ProcessorData<Input, Output>& data);
 
     private:
+    void exchange(ProcessorData<Input, Output>& data);
+    void doWork();
+
     Processor * pProcessor_;
     ProcessorData<Input, Output> data_;
     size_t numWorked_;
 
-    void doWork();
 };
 
 // Run the Processor on all of the data
@@ -363,18 +375,9 @@ class ThreadScheduler
         PostProcThread * pPostProcThread = new PostProcThread(postSem, pPostProcessor);
         pPostProcThread->start();
         
-        // TEMP:
-        std::cout << "Waiting for PostProc:" << std::endl;
-        sem_wait(postSem);
-        std::cout << "Done waiting!" << std::endl;
-        sem_post(postSem);
-        sem_post(postSem);
-
         // Initialize worker threads, one thread per processor that was passed in
         ThreadPtrVector threadVec(numThreads);
         sem_t * sharedWorkerSem = makeSemaphore();
-
-        std::cout << "Making and starting threads...." << std::endl;
 
         // Create and start the worker threads
         for(int i = 0; i < numThreads; ++i)
@@ -395,18 +398,17 @@ class ThreadScheduler
         size_t reportInterval = (reportInterval_/bufferSize_)*bufferSize_;
         if (reportInterval == 0) reportInterval = bufferSize_;
         size_t nextReport = reportInterval;
-       
+
         // While there is still work to be generated or to be shared with the 
         // worker threads:
-        std::cout << "Starting Main loop...." << std::endl;
         bool done = false;
         while(!done)
         {
-            std::cout << "Main loop top." << std::endl;
             // Get data from Generator, if necessary
             if (inputDataQueue.empty() && !pGenThread->isDone())
             {
                 GenData data;
+                sem_wait(genSem);
                 pGenThread->exchangeData(data);
                 size_t N = data.bufferVector.size();
                 for(size_t i = 0; i < N; i++)
@@ -420,44 +422,66 @@ class ThreadScheduler
 
             // Wait until a thread is ready for work. Give the first
             // ready thread some work.
+            #if PROCESS_DEBUG > 0
+            printThreadStates(threadVec);
             std::cout << "Waiting for thread" << std::endl;
+            #endif
+
             assert(!inputDataQueue.empty());
             sem_wait(sharedWorkerSem); // this decrements the semaphore
+
+            #if PROCESS_DEBUG > 0
+            printThreadStates(threadVec);
+            #endif
+
             bool foundReadyThread = false;
             for (size_t i = 0; i < (size_t) numThreads; i++)
             {
                 ProcThread * pWorker = threadVec[i];
                 if (!pWorker->isReady()) continue;
 
-                processed.push_back(ProcData());
-                ProcData& data = processed.back();
+                // Create data to exchange with the thread
+                ProcData data;
                 data.inputItems.swap(inputDataQueue.front());
                 inputDataQueue.pop_front();
 
+                #if PROCESS_DEBUG > 0
+                std::cout << "Sending " << data.inputItems.size() << " items to thread " << i << std::endl;
+                #endif
+
                 // Exchange data with the worker.
-                // After this operation, the processed vector will hold
-                // the results from pWorker.
                 pWorker->exchangeData(data);
                 assert(data.inputItems.size() == data.outputItems.size());
+
+                #if PROCESS_DEBUG > 0
+                std::cout << "Received " << data.outputItems.size() << " items from thread " << i << std::endl;
+                #endif
+
+                // If we received output, store it in the processed buffer.
+                // Note: There will be no output after the first data exchange.
+                if (data.inputItems.size() > 0)
+                {
+                    processed.push_back(ProcData());
+                    ProcData& dest = processed.back();
+                    data.inputItems.swap(dest.inputItems);
+                    data.outputItems.swap(dest.outputItems);
+                }
+
                 foundReadyThread = true;
                 break;
             }
             assert(foundReadyThread);
 
-            std::cout << "Found a ready thread" << std::endl;
 
             // If the processed buffer is full, share with the post processor
             if(processed.size() >= (size_t) numThreads)
             {
-                std::cout << "Waiting on the Post Processor Thread" << std::endl;
                 sem_wait(postSem);
-                std::cout << "Post Processor Thread Ready!" << std::endl;
                 PostProcData data;
                 data.items.swap(processed);
                 for(size_t i = 0; i < data.items.size(); i++)
                     numWorkItemsWrote += data.items[i].outputItems.size();
-                std::cout << "Items for postProcessor: " << processed.size() << " numProcessed: " << numWorkItemsWrote << std::endl;
-                pPostProcThread->exchange(data);
+                pPostProcThread->exchangeData(data);
                 processed.clear();
             }
 
@@ -471,55 +495,58 @@ class ThreadScheduler
             done = pGenThread->isDone() && inputDataQueue.empty();
         }
 
-        // At this point all of the data has been distributed to the worker threads.
-        // As each thread becomes available, take it's work.
+        #if PROCESS_DEBUG > 0
+        std::cout << "All work items have been given to worker threads" << std::endl;
+        printThreadStates(threadVec);
+        #endif
 
-        // Wait until a worker completes.
+
+        // At this point all of the data has been distributed to the worker threads.
+        // Wait for all threads to become available.
         ThreadPtrVector doneThreads;
-        doneThreads.reserve(numThreads);
         for (size_t i = 0; i < (size_t) numThreads; i++)
         {
-            // Find a thread which is done.
             sem_wait(sharedWorkerSem);
-            ProcThread * pWorker = NULL;
-            for (size_t j = 0; j < (size_t) numThreads; j++)
-            {
-                ProcThread * pThread = threadVec[j];
-                if (pThread==NULL) continue;
-                if (!pThread->isReady()) continue;
-                pWorker = pThread;
-                threadVec[j] = NULL;
-                break;
-            }
-            assert(pWorker);
-
-            // Get this thread's data
-            processed.push_back(ProcData());
-            ProcData& data = processed.back();
-            pWorker->exchangeData(data);
-            assert(data.inputItems.size() == data.outputItems.size());
-            doneThreads.push_back(pWorker);
         }
 
-        assert(doneThreads.size() == (size_t) numThreads);
+        // All the threads have now processed the remaining data.
+        // Collect the data and give it to the post processor.
+        #if PROCESS_DEBUG > 0
+        printThreadStates(threadVec);
+        #endif
 
-        // All the workers have completed. Give any remaining data to the 
-        // PostProcessor Thread.
+        for (size_t i = 0; i < (size_t) numThreads; i++)
+        {
+            // Get this thread's data
+            assert(threadVec[i]->isReady());
+            ProcData data;
+            threadVec[i]->exchangeData(data);
+            assert(data.inputItems.size() == data.outputItems.size());
+
+            // If we received output, store it in the processed buffer.
+            if (data.inputItems.size() > 0)
+            {
+                processed.push_back(ProcData());
+                ProcData& dest = processed.back();
+                data.inputItems.swap(dest.inputItems);
+                data.outputItems.swap(dest.outputItems);
+            }
+        }
+
         sem_wait(postSem);
         PostProcData data;
         data.items.swap(processed);
         for(size_t i = 0; i < data.items.size(); i++)
             numWorkItemsWrote += data.items[i].outputItems.size();
-        pPostProcThread->exchange(data);
+        pPostProcThread->exchangeData(data);
         processed.clear();
 
         // Delete the worker thread
         for(int i = 0; i < numThreads; ++i)
         {
-            doneThreads[i]->stop(); // Blocks until the thread joins
-            delete doneThreads[i];
+            threadVec[i]->stop(); // Blocks until the thread joins
+            delete threadVec[i];
         }
-        doneThreads.clear();
 
         // Delete the generator thread
         pGenThread->stop();
