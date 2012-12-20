@@ -53,6 +53,10 @@ class ThreadBase
         // Derived class must provide this function.
         virtual void exchange(Data& D) = 0;
 
+        // Derived class can override this to actually do stuff before the thread enters
+        // the main run() loop. See the run() function for where this is called.
+        virtual void setup() {};
+
         // Thread entry point
         static void* startThread(void* obj);
         
@@ -158,7 +162,7 @@ void ThreadBase<Data>::exchangeData(Data& d)
     sem_wait(&m_readySem);
     pthread_mutex_lock(&m_mutex);
     m_isReady = false;
-    storeData(d);
+    exchange(d);
     sem_post(&m_producedSem);
     pthread_mutex_unlock(&m_mutex);
 }
@@ -169,6 +173,7 @@ void ThreadBase<Data>::run()
 {
     // Indicate that the thread is ready to receive data
     pthread_mutex_lock(&m_mutex);
+    setup();
     m_isReady = true;
     sem_post(&m_readySem);
     sem_post(m_pReadySemShared);

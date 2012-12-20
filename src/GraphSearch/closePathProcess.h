@@ -106,6 +106,7 @@ class ClosePathPostProcess
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
     void removeEdges();
+    size_t getNumProcessed() const { return numProcessed_; }
 
     private:
         StringGraph * pGraph_;
@@ -120,7 +121,7 @@ class ClosePathPostProcess
         EdgeTracker edgeTracker_;
 
         // Summary of closures
-        int numProcessed_;
+        size_t numProcessed_;
         int numClosedUniquely_;
         int numClosed_;
         int numFailedOverlap_;

@@ -9,11 +9,14 @@
 // ProcessFramework - Generic framework for performing
 // some operations on input data produced by a generator,
 // serially or in parallel. 
-#include "ThreadWorker.h"
-#include "Timer.h"
-
 #ifndef PROCESSFRAMEWORK2_H
 #define PROCESSFRAMEWORK2_H
+
+#define PROCESS_DEBUG 1
+
+#include "ThreadBase.h"
+#include "Timer.h"
+#include <iostream>
 
 sem_t * makeSemaphore()
 {
@@ -29,14 +32,6 @@ sem_t * makeSemaphore()
     return sem;
 }
 
-void semGetValueFailed()
-{
-    if (ret != 0)
-    {
-        std::cerr << "Semaphore get_value failed with error " << ret << "\n";
-        exit(EXIT_FAILURE);
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Data type exchanged with a ProcessorThread
@@ -56,16 +51,16 @@ struct GeneratorData
     typedef std::vector<Input> InputItemVector;
     typedef std::vector<InputItemVector> InputBufferVector;
     InputBufferVector bufferVector;
-}:
+};
 
 // Data type exchanged with a PostProcessorThread
 template <class Input, class Output>
 struct PostProcessorData
 {
-    typedef ProcessorData<Input, Output> PairedData;
-    typedef std::vector<PairedData> PairedDataVector;
-    PairedDataVector pairedDataVector;
-}:
+    typedef ProcessorData<Input, Output> ProcData;
+    typedef std::vector<ProcData> ProcDataVector;
+    ProcDataVector items;
+};
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // Define a Generator thread which fills a buffer of InputItemVectors, which will
@@ -84,48 +79,62 @@ class GeneratorThread : public ThreadBase< GeneratorData<Input> >
         bufferSize_(bufferSize),
         numBuffers_(numBuffers),
         numGenerated_(0),
-        bool done_(false)
+        generatorDone_(false),
+        done_(false)
 
-    { 
-        inputBuffer_ = InputBufferVector(numBuffers);
-    };
+    { };
+
+    void exchange(GeneratorData<Input>& data);
+
+    bool isDone() const { return done_; }
 
     private:
     Generator * pGenerator_;
-    const size_t bufferSize;
-    const size_t numBuffers;
-    size_t numGenerated;
+    const size_t bufferSize_;
+    const size_t numBuffers_;
+    size_t numGenerated_;
     InputBufferVector inputBuffer_;
-    bool done_;
+    volatile bool generatorDone_;
+    volatile bool done_;
 
+    void setup();
     void doWork();
-    void exchange(GeneratorData<Input>& data);
 };
+
+
+// Do a round of input generation at startup
+template <class Input, class Generator>
+void GeneratorThread<Input, Generator>::setup()
+{
+    doWork();
+}
 
 // Fill up the inputBuffer_ until it is of size numBuffers
 template <class Input, class Generator>
 void GeneratorThread<Input, Generator>::doWork()
 {
-    if (done_) return;
+    if (generatorDone_) return;
+
+    std::cout << "num buffers stored: " << inputBuffer_.size() << " numGenerated: " << numGenerated_ << std::endl;
 
     assert(inputBuffer_.size() == 0);
 
     Input workItem;
-    inputBuffer_.reserve(numBuffers);
-    for (size_t i = 0; i < numBuffers && !done_; i++)
+    inputBuffer_.reserve(numBuffers_);
+    for (size_t i = 0; i < numBuffers_ && !generatorDone_; i++)
     {
         // Generate items and place them into the items vector,
         // until either the generator has run out of items or the
         // items vector is full.
-        inputBuffer_.push_back(InputItemVector())
+        inputBuffer_.push_back(InputItemVector());
         InputItemVector& items = inputBuffer_.back();
-        items.reserve(bufferSize);
-        while(items.size() < bufferSize)
+        items.reserve(bufferSize_);
+        while(items.size() < bufferSize_)
         {
             bool success = pGenerator_->generate(workItem);
             if (!success)
             {
-                done_ = true;
+                generatorDone_ = true;
                 break;
             }
             items.push_back(workItem);
@@ -137,8 +146,9 @@ void GeneratorThread<Input, Generator>::doWork()
 template <class Input, class Generator>
 void GeneratorThread<Input, Generator>::exchange(GeneratorData<Input>& data)
 {
-    data.inputBufferVector.swap(inputBuffer_);
+    data.bufferVector.swap(inputBuffer_);
     inputBuffer_.clear();
+    if (generatorDone_) done_ = true;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -150,10 +160,9 @@ class PostProcessorThread : public ThreadBase< PostProcessorData<Input, Output> 
 
     typedef std::vector<Input> InputItemVector;
     typedef std::vector<Output> OutputItemVector;
-    typedef std::vector<Output> OutputItemVector;
     typedef std::vector<OutputItemVector> OutputBufferVector;
-    typedef ProcessorData<Input, Output> PairedData;
-    typedef std::vector<PairedData> PairedDataVector;
+    typedef ProcessorData<Input, Output> ProcData;
+    typedef std::vector<ProcData> ProcDataVector;
 
     public:
     PostProcessorThread(sem_t * pReadySemShared, PostProcessor * pPostProcessor) :
@@ -162,43 +171,50 @@ class PostProcessorThread : public ThreadBase< PostProcessorData<Input, Output> 
         numConsumed_(0)
     { }
 
+    void exchange(PostProcessorData<Input, Output>& data);
+
     private:
-    PostProcess * pPostProcessor_;
-    PairedDataVector pairedData_;
+    PostProcessor * pPostProcessor_;
+    ProcDataVector items_;
     size_t numConsumed_;
 
     void doWork();
-    void exchange(PostProcessorData<Input, Output>& data);
 };
 
 // Run the PostProcessor on all of the data
 template <class Input, class Output, class PostProcessor>
 void PostProcessorThread<Input, Output, PostProcessor>::doWork()
 {
-    size_t numBuffers = pairedData_.size();
+    const size_t numBuffers = items_.size();
     for (size_t i = 0; i < numBuffers; i++)
     {
-        PairedData& pairedData = pairedData_[i];
-        InputItemVector& inputItems = pairedData.inputItems;
-        OutputItemVector& outputItems = pairedData.outputItems;
+        ProcData& procData = items_[i];
+        InputItemVector& inputItems = procData.inputItems;
+        OutputItemVector& outputItems = procData.outputItems;
         assert(inputItems.size() == outputItems.size());
-        size_t numItems = itemsItems.size();
+        size_t numItems = inputItems.size();
         for (size_t j = 0; j < numItems; j++)
         {
-            pPostProcessor->process(inputItems[j], outputItems[j]);
+            pPostProcessor_->process(inputItems[j], outputItems[j]);
             numConsumed_++;
         }
         inputItems.clear();
         outputItems.clear();
     }
-    pairedData_.clear();
+    items_.clear();
 }
 
 template <class Input, class Output, class PostProcessor>
 void PostProcessorThread<Input, Output, PostProcessor>::exchange(PostProcessorData<Input, Output>& data)
 {
-    data.pairedDataVector.swap(pairedData_);
-    data.pairedDataVector.clear();
+    const size_t numItems = data.items.size();
+    for (size_t i = 0; i < numItems; i++)
+    {
+        items_.push_back(ProcData());
+        ProcData& procData = items_.back();
+        procData.inputItems.swap(items_[i].inputItems);
+        procData.outputItems.swap(items_[i].outputItems);
+    }
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -210,7 +226,6 @@ class ProcessorThread : public ThreadBase< ProcessorData<Input, Output> >
 
     typedef std::vector<Input> InputItemVector;
     typedef std::vector<Output> OutputItemVector;
-    typedef std::vector<Output> OutputItemVector;
     typedef std::vector<OutputItemVector> OutputBufferVector;
 
     public:
@@ -220,26 +235,27 @@ class ProcessorThread : public ThreadBase< ProcessorData<Input, Output> >
         numWorked_(0)
     { }
 
+    void exchange(ProcessorData<Input, Output>& data);
+
     private:
-    PostProcess * pPostProcessor_;
+    Processor * pProcessor_;
     ProcessorData<Input, Output> data_;
     size_t numWorked_;
 
     void doWork();
-    void exchange(ProcessorData<Input, Output>& data);
 };
 
 // Run the Processor on all of the data
 template <class Input, class Output, class Processor>
 void ProcessorThread<Input, Output, Processor>::doWork()
 {
-    size_t numItems = data.inputItems.size();
-    data.outputItems_.clear();
-    data.outputItems_.reserve(numItems);
+    size_t numItems = data_.inputItems.size();
+    data_.outputItems.clear();
+    data_.outputItems.reserve(numItems);
     for (size_t j = 0; j < numItems; j++)
     {
-        Output output = pProcessor->process(workItem);
-        data.outputItems_.push_back(output);
+        Output output = pProcessor_->process(data_.inputItems[j]);
+        data_.outputItems.push_back(output);
         numWorked_++;
     }
 }
@@ -247,9 +263,9 @@ void ProcessorThread<Input, Output, Processor>::doWork()
 template <class Input, class Output, class Processor>
 void ProcessorThread<Input, Output, Processor>::exchange(ProcessorData<Input, Output>& data)
 {
-    data_.inputItems_.swap(data.inputItems_); // Get new items to work
-    data_.outputItems_.swap(data.outputItems_); // Give results
-    data_.outputItems_.clear();
+    data_.inputItems.swap(data.inputItems); // Get new items to work
+    data_.outputItems.swap(data.outputItems); // Give results
+    data_.outputItems.clear();
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -267,10 +283,7 @@ class ThreadScheduler
         reportInterval_(reportInterval)
     { };
 
-    // Generic function to process n work items from a file. 
-    // With the default value of -1, n becomes the largest value representable for
-    // a size_t and all values will be read
-    size_t processWorkSerial(Generator& generator, Processor* pProcessor, PostProcessor* pPostProcessor, size_t n = -1)
+    size_t processWorkSerial(Generator& generator, Processor* pProcessor, PostProcessor* pPostProcessor)
     {
         Timer timer(name_, true);
         Input workItem;
@@ -278,8 +291,7 @@ class ThreadScheduler
         // Generate work items using the generic generation class while the number
         // of items consumed from the generator is less than n and there 
         // are still items to consume from the generator
-
-        while(generator.getNumConsumed() < n && generator.generate(workItem))
+        while(generator.generate(workItem))
         {
             Output output = pProcessor->process(workItem);
             
@@ -287,8 +299,6 @@ class ThreadScheduler
             if(generator.getNumConsumed() % reportInterval_ == 0)
                 printf("[sga %s] Processed %zu items (%lfs elapsed)\n", name_.c_str(), generator.getNumConsumed(), timer.getElapsedWallTime());
         }
-
-        assert(n == (size_t)-1 || generator.getNumConsumed() == n);
 
         //
         double proc_time_secs = timer.getElapsedWallTime();
@@ -311,13 +321,14 @@ class ThreadScheduler
     // which run the actual processing independently. An optional post processor
     // can be specified to process the results that the threads return. If the n
     // parameter is used, at most n items will be read from the file
- //   template<class Input, class Output, class Generator, class Processor, class PostProcessor>
     size_t processWorkParallel(Generator& generator, 
                                std::vector<Processor*> processPtrVector, 
-                               PostProcessor* pPostProcessor, 
-                               size_t n = -1)
+                               PostProcessor* pPostProcessor)
     {
         Timer timer(name_, true);
+
+        size_t consumed0 = generator.getNumConsumed();
+        size_t processed0 = pPostProcessor->getNumProcessed();
 
         // Helpful typedefs
 
@@ -338,22 +349,32 @@ class ThreadScheduler
         typedef ProcessorData<Input, Output> ProcData;
         typedef GeneratorData<Input> GenData;
         typedef PostProcessorData<Input, Output> PostProcData;
+        typedef std::vector<ProcData> ProcDataVector;
 
         const int numThreads = processPtrVector.size();
 
-        // Create the Generator thread. Get the generator going by exchanging with it.
+        // Create the Generator thread.
         sem_t * genSem = makeSemaphore();
         GenThread * pGenThread = new GenThread(genSem, &generator, bufferSize_, numThreads);
-        GenData dummy;
-        pGenThread->exchangeData(dummy);
+        pGenThread->start();
 
         // Create the Post Processor thread
         sem_t * postSem = makeSemaphore();
-        PostPocThread * pPostProcThread = new PostProcThread(postSem, pPostProcessor);
+        PostProcThread * pPostProcThread = new PostProcThread(postSem, pPostProcessor);
+        pPostProcThread->start();
+        
+        // TEMP:
+        std::cout << "Waiting for PostProc:" << std::endl;
+        sem_wait(postSem);
+        std::cout << "Done waiting!" << std::endl;
+        sem_post(postSem);
+        sem_post(postSem);
 
         // Initialize worker threads, one thread per processor that was passed in
         ThreadPtrVector threadVec(numThreads);
         sem_t * sharedWorkerSem = makeSemaphore();
+
+        std::cout << "Making and starting threads...." << std::endl;
 
         // Create and start the worker threads
         for(int i = 0; i < numThreads; ++i)
@@ -363,126 +384,172 @@ class ThreadScheduler
             threadVec[i]->start();
         }
 
-
-        // TO DO:
-        // - Write code for exchanging with generator
-        // - Wait until thread is available. Get Results, store for PostProcessor.
-        // - Hand to PostProcessor
-        // FIFO queue for storing InputItemVector's generated by the Generator Thread
-        std::deque<InputItemVector> inputDataQueue;
-
+        // Set up data buffers
+        std::deque<InputItemVector> inputDataQueue; // FIFO of input to be processed
+        ProcDataVector processed; // Processed data buffer
+        processed.reserve(2*numThreads);
 
 
         size_t numWorkItemsRead = 0;
         size_t numWorkItemsWrote = 0;
+        size_t reportInterval = (reportInterval_/bufferSize_)*bufferSize_;
+        if (reportInterval == 0) reportInterval = bufferSize_;
+        size_t nextReport = reportInterval;
+       
+        // While there is still work to be generated or to be shared with the 
+        // worker threads:
+        std::cout << "Starting Main loop...." << std::endl;
         bool done = false;
-        int next_thread = 0;
-        int num_buffers_full = 0;
-
-        size_t reportInterval =  bufferSize_ * numThreads;
-        if (reportInterval < reportInterval_)
-        {
-            reportInterval = reportInterval * (reportInterval_/reportInterval); 
-        }
-
         while(!done)
         {
-
-            // TO DO: KEEP THE inputBuffers. Only fill those buffers that are empty.
-            // with new values. The buffers should be emptied when they are shipped off for post-processing.
-            // Get rid of the inputBuffer object.
-
-
-
-            // If we have room in the inputBuffer, accept a new batch of InputItemVectors from
-            // the generator thread.
-            if (inputBuffer.size() + numGeneratorItems < MAX_BUFFER_VECTOR)
+            std::cout << "Main loop top." << std::endl;
+            // Get data from Generator, if necessary
+            if (inputDataQueue.empty() && !pGenThread->isDone())
             {
-                InputBufferVector newItemVectors;
-                sem_wait(genSem);
-                pGenWorker->swapBuffers(dummyGeneratorInput, newItemVectors);
-                // Put the new inputItemVectors into the inputBuffer
-                inputBuffer.insert(inputBuffer.end(), newItemVectors.begin(), newItemVectors.end());
-            }
-
-            done = !valid || generator.getNumConsumed() == n;
-
-            // Once all buffers are full or the input is finished, dispatch the reads to the threads
-            // by swapping work buffers. 
-            if(num_buffers_full == numThreads || done)
-            {
-                int numLoops = 0;
-                do
+                GenData data;
+                pGenThread->exchangeData(data);
+                size_t N = data.bufferVector.size();
+                for(size_t i = 0; i < N; i++)
                 {
-                    // Wait for at least one thread to be ready to receive
-                    sem_wait(workerSem);
-                    int numReady = 0;
-
-                    for(int i = 0; i < numThreads; ++i)
-                    {
-                        Thread* pThread = threadVec[i];
-                        if (!pThread->isReady()) continue;
-                        numReady++;
-
-                        // Pop inputBuffers from the front
-                        InputItemVector * pInput = inputBuffer.front();
-                        inputBuffer.pop_front();
-                        inputBuffers[i] = pInput;
-                        pThread->swapBuffers(*inputBuffers[i], *outputBuffers[i]);
-                    }
-
-
-                    num_buffers_full = 0;
-                    next_thread = 0;
-
-                    // Process the results and clear the buffers
-                    for(int i = 0; i < numThreads; ++i)
-                    {
-                        assert(inputBuffers[i]->size() == outputBuffers[i]->size());
-                        for(size_t j = 0; j < inputBuffers[i]->size(); ++j)
-                        {
-                            pPostProcessor->process((*inputBuffers[i])[j], (*outputBuffers[i])[j]);
-                            ++numWorkItemsWrote;
-                        }
-                        
-                        inputBuffers[i]->clear();
-                        outputBuffers[i]->clear();
-                    }
-
-                    if(generator.getNumConsumed() % reportInterval_ == 0)
-                        printf("[sga %s] Processed %zu items (%lfs elapsed)\n", name_.c_str(), generator.getNumConsumed(), timer.getElapsedWallTime());
-                    //if(generator.getNumConsumed() % (reportInterval) == 0)
-                     //   printf("[sga %s] Processed %zu items\n", name_.c_str(), generator.getNumConsumed());
-
-                    // This should never loop more than twice
-                    assert(numLoops < 2);
-                    ++numLoops;
-                } while(done && numWorkItemsWrote < numWorkItemsRead);
+                    inputDataQueue.push_back(InputItemVector());
+                    InputItemVector & items = inputDataQueue.back();
+                    items.swap(data.bufferVector[i]);
+                    numWorkItemsRead += items.size();
+                }
             }
+
+            // Wait until a thread is ready for work. Give the first
+            // ready thread some work.
+            std::cout << "Waiting for thread" << std::endl;
+            assert(!inputDataQueue.empty());
+            sem_wait(sharedWorkerSem); // this decrements the semaphore
+            bool foundReadyThread = false;
+            for (size_t i = 0; i < (size_t) numThreads; i++)
+            {
+                ProcThread * pWorker = threadVec[i];
+                if (!pWorker->isReady()) continue;
+
+                processed.push_back(ProcData());
+                ProcData& data = processed.back();
+                data.inputItems.swap(inputDataQueue.front());
+                inputDataQueue.pop_front();
+
+                // Exchange data with the worker.
+                // After this operation, the processed vector will hold
+                // the results from pWorker.
+                pWorker->exchangeData(data);
+                assert(data.inputItems.size() == data.outputItems.size());
+                foundReadyThread = true;
+                break;
+            }
+            assert(foundReadyThread);
+
+            std::cout << "Found a ready thread" << std::endl;
+
+            // If the processed buffer is full, share with the post processor
+            if(processed.size() >= (size_t) numThreads)
+            {
+                std::cout << "Waiting on the Post Processor Thread" << std::endl;
+                sem_wait(postSem);
+                std::cout << "Post Processor Thread Ready!" << std::endl;
+                PostProcData data;
+                data.items.swap(processed);
+                for(size_t i = 0; i < data.items.size(); i++)
+                    numWorkItemsWrote += data.items[i].outputItems.size();
+                std::cout << "Items for postProcessor: " << processed.size() << " numProcessed: " << numWorkItemsWrote << std::endl;
+                pPostProcThread->exchange(data);
+                processed.clear();
+            }
+
+            if(numWorkItemsWrote > nextReport)
+            {
+                nextReport += reportInterval;
+                printf("[sga %s] Processed %zu items (%lfs elapsed)\n", name_.c_str(), numWorkItemsWrote, timer.getElapsedWallTime());
+            }
+
+            // If all the data has been distributed to the threads, break.
+            done = pGenThread->isDone() && inputDataQueue.empty();
         }
 
-        // Cleanup
+        // At this point all of the data has been distributed to the worker threads.
+        // As each thread becomes available, take it's work.
+
+        // Wait until a worker completes.
+        ThreadPtrVector doneThreads;
+        doneThreads.reserve(numThreads);
+        for (size_t i = 0; i < (size_t) numThreads; i++)
+        {
+            // Find a thread which is done.
+            sem_wait(sharedWorkerSem);
+            ProcThread * pWorker = NULL;
+            for (size_t j = 0; j < (size_t) numThreads; j++)
+            {
+                ProcThread * pThread = threadVec[j];
+                if (pThread==NULL) continue;
+                if (!pThread->isReady()) continue;
+                pWorker = pThread;
+                threadVec[j] = NULL;
+                break;
+            }
+            assert(pWorker);
+
+            // Get this thread's data
+            processed.push_back(ProcData());
+            ProcData& data = processed.back();
+            pWorker->exchangeData(data);
+            assert(data.inputItems.size() == data.outputItems.size());
+            doneThreads.push_back(pWorker);
+        }
+
+        assert(doneThreads.size() == (size_t) numThreads);
+
+        // All the workers have completed. Give any remaining data to the 
+        // PostProcessor Thread.
+        sem_wait(postSem);
+        PostProcData data;
+        data.items.swap(processed);
+        for(size_t i = 0; i < data.items.size(); i++)
+            numWorkItemsWrote += data.items[i].outputItems.size();
+        pPostProcThread->exchange(data);
+        processed.clear();
+
+        // Delete the worker thread
         for(int i = 0; i < numThreads; ++i)
         {
-            threadVec[i]->stop(); // Blocks until the thread joins
-            delete threadVec[i];
-
-            sem_destroy(semVec[i]);
-            delete semVec[i];
-
-            assert(inputBuffers[i]->empty());
-            delete inputBuffers[i];
-
-            assert(outputBuffers[i]->empty());
-            delete outputBuffers[i];
+            doneThreads[i]->stop(); // Blocks until the thread joins
+            delete doneThreads[i];
         }
-        assert(n == (size_t)-1 || generator.getNumConsumed() == n);
+        doneThreads.clear();
+
+        // Delete the generator thread
+        pGenThread->stop();
+        delete pGenThread;
+        pGenThread = NULL;
+
+        // Delete the Post Processor thread
+        sem_wait(postSem);
+        pPostProcThread->stop();
+        delete pPostProcThread;
+        pPostProcThread = NULL;
+
+        sem_destroy(genSem);
+        delete genSem;
+
+        sem_destroy(postSem);
+        delete postSem;
+
+        sem_destroy(sharedWorkerSem);
+        delete sharedWorkerSem;
+
+        // Check that the item counts are consistent
         assert(numWorkItemsRead == numWorkItemsWrote);
+        assert(numWorkItemsRead == generator.getNumConsumed() - consumed0);
+        assert(numWorkItemsWrote == pPostProcessor->getNumProcessed() - processed0);
 
         double proc_time_secs = timer.getElapsedWallTime();
         printf("[sga %s] processed %zu items in %lfs (%lf items/s)\n", 
-                name_.c_str(), generator.getNumConsumed(), proc_time_secs, (double)generator.getNumConsumed() / proc_time_secs);
-        return generator.getNumConsumed();
+                name_.c_str(), numWorkItemsRead, proc_time_secs, (double) numWorkItemsRead / proc_time_secs);
+        return numWorkItemsRead;
     }
 
 
