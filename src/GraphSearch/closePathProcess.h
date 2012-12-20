@@ -128,6 +128,7 @@ class ClosePathPostProcess
     // Remove edges 
     template <class T>
     void removeEdges(T criteria);
+    size_t getNumProcessed() const { return numBundlesProcessed_; }
 
     private:
         StringGraph * pGraph_;
@@ -157,7 +158,6 @@ class ClosePathPostProcess
         int numReadPairsFailedOverlap_;
         int numReadPairsFailedRepetitive_;
         int numReadPairsOverlapFound_;
-
 
         // Write results to files
         void writeResultToStatus(const ClosePathResult & res);

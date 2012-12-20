@@ -17,6 +17,7 @@
 #include "closePathProcess.h"
 #include "Util.h"
 #include "ProcessFramework.h"
+#include "ProcessFramework2.h"
 #include "Timer.h"
 #include "SGACommon.h"
 #include "bundle.h"
@@ -118,6 +119,12 @@ int closePathMain(int argc, char** argv)
                              ClosePathProcess,
                              ClosePathPostProcess>  ClosePathProcessFramework;
 
+    typedef ThreadScheduler<ClosePathWorkItem, 
+                             ClosePathResult,
+                             ClosePathWorkItemGenerator<ClosePathWorkItem>,
+                             ClosePathProcess,
+                             ClosePathPostProcess>  ClosePathThreadScheduler;
+
     typedef ClosePathWorkItemGenerator<ClosePathWorkItem> WorkGenerator;
 
     parseClosePathOptions(argc, argv);
@@ -131,6 +138,9 @@ int closePathMain(int argc, char** argv)
 
     const size_t bufferSize = 500;
     const size_t reportInterval = 2000;
+
+    //ClosePathProcessFramework processFramework("close-path", bufferSize, reportInterval);
+    ClosePathThreadScheduler  threadScheduler("close-path", bufferSize, reportInterval);
 
     std::vector<EdgeCovCriteria> covCriteria;
     for (int i=0; i < opt::numRounds; i++)
@@ -167,7 +177,7 @@ int closePathMain(int argc, char** argv)
         {
             // Serial Mode
             ClosePathProcess processor(pGraph, opt::maxNumStd, opt::maxGap, opt::maxOL, opt::intervalWidth, opt::findOverlaps);
-            processFramework.processWorkSerial(*workGenerator, &processor, postProcessor);
+            threadScheduler.processWorkSerial(*workGenerator, &processor, postProcessor);
         }
         else
         {
@@ -179,7 +189,8 @@ int closePathMain(int argc, char** argv)
                 processorVector.push_back(pProcessor);
             }
 
-            processFramework.processWorkParallel(*workGenerator, processorVector, postProcessor);
+            //processFramework.processWorkParallel(*workGenerator, processorVector, postProcessor);
+            threadScheduler.processWorkParallel(*workGenerator, processorVector, postProcessor);
 
             for(int i = 0; i < opt::numThreads; ++i)
             {

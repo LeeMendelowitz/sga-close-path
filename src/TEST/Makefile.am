@@ -1,6 +1,6 @@
-bin_PROGRAMS = testGraphSearch
+bin_PROGRAMS = testDummyThread
 
-testGraphSearch_CPPFLAGS = \
+testDummyThread_CPPFLAGS = \
     -I$(top_srcdir)/Util \
     -I$(top_srcdir)/Bigraph \
     -I$(top_srcdir)/SuffixTools \
@@ -13,7 +13,7 @@ testGraphSearch_CPPFLAGS = \
     -I$(top_srcdir)/GraphSearch \
     -I$(top_srcdir)/Thirdparty
 
-testGraphSearch_LDADD = \
+testDummyThread_LDADD = \
     $(top_builddir)/Scaffold/libscaffold.a \
     $(top_builddir)/GraphDiff/libgraphdiff.a \
     $(top_builddir)/StringGraph/libstringgraph.a \
@@ -26,6 +26,7 @@ testGraphSearch_LDADD = \
     $(top_builddir)/GraphSearch/libgraphsearch.a \
     $(top_builddir)/Thirdparty/libthirdparty.a 
 
+testDummyThread_LDFLAGS = -pthread
 
-testGraphSearch_SOURCES = testGraphSearch.cpp \
-                          testUtils.cpp
+testDummyThread_SOURCES = ThreadDummyTest.cpp \
+                          ThreadDummy.h
