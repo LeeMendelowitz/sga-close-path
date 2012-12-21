@@ -12,7 +12,7 @@
 #ifndef PROCESSFRAMEWORK2_H
 #define PROCESSFRAMEWORK2_H
 
-#define PROCESS_DEBUG 1
+#define PROCESS_DEBUG 0
 
 #include "ThreadBase.h"
 #include "Timer.h"
