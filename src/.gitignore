@@ -20,4 +20,4 @@ Makefile
 *.Po
 
 # ignore TEST files
-TEST/
+#TEST/

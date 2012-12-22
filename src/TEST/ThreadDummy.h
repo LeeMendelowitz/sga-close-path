@@ -27,9 +27,10 @@ class ThreadDummy : public ThreadBase<DummyData>
         std::cout << "Thread " << id_ << " dead! sum: " << sum_ << std::endl;
     }
 
+    private:
     // Get new inputs.
     // Share results.
-    void storeData(DummyData& d)
+    void exchange(DummyData& d)
     {
         input_.swap(d.input);
         *d.pVal =  sum_;
@@ -44,8 +45,6 @@ class ThreadDummy : public ThreadBase<DummyData>
                 sum_ += input_[i];
         }
     }
-
-    private:
 
     int id_;
     int sum_;

@@ -17,6 +17,7 @@
 #include "ThreadBase.h"
 #include "Timer.h"
 #include <iostream>
+#include <deque>
 
 sem_t * makeSemaphore()
 {
