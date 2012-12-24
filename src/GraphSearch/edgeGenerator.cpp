@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <queue>
-#include <deque>
 #include <set>
 //#include <pair>
 #include <cassert>
@@ -231,7 +230,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance)
     
     EdgePtrVec edges;
 
-    typedef priority_queue<SearchEntry, deque<SearchEntry>, SearchEntryComparison> SearchQueue;
+    typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison > SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
@@ -364,7 +363,7 @@ void boundedBFS(const Vertex * pVertex, EdgeDir dir, int halfDistance, int maxDi
     maxDistEdges.reserve(10000);
 
     typedef pair<const Vertex *, EdgeDir> VDirPair;
-    typedef priority_queue<SearchEntry, deque<SearchEntry>, SearchEntryComparison> SearchQueue;
+    typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
@@ -500,7 +499,7 @@ EdgePtrVec boundedBFS(const Vertex * pVertex, EdgeDir dir, int maxDistance, cons
     EdgePtrVec edges;
 
     typedef pair<const Vertex *, EdgeDir> VDirPair;
-    typedef priority_queue<SearchEntry, deque<SearchEntry>, SearchEntryComparison> SearchQueue;
+    typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
@@ -1218,7 +1217,7 @@ EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDista
     
     distMap.clear();
 
-    typedef priority_queue<SearchEntry, deque<SearchEntry>, SearchEntryComparison> SearchQueue;
+    typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
@@ -1329,7 +1328,7 @@ EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDista
     
     distMap.clear();
 
-    typedef priority_queue<SearchEntry, deque<SearchEntry>, SearchEntryComparison> SearchQueue;
+    typedef priority_queue<SearchEntry, vector<SearchEntry>, SearchEntryComparison> SearchQueue;
 
     // Maintain a set of seen vertices and their orientation.
     set<VDirPair> seen;
