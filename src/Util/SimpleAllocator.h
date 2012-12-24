@@ -36,8 +36,7 @@ class SimpleAllocator
         {
             if(m_pPoolList.empty() || m_pPoolList.back()->isFull())
             {
-                // new storage must be allocated
-                m_pPoolList.push_back(new StorageType);
+                // new storage must be allocated m_pPoolList.push_back(new StorageType);
             }
 
             // allocate from the last pool
@@ -47,6 +46,26 @@ class SimpleAllocator
         void dealloc(void* /*ptr*/)
         {
             // deallocation not tracked in this strategy
+        }
+
+        // Reset the Allocator to hold one empty pool.
+        // The pool is reset, without freeing any memory.
+        void reset()
+        {
+            if (m_pPoolList.empty()) return;
+
+            typename StorageList::iterator iter = m_pPoolList.begin();
+            const typename StorageList::iterator E = m_pPoolList.end();
+
+            // Reset the first pool
+            StorageType * pFirstPool = *iter;
+            pFirstPool->reset();
+            iter++;
+
+            // Erase all additional pools
+            for( ; iter != E; iter++)
+                delete *iter;
+            m_pPoolList.resize(1);
         }
 
     private:

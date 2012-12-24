@@ -25,9 +25,14 @@ ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGa
     fixedIntervalWidth_(fixedIntervalWidth),
     useDFS_(useDFS),
     checkOverlap_(checkOverlap)
-    { };
+    { 
+        pSearchNodeAllocator_ = new SGSearchNodeAllocator;    
+    };
 
-ClosePathProcess::~ClosePathProcess() { };
+ClosePathProcess::~ClosePathProcess()
+{ 
+    delete pSearchNodeAllocator_;    
+};
 
 // Given the work item, find the paths which close the bundle
 ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
@@ -49,6 +54,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     params.maxDistanceEnforced = true;
     params.nodeLimit = 10000;
     params.selfPrune = true;
+    params.pNodeAllocator = pSearchNodeAllocator_;
 
 
 
@@ -119,6 +125,8 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
             result.overlap = overlap;
         }
     }
+
+    pSearchNodeAllocator_->reset();
     return result;
 };
 
@@ -153,7 +161,7 @@ bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result
 
     result.setWalks(walks);
     result.tooRepetitive = tooRepetitive;
-
+    
     return !tooRepetitive;
 }
 
