@@ -6,7 +6,9 @@
 #include <map>
 #include <cstdlib>
 #include <sstream>
+#include <algorithm>
 
+#define PROCESS_DEBUG 0
 #include "ProcessFramework2.h"
 
 using namespace std;
@@ -23,9 +25,9 @@ IntVec makeRandomVec(size_t n, int maxVal)
 struct WorkItem
 {
     WorkItem() {}
-    WorkItem(const IntVec& vec) : vec_(vec) { }
+    WorkItem(const IntVec& vec) : vec_(&vec) { }
     WorkItem(const WorkItem& wi) : vec_(wi.vec_) { }
-    IntVec vec_;
+    const IntVec * vec_;
 };
 
 struct Result
@@ -78,8 +80,8 @@ class MapProcessor
         CountMap countMap;
 
         // create the count map
-        for(IntVec::const_iterator i = item.vec_.begin();
-            i != item.vec_.end();
+        for(IntVec::const_iterator i = item.vec_->begin();
+            i != item.vec_->end();
             i++)
         {
             CountMap::iterator iter = countMap.find(*i);
@@ -102,13 +104,87 @@ class MapProcessor
     }
 };
 
-
-void runNumThreads(int numThreads)
+class VectorProcessor
 {
-    size_t size = 1000;
+    public:
+    VectorProcessor() { };
+    Result process(WorkItem& item)
+    {
+
+        size_t N = item.vec_->size();
+        //vec_.reserve(N);
+        vec_.clear();
+        vec_.insert(vec_.end(), item.vec_->begin(), item.vec_->end());
+        //for(size_t i = 0; i< N; i++)
+            //vec_[i] = item.vec_->operator[](i);
+
+        sort(vec_.begin(), vec_.end());
+        Result res(0);
+        for (size_t i = 1; i < N-1; i++)
+        {
+            int v1 = vec_[i];
+            int v0 = vec_[i-1];
+            int v2 = vec_[i+1];
+            if ((v0 != v1) && (v1 != v2))
+            {
+                res.val_++;
+            }
+        }
+        if (vec_[0] != vec_[1]) res.val_++;
+        if (vec_[N-1] != vec_[N-2]) res.val_++;
+
+        int squareSum = 0;
+        for (size_t i = 0; i < N; i++)
+        {
+            squareSum += vec_[i]; 
+        }
+        res.val_ += squareSum;
+        return res;
+    }
+
+    IntVec vec_;
+};
+
+class VectorProcessorAlloc
+{
+    public:
+    VectorProcessorAlloc() { };
+    Result process(WorkItem& item)
+    {
+        Result res(0);
+
+        // Create a new vector of significant size.
+        // This should require some memory allocation
+        size_t N = 1024*1024*10/sizeof(int);
+        std::vector<int *> myVec;
+        myVec.reserve(N);
+        for (size_t i = 0; i < N; i++)
+        {
+            int * p = new int;
+            *p = i;
+            myVec.push_back(p);
+            res.val_ += i;
+        }
+
+        for (size_t i = 0; i < N; i++)
+        {
+            delete myVec[i];
+        }
+        return res;
+    }
+};
+
+template< class Processor>
+void runNumThreads1(int numThreads, string& pfx)
+{
+    //size_t size = 1000000;
+    size_t size = 100000;
     int maxVal = 500;
-    size_t numItems = 10000;
-    size_t bufferSize = 100;
+    //size_t bufferSize = 2000*4;
+    size_t bufferSize = 2;
+    size_t numItems = bufferSize*16*10;
+    //size_t reportInterval = 16*bufferSize;
+    size_t reportInterval = 20;
 
     // Generate a random vector
     IntVec myVec = makeRandomVec(size, maxVal);
@@ -117,7 +193,6 @@ void runNumThreads(int numThreads)
     Generator myGenerator(numItems, myVec);
 
     // Create processors
-    typedef MapProcessor Processor;
     vector<Processor *> processVec(numThreads);
     for(size_t i = 0; i < (size_t) numThreads; i++)
     {
@@ -130,8 +205,51 @@ void runNumThreads(int numThreads)
     // Run in parallel
     typedef ThreadScheduler<WorkItem, Result, Generator, Processor, PostProcessor> Scheduler;
     ostringstream oss;
-    oss << "mapProcessor_" << numThreads;
-    Scheduler scheduler(oss.str(), bufferSize);
+    oss << pfx << numThreads;
+    Scheduler scheduler(oss.str(), bufferSize, reportInterval);
+    scheduler.processWorkParallel(myGenerator, processVec, &postProcessor);
+
+
+    // Delete processors
+    for(size_t i = 0; i < numThreads; i++)
+    {
+        delete processVec[i];
+    }
+};
+
+template< class Processor>
+void runNumThreads2(int numThreads, string& pfx)
+{
+    //size_t size = 1000000;
+    size_t size = 100000;
+    int maxVal = 500;
+    //size_t bufferSize = 2000*4;
+    size_t bufferSize = 200;
+    size_t numItems = bufferSize*16*10;
+    //size_t reportInterval = 16*bufferSize;
+    size_t reportInterval = 200;
+
+    // Generate a random vector
+    IntVec myVec = makeRandomVec(size, maxVal);
+
+    // Create generator
+    Generator myGenerator(numItems, myVec);
+
+    // Create processors
+    vector<Processor *> processVec(numThreads);
+    for(size_t i = 0; i < (size_t) numThreads; i++)
+    {
+        processVec[i] = new Processor();
+    }
+
+    // Create postprocessor
+    PostProcessor postProcessor;
+   
+    // Run in parallel
+    typedef ThreadScheduler<WorkItem, Result, Generator, Processor, PostProcessor> Scheduler;
+    ostringstream oss;
+    oss << pfx << numThreads;
+    Scheduler scheduler(oss.str(), bufferSize, reportInterval);
     scheduler.processWorkParallel(myGenerator, processVec, &postProcessor);
 
 
@@ -144,9 +262,28 @@ void runNumThreads(int numThreads)
 
 int main()
 {
-    runNumThreads(1);
-    runNumThreads(2);
-    runNumThreads(4);
-    runNumThreads(8);
+    string pfx = "vecAlloc";
+    //runNumThreads1<VectorProcessor>(1, pfx);
+    runNumThreads1<VectorProcessorAlloc>(1, pfx);
+    runNumThreads1<VectorProcessorAlloc>(2, pfx);
+    runNumThreads1<VectorProcessorAlloc>(4, pfx);
+    runNumThreads1<VectorProcessorAlloc>(8, pfx);
+    runNumThreads1<VectorProcessorAlloc>(16, pfx);
+
+    /*
+    string pfx = "map";
+    runNumThreads2<MapProcessor>(1, pfx);
+    runNumThreads2<MapProcessor>(2, pfx);
+    runNumThreads2<MapProcessor>(4, pfx);
+    runNumThreads2<MapProcessor>(8, pfx);
+    runNumThreads2<MapProcessor>(16, pfx);
+    */
+
+    /*
+    pfx = "map";
+    runNumThreads2<MapProcessor>(1, pfx);
+    runNumThreads2<MapProcessor>(2, pfx);
+    runNumThreads2<MapProcessor>(4, pfx);
+    */
 }
 

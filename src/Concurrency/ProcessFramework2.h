@@ -12,7 +12,7 @@
 #ifndef PROCESSFRAMEWORK2_H
 #define PROCESSFRAMEWORK2_H
 
-#define PROCESS_DEBUG 0
+//#define PROCESS_DEBUG 0
 
 #include "ThreadBase.h"
 #include "Timer.h"
@@ -400,9 +400,11 @@ class ThreadScheduler
 
         size_t numWorkItemsRead = 0;
         size_t numWorkItemsWrote = 0;
+        size_t numWorkItemsProcessed = 0;
         size_t reportInterval = (reportInterval_/bufferSize_)*bufferSize_;
         if (reportInterval == 0) reportInterval = bufferSize_;
         size_t nextReport = reportInterval;
+
 
         // While there is still work to be generated or to be shared with the 
         // worker threads:
@@ -436,6 +438,8 @@ class ThreadScheduler
             #endif
 
             assert(!inputDataQueue.empty());
+
+
             sem_wait(sharedWorkerSem); // this decrements the semaphore
 
             #if PROCESS_DEBUG > 0
@@ -448,14 +452,15 @@ class ThreadScheduler
                 ProcThread * pWorker = threadVec[i];
                 if (!pWorker->isReady()) continue;
 
-                // Create data to exchange with the thread
-                ProcData data;
-                data.inputItems.swap(inputDataQueue.front());
-                inputDataQueue.pop_front();
 
                 #if PROCESS_DEBUG > 0
                 std::cout << "Sending " << data.inputItems.size() << " items to thread " << i << std::endl;
                 #endif
+
+                // Create data to exchange with the thread
+                ProcData data;
+                data.inputItems.swap(inputDataQueue.front());
+                inputDataQueue.pop_front();
 
                 // Exchange data with the worker.
                 pWorker->exchangeData(data);
@@ -464,6 +469,8 @@ class ThreadScheduler
                 #if PROCESS_DEBUG > 0
                 std::cout << "Received " << data.outputItems.size() << " items from thread " << i << std::endl;
                 #endif
+
+                numWorkItemsProcessed += data.outputItems.size();
 
                 // If we received output, store it in the processed buffer.
                 // Note: There will be no output after the first data exchange.
@@ -496,10 +503,10 @@ class ThreadScheduler
                 processed.clear();
             }
 
-            if(numWorkItemsWrote > nextReport)
+            if(numWorkItemsProcessed >= nextReport)
             {
                 nextReport += reportInterval;
-                printf("[sga %s] Processed %zu items (%lfs elapsed)\n", name_.c_str(), numWorkItemsWrote, timer.getElapsedWallTime());
+                printf("[sga %s] Processed %zu items (%lfs elapsed)\n", name_.c_str(), numWorkItemsProcessed, timer.getElapsedWallTime());
             }
 
             // If all the data has been distributed to the threads, break.

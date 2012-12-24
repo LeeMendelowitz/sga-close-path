@@ -90,7 +90,7 @@ fi
 AC_SUBST(AM_CXXFLAGS, "-Wall -Wextra")
 AC_SUBST(CXXFLAGS, "-O3")
 AC_SUBST(CFLAGS, "-O3")
-#AC_SUBST(CXXFLAGS, "-O3 -pg")
+#AC_SUBST(CXXFLAGS, "-O0 -pg")
 #AC_SUBST(CFLAGS, "-O3 -pg")
 AC_SUBST(CPPFLAGS, "$CPPFLAGS $openmp_cppflags $sparsehash_include $bamtools_include")
 AC_SUBST(LDFLAGS, "$external_malloc_ldflags $bamtools_ldflags $LDFLAGS")
