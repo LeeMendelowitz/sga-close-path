@@ -60,6 +60,13 @@ class SimplePool
             return m_used >= m_capacity;
         }
 
+        // Reset the pool so the next allocated
+        // object comes from the first chunk.
+        void reset()
+        {
+            m_used = 0;
+        }
+
     private:
 
         void* m_pPool;

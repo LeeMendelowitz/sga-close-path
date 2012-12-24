@@ -13,6 +13,7 @@
 #include "Bigraph.h"
 #include "SGWalk.h"
 #include "GraphSearchTree.h"
+#include "SimpleAllocator.h"
 #include <deque>
 
 // Returns the extension distance indicated
@@ -26,8 +27,10 @@ struct SGDistanceFunction
 };
 
 // 
-typedef GraphSearchTree<Vertex, Edge, SGDistanceFunction> SGSearchTree;
-typedef GraphSearchParams<Vertex, Edge> SGSearchParams;
+typedef GraphSearchNode<Vertex, Edge, SGDistanceFunction> SGSearchNode;
+typedef SimpleAllocator<SGSearchNode> SGSearchNodeAllocator;
+typedef GraphSearchParams<Vertex, Edge, SGSearchNodeAllocator> SGSearchParams;
+typedef GraphSearchTree<Vertex, Edge, SGDistanceFunction, SGSearchNodeAllocator> SGSearchTree;
 
 //
 struct SGWalkBuilder

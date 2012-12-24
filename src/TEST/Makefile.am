@@ -89,4 +89,6 @@ mapParallel_LDADD = \
 
 mapParallel_LDFLAGS = -pthread
 
+mapParallel_CXXFLAGS = -pg -O0
+
 mapParallel_SOURCES = testMapParallel.cpp

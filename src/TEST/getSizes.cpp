@@ -1,12 +1,13 @@
 #include "SGSearch.h"
 #include "SGUtil.h"
 #include "Bigraph.h"
+#include "SimpleAllocator.h"
 
 #include <iostream>
 
 int main()
 {
-    GraphSearchParams<Vertex, Edge>  params = GraphSearchParams<Vertex, Edge>(0, 0, ED_SENSE, 100);
+    SGSearchParams  params = SGSearchParams(0, 0, ED_SENSE, 100);
     std::cout << "size of params: " << sizeof(params) << std::endl;
 
     SGSearchTree myTree(params);

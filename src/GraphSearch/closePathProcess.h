@@ -114,6 +114,8 @@ class ClosePathProcess
     const int fixedIntervalWidth_;
     bool useDFS_;
     bool checkOverlap_;
+
+    SGSearchNodeAllocator * pSearchNodeAllocator_;
 };
 
 // Post Processor to write results to file
