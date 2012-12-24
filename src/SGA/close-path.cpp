@@ -16,7 +16,7 @@
 #include "close-path.h"
 #include "closePathProcess.h"
 #include "Util.h"
-#include "ProcessFramework.h"
+//#include "ProcessFramework.h"
 #include "ProcessFramework2.h"
 #include "Timer.h"
 #include "SGACommon.h"
@@ -119,11 +119,11 @@ int closePathMain(int argc, char** argv)
     using namespace std;
 
 
-    typedef ProcessFramework<ClosePathWorkItem, 
+    /*typedef ProcessFramework<ClosePathWorkItem, 
                              ClosePathResult,
                              ClosePathWorkItemGenerator<ClosePathWorkItem>,
                              ClosePathProcess,
-                             ClosePathPostProcess>  ClosePathProcessFramework;
+                             ClosePathPostProcess>  ClosePathProcessFramework;*/
 
     typedef ThreadScheduler<ClosePathWorkItem, 
                              ClosePathResult,
@@ -142,7 +142,7 @@ int closePathMain(int argc, char** argv)
     pGraph->stats();
     std::cout << "\n\n\n";
 
-    const size_t bufferSize = 500;
+    const size_t bufferSize = 100;
     const size_t reportInterval = 2000;
 
     //ClosePathProcessFramework processFramework("close-path", bufferSize, reportInterval);
@@ -169,7 +169,8 @@ int closePathMain(int argc, char** argv)
 
         std::ostringstream ssProcessName;
         ssProcessName << "close-path: round " << roundNum;
-        ClosePathProcessFramework processFramework(ssProcessName.str(), bufferSize, reportInterval);
+        //ClosePathProcessFramework processFramework(ssProcessName.str(), bufferSize, reportInterval);
+        ClosePathThreadScheduler processFramework(ssProcessName.str(), bufferSize, reportInterval);
         BundleReader* bundleReader = new BundleReader(opt::bundleFile);
         WorkGenerator* workGenerator = new WorkGenerator(bundleReader);
 

@@ -123,8 +123,9 @@ inline EdgePtrVec dijkstraFilterEdges(const VDistanceMap& xMap, const VDistanceM
     validNodes.reserve(xMap.size());
 
     // Take the interesction of the two distance maps
+    const VDistanceMap::const_iterator xE = xMap.end();
     for(VDistanceMap::const_iterator xIter = xMap.begin();
-        xIter != xMap.end();
+        xIter != xE;
         xIter++)
     {
         VDirPair vdir = xIter->first;
@@ -141,13 +142,11 @@ inline EdgePtrVec dijkstraFilterEdges(const VDistanceMap& xMap, const VDistanceM
     }
 
     // Now return only the xEdges that are between valid nodes
-
-    // Note: I believe this sort is unnecessary, since the map keeps the vertices sorted
-    //sort(validNodes.begin(), validNodes.end());
     vector<Edge *> validEdges;
     validEdges.reserve(xEdges.size());
+    const EdgePtrVec::const_iterator xEdgeEnd = xEdges.end();
     for(EdgePtrVec::const_iterator iter = xEdges.begin();
-        iter != xEdges.end();
+        iter != xEdgeEnd;
         iter++)
     {
         Edge * pEdge = *iter;
@@ -1236,85 +1235,80 @@ EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDista
     #endif
     
     while ( !vQueue.empty() ) {
+        // Get the next vertex. This entry will be the next closest vertex to the source.
+        SearchEntry se = vQueue.top();
+        vQueue.pop();
 
-        size_t N = vQueue.size();
-        for(unsigned int i=0; i<N; i++)
-        {
-            // Get the next vertex. This entry will be the next closest vertex to the source.
-            SearchEntry se = vQueue.top();
-            vQueue.pop();
+        assert(se.startPos <= maxDistance);
+        const Vertex * pVertex = se.pVertex;
+        VDirPair vdir(pVertex, se.dir);
+        bool alreadySeen = (seen.count(vdir)>0);
 
-            assert(se.startPos <= maxDistance);
-            const Vertex * pVertex = se.pVertex;
-            VDirPair vdir(pVertex, se.dir);
-            bool alreadySeen = (seen.count(vdir)>0);
+        #if BFS_DEBUG!=0
+        cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
+        #endif
 
-            #if BFS_DEBUG!=0
-            cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
-            #endif
+        if (alreadySeen) continue;
 
-            if (alreadySeen) continue;
+        seen.insert(vdir);
 
-            seen.insert(vdir);
+        #if BFS_DEBUG!=0
+        cout << "**************************************\n"
+             << "Searching edges from: " << se << endl;
+        #endif
 
-            #if BFS_DEBUG!=0
-            cout << "**************************************\n"
-                 << "Searching edges from: " << se << endl;
-            #endif
+        // Get edges from the next vertex
+        int endPos = se.startPos + pVertex->getSeqLen();
+        const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
+        for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
+            Edge * pEdge = *iEdge;
+            if (pEdge->getDir() != se.dir) continue;
+            assert(pEdge->getStart() == pVertex);
+            const Vertex * pNextVertex = pEdge->getEnd();
 
-            // Get edges from the next vertex
-            int endPos = se.startPos + pVertex->getSeqLen();
-            const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
-            for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
-                Edge * pEdge = *iEdge;
-                if (pEdge->getDir() != se.dir) continue;
-                assert(pEdge->getStart() == pVertex);
-                const Vertex * pNextVertex = pEdge->getEnd();
+            // Take the minimum value for the next starting position.
+            // (There may be two possible values in the case of an inexact overlap).
+            int ol = max(pEdge->getMatchLength(), pEdge->getTwin()->getMatchLength());
+            int nextStartPos = endPos - ol;
 
-                // Take the minimum value for the next starting position.
-                // (There may be two possible values in the case of an inexact overlap).
-                int ol = max(pEdge->getMatchLength(), pEdge->getTwin()->getMatchLength());
-                int nextStartPos = endPos - ol;
+            // Example of vertex direction inferred from edges:
+            // Say A & B have this relative orientation:
+            // A |------>
+            //        <-----| B
+            // The edge A->B has directon: ED_SENSE
+            // The edge B->A has direction: ED_SENSE
+            // If we take the edge A->B, then node B is ED_ANTISENSE! We figure this out
+            // by negating the direction of edge B->A
 
-                // Example of vertex direction inferred from edges:
-                // Say A & B have this relative orientation:
-                // A |------>
-                //        <-----| B
-                // The edge A->B has directon: ED_SENSE
-                // The edge B->A has direction: ED_SENSE
-                // If we take the edge A->B, then node B is ED_ANTISENSE! We figure this out
-                // by negating the direction of edge B->A
+            EdgeDir nextDir = !pEdge->getTwinDir();
+            bool tooFar = (nextStartPos > maxDistance);
 
-                EdgeDir nextDir = !pEdge->getTwinDir();
-                bool tooFar = (nextStartPos > maxDistance);
+            if (!tooFar)
+            {
+                Edge * pEdgeToUse = (useTwin ? pEdge->getTwin() : pEdge);
+                distMap.insert(EDistanceMap::value_type(pEdgeToUse, nextStartPos));
 
-                if (!tooFar)
+                // Check if the next vertex was already seen before adding to the vQueue
+                VDirPair vdir(pNextVertex, nextDir);
+                bool alreadySeen = (seen.count(vdir)>0);
+
+                if (!alreadySeen)
                 {
-                    Edge * pEdgeToUse = (useTwin ? pEdge->getTwin() : pEdge);
-                    distMap.insert(EDistanceMap::value_type(pEdgeToUse, nextStartPos));
-
-                    // Check if the next vertex was already seen before adding to the vQueue
-                    VDirPair vdir(pNextVertex, nextDir);
-                    bool alreadySeen = (seen.count(vdir)>0);
-
-                    if (!alreadySeen)
-                    {
-                        SearchEntry se(pNextVertex, nextDir, nextStartPos);
-                        #if BFS_DEBUG != 0
-                        cout << "Adding edge from " << pVertex->getID()
-                          << ": " << se  << endl;
-                        #endif
-                        vQueue.push(se);
-                    }
-                } else {
+                    SearchEntry se(pNextVertex, nextDir, nextStartPos);
                     #if BFS_DEBUG != 0
-                    cout << "Skipping edge from " << pVertex->getID()
-                         << " " << se 
-                         << " because it is too far." << endl;
+                    cout << "Adding edge from " << pVertex->getID()
+                      << ": " << se  << endl;
                     #endif
+                    vQueue.push(se);
                 }
-            } // end for
-        }
+            } else {
+                #if BFS_DEBUG != 0
+                cout << "Skipping edge from " << pVertex->getID()
+                     << " " << se 
+                     << " because it is too far." << endl;
+                #endif
+            }
+        } // end for
     } // end while
     
     // Extract the edge from the distance map. This will give the edges in sorted order
@@ -1353,95 +1347,91 @@ EdgePtrVec dijkstra(const Vertex * pVertex, EdgeDir dir, int maxDistance, EDista
     
     while ( !vQueue.empty() ) {
 
-        size_t N = vQueue.size();
-        for(unsigned int i=0; i<N; i++)
-        {
-            // Get the next vertex. This entry will be the next closest vertex to the source.
-            SearchEntry se = vQueue.top();
-            vQueue.pop();
+        // Get the next vertex. This entry will be the next closest vertex to the source.
+        SearchEntry se = vQueue.top();
+        vQueue.pop();
 
-            assert(se.startPos <= maxDistance);
-            const Vertex * pVertex = se.pVertex;
-            VDirPair vdir(pVertex, se.dir);
-            bool alreadySeen = (seen.count(vdir)>0);
+        assert(se.startPos <= maxDistance);
+        const Vertex * pVertex = se.pVertex;
+        VDirPair vdir(pVertex, se.dir);
+        bool alreadySeen = (seen.count(vdir)>0);
 
-            #if BFS_DEBUG!=0
-            cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
-            #endif
+        #if BFS_DEBUG!=0
+        cout << "Popped " << se << ". Already Seen: " << alreadySeen << endl;
+        #endif
 
-            if (alreadySeen) continue;
+        if (alreadySeen) continue;
 
-            seen.insert(vdir);
+        seen.insert(vdir);
 
-            #if BFS_DEBUG!=0
-            cout << "**************************************\n"
-                 << "Searching edges from: " << se << endl;
-            #endif
+        #if BFS_DEBUG!=0
+        cout << "**************************************\n"
+             << "Searching edges from: " << se << endl;
+        #endif
 
-            // Get edges from the next vertex
-            int endPos = se.startPos + pVertex->getSeqLen();
-            const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
-            for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
-                Edge * pEdge = *iEdge;
-                if (pEdge->getDir() != se.dir) continue;
-                Edge * pEdgeToUse = (useTwin ? pEdge->getTwin() : pEdge);
+        // Get edges from the next vertex
+        int endPos = se.startPos + pVertex->getSeqLen();
+        const EdgePtrVec::const_iterator E = pVertex->getEdgesEnd();
+        for(EdgePtrVec::const_iterator iEdge = pVertex->getEdgesBegin(); iEdge != E; iEdge++) {
+            Edge * pEdge = *iEdge;
+            if (pEdge->getDir() != se.dir) continue;
+            Edge * pEdgeToUse = (useTwin ? pEdge->getTwin() : pEdge);
 
-                // If this edge is not in the allowable edge set, do not use it.
-                bool useEdge = binary_search(allowableEdges.begin(), allowableEdges.end(), pEdgeToUse);
-                if (!useEdge)
+            // If this edge is not in the allowable edge set, do not use it.
+            bool useEdge = binary_search(allowableEdges.begin(), allowableEdges.end(), pEdgeToUse);
+            if (!useEdge)
+            {
+                #if BFS_DEBUG!=0
+                cout << "Skipping edge " << *pEdge << " becuase it is not allowable." << endl;
+                #endif
+                continue;
+            }
+            assert(pEdge->getStart() == pVertex);
+            const Vertex * pNextVertex = pEdge->getEnd();
+
+            // Take the minimum value for the next starting position.
+            // (There may be two possible values in the case of an inexact overlap).
+            int ol = max(pEdge->getMatchLength(), pEdge->getTwin()->getMatchLength());
+            int nextStartPos = endPos - ol;
+
+            // Example of vertex direction inferred from edges:
+            // Say A & B have this relative orientation:
+            // A |------>
+            //        <-----| B
+            // The edge A->B has directon: ED_SENSE
+            // The edge B->A has direction: ED_SENSE
+            // If we take the edge A->B, then node B is ED_ANTISENSE! We figure this out
+            // by negating the direction of edge B->A
+
+            EdgeDir nextDir = !pEdge->getTwinDir();
+            bool tooFar = (nextStartPos > maxDistance);
+
+            if (!tooFar)
+            {
+                //Edge * pEdgeToUse = useTwin ? pEdge->getTwin() : pEdge;
+                distMap.insert(EDistanceMap::value_type(pEdgeToUse, nextStartPos));
+
+                // Check if the next vertex was already seen before adding to the vQueue
+                VDirPair vdir(pNextVertex, nextDir);
+                bool alreadySeen = (seen.count(vdir)>0);
+
+                if (!alreadySeen)
                 {
-                    #if BFS_DEBUG!=0
-                    cout << "Skipping edge " << *pEdge << " becuase it is not allowable." << endl;
-                    #endif
-                    continue;
-                }
-                assert(pEdge->getStart() == pVertex);
-                const Vertex * pNextVertex = pEdge->getEnd();
-
-                // Take the minimum value for the next starting position.
-                // (There may be two possible values in the case of an inexact overlap).
-                int ol = max(pEdge->getMatchLength(), pEdge->getTwin()->getMatchLength());
-                int nextStartPos = endPos - ol;
-
-                // Example of vertex direction inferred from edges:
-                // Say A & B have this relative orientation:
-                // A |------>
-                //        <-----| B
-                // The edge A->B has directon: ED_SENSE
-                // The edge B->A has direction: ED_SENSE
-                // If we take the edge A->B, then node B is ED_ANTISENSE! We figure this out
-                // by negating the direction of edge B->A
-
-                EdgeDir nextDir = !pEdge->getTwinDir();
-                bool tooFar = (nextStartPos > maxDistance);
-
-                if (!tooFar)
-                {
-                    //Edge * pEdgeToUse = useTwin ? pEdge->getTwin() : pEdge;
-                    distMap.insert(EDistanceMap::value_type(pEdgeToUse, nextStartPos));
-
-                    // Check if the next vertex was already seen before adding to the vQueue
-                    VDirPair vdir(pNextVertex, nextDir);
-                    bool alreadySeen = (seen.count(vdir)>0);
-
-                    if (!alreadySeen)
-                    {
-                        SearchEntry se(pNextVertex, nextDir, nextStartPos);
-                        #if BFS_DEBUG != 0
-                        cout << "Adding edge from " << pVertex->getID()
-                          << ": " << se  << endl;
-                        #endif
-                        vQueue.push(se);
-                    }
-                } else {
+                    SearchEntry se(pNextVertex, nextDir, nextStartPos);
                     #if BFS_DEBUG != 0
-                    cout << "Skipping edge from " << pVertex->getID()
-                         << " " << se 
-                         << " because it is too far." << endl;
+                    cout << "Adding edge from " << pVertex->getID()
+                      << ": " << se  << endl;
                     #endif
+                    vQueue.push(se);
                 }
-            } // end for
-        }
+            } else {
+                #if BFS_DEBUG != 0
+                cout << "Skipping edge from " << pVertex->getID()
+                     << " " << se 
+                     << " because it is too far." << endl;
+                #endif
+            }
+        } // end for
     } // end while
 
     // Extract the edge from the distance map. This will give the edges in sorted order
