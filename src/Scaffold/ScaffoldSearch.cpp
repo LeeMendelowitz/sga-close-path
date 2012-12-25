@@ -8,6 +8,9 @@
 //
 #include "ScaffoldSearch.h"
 #include "ScaffoldVertex.h"
+#include "SimpleAllocator.h"
+
+typedef SimpleAllocator<ScaffoldSearchNode> ScaffoldSearchNodeAllocator;
 
 //
 ScaffoldWalkBuilder::ScaffoldWalkBuilder(ScaffoldWalkVector& outWalks) : m_outWalks(outWalks), m_pCurrWalk(NULL)

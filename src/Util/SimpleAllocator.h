@@ -11,11 +11,12 @@
 #ifndef SIMPLEALLOCATOR_H
 #define SIMPLEALLOCATOR_H
 
+#include "Allocator.h"
 #include <list>
 #include "SimplePool.h"
 
 template<class T>
-class SimpleAllocator
+class SimpleAllocator : public Allocator
 {
     typedef SimplePool<T> StorageType;
     typedef std::list<StorageType* > StorageList;

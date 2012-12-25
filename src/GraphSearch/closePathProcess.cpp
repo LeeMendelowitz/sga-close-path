@@ -27,11 +27,13 @@ ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGa
     checkOverlap_(checkOverlap)
     { 
         pSearchNodeAllocator_ = new SGSearchNodeAllocator;    
+        pDFSAllocator_ = new DFSAllocator;
     };
 
 ClosePathProcess::~ClosePathProcess()
 { 
     delete pSearchNodeAllocator_;    
+    delete pDFSAllocator_;
 };
 
 // Given the work item, find the paths which close the bundle
@@ -55,6 +57,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     params.nodeLimit = 10000;
     params.selfPrune = true;
     params.pNodeAllocator = pSearchNodeAllocator_;
+    params.pDFSAllocator = pDFSAllocator_;
 
 
 

@@ -5,10 +5,10 @@
 #include <stack>
 #include <set>
 #include <vector>
-#include <deque>
 
 #include "SGUtil.h"
 #include "SGWalk.h"
+#include "Allocator.h"
 
 namespace DFS{
 
@@ -44,26 +44,30 @@ class SearchEntry
 
 class DFSearch
 {
-    typedef std::deque<SearchEntry * > SearchStack;
+    typedef std::vector<SearchEntry * > SearchStack;
 
     public:
 
     DFSearch(const Vertex * pStart, EdgeDir startDir, const Vertex * pEnd, EdgeDir endDir, int maxDistance,
-             int minDistance, EdgePtrVec& allowableEdges);
+             int minDistance, Allocator * pAllocator, EdgePtrVec& allowableEdges);
+
     ~DFSearch()
     {
+        const SearchStack::iterator E = stack_.end();
         for(SearchStack::iterator iter = stack_.begin();
-            iter != stack_.end();
+            iter != E;
             iter++)
         {
-            delete *iter;
+            SearchEntry * pEntry = *iter;
+            pEntry->~SearchEntry();
+            pAllocator_->dealloc(*iter);
         }
         stack_.clear();
     }
 
     bool stepOnce();
     bool foundAll() const { return foundAll_; }
-    SGWalkVector getWalks() const { return walksFound_; }
+    void swapWalks(SGWalkVector& walks) { walks.swap(walksFound_); }
     size_t getNumWalks() const {return walksFound_.size(); }
     size_t getNumSteps() const { return numSteps_; }
     
@@ -87,6 +91,7 @@ class DFSearch
     bool foundAll_;
     const size_t MAX_WALKS;
     std::vector<SGWalk> walksFound_; // number of walks found
+    Allocator * pAllocator_;
 };
 
 

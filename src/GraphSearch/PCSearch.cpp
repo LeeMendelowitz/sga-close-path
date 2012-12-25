@@ -154,9 +154,9 @@ bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exha
     return searchComplete;
 }
 
-// This algorithm will first create a subgraph that consists only of vertexes and edges that could be used
-// on a path from pX to pY on a path with length less than the prescribed maxDistance.
-// Then it searches for all possible valid paths in the subgraph
+
+// Perform a one sided BFS from pX to pY to find all possible walks
+// consistent with the minDistance and maxDistance.
 //
 // Return true if the search completed, else return false
 bool PCSearch::findWalksOneSidedBFS(StringGraph * pGraph, SGSearchParams params, bool exhaustive, SGWalkVector& outWalks)
@@ -182,16 +182,6 @@ bool PCSearch::findWalksOneSidedBFS(StringGraph * pGraph, SGSearchParams params,
     // Note: params.maxDistance is the distance from the start of X to the start of Y:
     // |-----------> X               Y <----------------|
     // |<----------------------------->| maxDistance
-    //EdgePtrVec allowedEdges = getPathEdges2(pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
-
-    /*
-    EdgePtrVec allowedEdges = getPathEdges(pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
-
-    if (allowedEdges.size() == 0)
-    {
-        return true; // Search completed, found no paths
-    }
-    */
 
     // Modify the search parameters for SGSearch:
     //  - Convert the maxDistance and minDistance from to the distance expected by SGSearch,
@@ -206,15 +196,8 @@ bool PCSearch::findWalksOneSidedBFS(StringGraph * pGraph, SGSearchParams params,
     sgParams.goalOriented = true;
     sgParams.minDistanceEnforced = true;
     sgParams.maxDistanceEnforced = true;
-    //sgParams.enforceAllowedEdges = true;
-    //sgParams.pAllowedEdges = &allowedEdges;
     SGWalkVector subgraphWalks;
     bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, subgraphWalks);
-
-    // Convert the subgraph walks to walks on the original graph
-    for(size_t i=0; i < subgraphWalks.size(); i++)
-        outWalks.push_back( convertWalk(pGraph, subgraphWalks[i]) );
-
     return searchComplete;
 }
 
@@ -250,8 +233,6 @@ bool PCSearch::findWalksDFS(StringGraph * pGraph, SGSearchParams params, bool ex
     // |-----------> X               Y <----------------|
     // |<----------------------------->| maxDistance
     EdgePtrVec allowedEdges = getPathEdges3(pX, params.searchDir, pY, !params.goalDir, params.maxDistance, shortestDistance);
-    //EdgePtrVec allowedEdges = getPathEdges2(pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
-   // EdgePtrVec allowedEdges = getPathEdges(pX, params.searchDir, pY, !params.goalDir, params.maxDistance);
 
     if (allowedEdges.size() == 0)
     {
@@ -261,7 +242,7 @@ bool PCSearch::findWalksDFS(StringGraph * pGraph, SGSearchParams params, bool ex
     size_t MAX_STEPS = 10000;
 
     DFS::DFSearch dfSearch(params.pStartVertex, params.searchDir, params.pEndVertex,
-                      params.goalDir, params.maxDistance, params.minDistance, allowedEdges);
+                      params.goalDir, params.maxDistance, params.minDistance, params.pDFSAllocator, allowedEdges);
 
     while(dfSearch.stepOnce() && dfSearch.getNumSteps() < MAX_STEPS)
     { }
@@ -276,9 +257,7 @@ bool PCSearch::findWalksDFS(StringGraph * pGraph, SGSearchParams params, bool ex
     #endif
 
     bool foundAll = dfSearch.foundAll();
-    outWalks = dfSearch.getWalks();
-    //if (foundAll) outWalks = dfSearch.getWalks();
-
+    dfSearch.swapWalks(outWalks);
     return foundAll;
 }
 

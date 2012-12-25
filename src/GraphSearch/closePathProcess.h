@@ -11,7 +11,12 @@
 #include "SGUtil.h"
 #include "SGWalk.h"
 #include "SGSearch.h"
+#include "dfs.h"
+#include "SimpleAllocator.h"
 
+
+typedef SimpleAllocator<DFS::SearchEntry> DFSAllocator;
+typedef SimpleAllocator<SGSearchNode> SGSearchNodeAllocator;
 
 // Class for an item of work for sga close-path
 // This simply wraps a pointer to a Bundle
@@ -116,6 +121,8 @@ class ClosePathProcess
     bool checkOverlap_;
 
     SGSearchNodeAllocator * pSearchNodeAllocator_;
+    DFSAllocator * pDFSAllocator_;
+
 };
 
 // Post Processor to write results to file

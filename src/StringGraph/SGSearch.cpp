@@ -9,9 +9,12 @@
 //
 #include "SGSearch.h"
 #include <queue>
+#include "SimpleAllocator.h"
 
 #define SGSEARCH_DEBUG 0
 #include <iostream>
+
+typedef SimpleAllocator<SGSearchNode> SGSearchNodeAllocator;
 
 //
 SGWalkBuilder::SGWalkBuilder(SGWalkVector& outWalks, bool bIndexWalk) : m_outWalks(outWalks), m_pCurrWalk(NULL), m_bIndexWalk(bIndexWalk)
@@ -97,6 +100,9 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
 // Returns true if all the possible walks were found.
 bool SGSearch::findWalks(const SGSearchParams& params, bool exhaustive, SGWalkVector& outWalks)
 {
+
+    assert(params.pNodeAllocator);
+
     ///////////////////////////////////////////////////
     // DEBUG
     #if SGSEARCH_DEBUG > 0

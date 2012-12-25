@@ -15,6 +15,7 @@
 
 #include "Bigraph.h"
 #include "SGWalk.h"
+#include "Allocator.h"
 #include <deque>
 #include <queue>
 #include <iostream>
@@ -27,7 +28,7 @@
 
 // Parameters guiding a GraphSearchTree Search
 // This structure sets a default for optional search parameters
-template<typename VERTEX, typename EDGE, typename ALLOCATOR>
+template<typename VERTEX, typename EDGE>
 class GraphSearchParams
 {
 
@@ -50,7 +51,8 @@ class GraphSearchParams
         nodeLimit(10000),
         selfPrune(false),
         enforceAllowedEdges(false),
-        pNodeAllocator(0)
+        pNodeAllocator(0),
+        pDFSAllocator(0)
         {};
 
     VERTEX* pStartVertex; 
@@ -75,7 +77,8 @@ class GraphSearchParams
     //const std::set<EDGE *> * pAllowedEdgeSet; // The set of edges which can be used in the graph search.
     const std::vector<EDGE *> * pAllowedEdges;
 
-    ALLOCATOR* pNodeAllocator;
+    Allocator* pNodeAllocator;
+    Allocator* pDFSAllocator;
 
     void print() const
     {
@@ -109,24 +112,23 @@ class GraphSearchNode
         typedef std::deque<GraphSearchNode<VERTEX,EDGE,DISTANCE>* > GraphSearchNodePtrDeque;
         typedef std::vector<EDGE*> _EDGEPtrVector;
         typedef typename _EDGEPtrVector::const_iterator _EDGEPtrVectorConstIter;
+        typedef GraphSearchParams<VERTEX,EDGE> _SearchParams;
 
     public:
         GraphSearchNode(VERTEX* pVertex, EdgeDir expandDir, GraphSearchNode* pParent, EDGE* pEdgeFromParent, int distance);
         ~GraphSearchNode();
 
-        template <typename ALLOCATOR>
-        void destroy(ALLOCATOR * pAllocator);
+        void destroy(Allocator * pAllocator);
 
         // Reduce the child count by 1
         void decrementChildren();
 
         // Create the children of this node and place pointers to their nodes
         // on the queue. Returns the number of children created;
-        template <typename ALLOCATOR, typename SEARCHPARAMS>
-        int createChildren(ALLOCATOR * pAllocator,
+        int createChildren(Allocator * pAllocator,
                            GraphSearchNodePtrDeque& outQueue,
                            const DISTANCE& distanceFunc,
-                           const SEARCHPARAMS& params);
+                           const _SearchParams& params);
 
         GraphSearchNode* getParent() const { return m_pParent; }
         VERTEX* getVertex() const { return m_pVertex; }
@@ -149,12 +151,12 @@ class GraphSearchNode
 
 };
 
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
+template<typename VERTEX, typename EDGE, typename DISTANCE>
 class GraphSearchTree
 {
     // typedefs
     typedef GraphSearchNode<VERTEX,EDGE,DISTANCE> _SearchNode;
-    typedef GraphSearchParams<VERTEX, EDGE, ALLOCATOR> _SearchParams;
+    typedef GraphSearchParams<VERTEX, EDGE> _SearchParams;
     typedef typename _SearchNode::GraphSearchNodePtrDeque _SearchNodePtrDeque;
     typedef typename std::set<_SearchNode*> _SearchNodePtrSet;
     typedef std::vector<EDGE*> WALK; // list of edges defines a walk through the graph
@@ -258,7 +260,7 @@ class GraphSearchTree
         DISTANCE m_distanceFunc;
 
         // Allocator for GrachSearchNodes
-        ALLOCATOR * m_pNodeAllocator;
+        Allocator * m_pNodeAllocator;
 };
 
 //
@@ -302,8 +304,7 @@ GraphSearchNode<VERTEX,EDGE,DISTANCE>::~GraphSearchNode()
 // in the parent node. All children of a node must
 // be deleted before the parent
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-template<typename ALLOCATOR>
-void GraphSearchNode<VERTEX,EDGE,DISTANCE>::destroy(ALLOCATOR * pAllocator)
+void GraphSearchNode<VERTEX,EDGE,DISTANCE>::destroy(Allocator * pAllocator)
 {
     // Release the memory
     this->~GraphSearchNode();
@@ -324,8 +325,7 @@ void GraphSearchNode<VERTEX,EDGE,DISTANCE>::decrementChildren()
 // and place pointers to them in the queue.
 // Returns the number of nodes created
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-template<typename ALLOCATOR, typename SEARCHPARAMS>
-int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(ALLOCATOR * pAllocator, GraphSearchNodePtrDeque& outDeque, const DISTANCE& distanceFunc, const SEARCHPARAMS& params)
+int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(Allocator * pAllocator, GraphSearchNodePtrDeque& outDeque, const DISTANCE& distanceFunc, const _SearchParams& params)
 {
     assert(m_numChildren == 0);
 
@@ -358,8 +358,8 @@ int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(ALLOCATOR * pAllocator
 //
 // GraphSearchTree
 //
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::GraphSearchTree(const _SearchParams& params) :
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(const _SearchParams& params) :
     m_searchParams(params),
     m_searchAborted(false)
 {
@@ -378,8 +378,8 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::GraphSearchTree(const _SearchPa
 }
 
 
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::~GraphSearchTree()
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+GraphSearchTree<VERTEX,EDGE,DISTANCE>::~GraphSearchTree()
 {
     using namespace std;
     // Delete the tree
@@ -427,8 +427,8 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::~GraphSearchTree()
 }
 
 // Delete the leaf node pCurr. Delete any of its parents that are childless.
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-size_t GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::deleteFromLeaf(_SearchNode * pCurr)
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+size_t GraphSearchTree<VERTEX,EDGE,DISTANCE>::deleteFromLeaf(_SearchNode * pCurr)
 {
         // loop invariant: pCurr is a deletable node
         // the loop stops when the parent is NULL or has 
@@ -479,8 +479,8 @@ size_t GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::deleteFromLeaf(_SearchNo
 
 // Delete from the leaf node pCurr. Follow path to root and delete any parents that become childless,
 // until a goal node or parent with child is reached. Set the stopNode to be the undeleted parent.
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-size_t GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::pruneFromLeaf(_SearchNode * pCurr, _SearchNode ** stopNode)
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+size_t GraphSearchTree<VERTEX,EDGE,DISTANCE>::pruneFromLeaf(_SearchNode * pCurr, _SearchNode ** stopNode)
 {
         // loop invariant: pCurr is a deletable node
         // the loop stops when the parent is NULL or has 
@@ -515,8 +515,8 @@ size_t GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::pruneFromLeaf(_SearchNod
 
 
 // Perform one step of the BFS
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-bool GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::stepOnce()
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::stepOnce()
 {
     if(m_expandQueue.empty())
         return false;
@@ -678,8 +678,8 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::stepOnce()
 // Return true if all the walks from the root converge
 // to one vertex (ie if the search from pX converged
 // to pY, then ALL paths from pX must go through pY).
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-bool GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::hasSearchConverged(VERTEX*& pConvergedVertex)
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::hasSearchConverged(VERTEX*& pConvergedVertex)
 {
     // Construct a set of all the leaf nodes
     _SearchNodePtrDeque completeLeafNodes;
@@ -725,9 +725,9 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::hasSearchConverged(VERTEX*
 }
 
 // Construct walks representing every path from the start node
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
+template<typename VERTEX, typename EDGE, typename DISTANCE>
 template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::buildWalksToAllLeaves(BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksToAllLeaves(BUILDER& walkBuilder)
 {
     // Construct a queue with all leaf nodes in it
     _SearchNodePtrDeque completeLeafNodes;
@@ -737,17 +737,17 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::buildWalksToAllLeaves(BUIL
 }
 
 // Construct walks representing every path from the start vertex to the goal vertex
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
+template<typename VERTEX, typename EDGE, typename DISTANCE>
 template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::buildWalksToGoal(BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksToGoal(BUILDER& walkBuilder)
 {
     _buildWalksToLeaves(m_goalQueue, walkBuilder);
 }
 
 // Build all the walks that contain pTarget.
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
+template<typename VERTEX, typename EDGE, typename DISTANCE>
 template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::buildWalksContainingVertex(VERTEX* pTarget, BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksContainingVertex(VERTEX* pTarget, BUILDER& walkBuilder)
 {
     _SearchNodePtrDeque completeLeafNodes;
     _makeFullLeafQueue(completeLeafNodes);
@@ -775,9 +775,9 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::buildWalksContainingVertex
 }
 
 // Main function for constructing a vector of walks from a set of leaves
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
+template<typename VERTEX, typename EDGE, typename DISTANCE>
 template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::_buildWalksToLeaves(const _SearchNodePtrDeque& queue, BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::_buildWalksToLeaves(const _SearchNodePtrDeque& queue, BUILDER& walkBuilder)
 {
     for(typename _SearchNodePtrDeque::const_iterator iter = queue.begin();
                                                      iter != queue.end();
@@ -799,8 +799,8 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::_buildWalksToLeaves(const 
 // Return true if the vertex pX is found somewhere in the branch 
 // from pNode to the root. If it is found, pFoundNode is set
 // to the furtherest instance of pX from the root.
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-bool GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::searchBranchForVertex(_SearchNode* pNode, VERTEX* pX, _SearchNode*& pFoundNode) const
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::searchBranchForVertex(_SearchNode* pNode, VERTEX* pX, _SearchNode*& pFoundNode) const
 {
     if(pNode == NULL)
     {
@@ -817,8 +817,8 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::searchBranchForVertex(_Sea
 }
 
 //
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::addEdgesFromBranch(_SearchNode* pNode, WALK& outEdges)
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::addEdgesFromBranch(_SearchNode* pNode, WALK& outEdges)
 {
     // Terminate the recursion at the root node and dont add an edge
     if(pNode->getParent() != NULL)
@@ -829,16 +829,16 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::addEdgesFromBranch(_Search
 }
 
 //
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::_makeFullLeafQueue(_SearchNodePtrDeque& completeQueue) const
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::_makeFullLeafQueue(_SearchNodePtrDeque& completeQueue) const
 {
     completeQueue.insert(completeQueue.end(), m_expandQueue.begin(), m_expandQueue.end());
     completeQueue.insert(completeQueue.end(), m_doneQueue.begin(), m_doneQueue.end());
 }
 
 //
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::printBranch(_SearchNode* pNode) const
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::printBranch(_SearchNode* pNode) const
 {
     if(pNode != NULL)
     {
@@ -847,8 +847,8 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::printBranch(_SearchNode* p
     }
 }
 
-template<typename VERTEX, typename EDGE, typename DISTANCE, typename ALLOCATOR>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE,ALLOCATOR>::connectedComponents(VertexPtrVector allVertices, 
+template<typename VERTEX, typename EDGE, typename DISTANCE>
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::connectedComponents(VertexPtrVector allVertices, 
                                                                 VertexPtrVectorVector& connectedComponents)
 {
     // Set the color of each vertex to be white signalling its not visited

@@ -12,7 +12,6 @@
 #include "GraphSearchTree.h"
 #include "ScaffoldWalk.h"
 #include "ScaffoldGraph.h"
-#include "SimpleAllocator.h"
 
 //
 struct ScaffoldDistanceFunction
@@ -25,9 +24,8 @@ struct ScaffoldDistanceFunction
 
 //
 typedef GraphSearchNode<ScaffoldVertex, ScaffoldEdge, ScaffoldDistanceFunction> ScaffoldSearchNode;
-typedef SimpleAllocator<ScaffoldSearchNode> ScaffoldSearchNodeAllocator;
-typedef GraphSearchTree<ScaffoldVertex, ScaffoldEdge, ScaffoldDistanceFunction, ScaffoldSearchNodeAllocator> ScaffoldSearchTree;
-typedef GraphSearchParams<ScaffoldVertex, ScaffoldEdge, ScaffoldSearchNodeAllocator> ScaffoldSearchParams;
+typedef GraphSearchTree<ScaffoldVertex, ScaffoldEdge, ScaffoldDistanceFunction> ScaffoldSearchTree;
+typedef GraphSearchParams<ScaffoldVertex, ScaffoldEdge> ScaffoldSearchParams;
 
 //
 struct ScaffoldWalkBuilder

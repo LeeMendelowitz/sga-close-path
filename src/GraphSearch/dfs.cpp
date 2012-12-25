@@ -8,7 +8,8 @@
 
 using namespace DFS;
 
-DFSearch::DFSearch(const Vertex * pStart, EdgeDir startDir, const Vertex * pEnd, EdgeDir endDir, int maxDistance, int minDistance, EdgePtrVec& allowableEdges) :
+DFSearch::DFSearch(const Vertex * pStart, EdgeDir startDir, const Vertex * pEnd, EdgeDir endDir,
+                   int maxDistance, int minDistance, Allocator* pAllocator, EdgePtrVec& allowableEdges) :
     pStart_(pStart),
     startDir_(startDir),
     pEnd_(pEnd),
@@ -18,26 +19,31 @@ DFSearch::DFSearch(const Vertex * pStart, EdgeDir startDir, const Vertex * pEnd,
     allowableEdges_(allowableEdges),
     numSteps_(0),
     foundAll_(false),
-    MAX_WALKS(20)
+    MAX_WALKS(20),
+    pAllocator_(pAllocator)
 { 
+    assert(pAllocator_);
+
     // Add the starting entry to the stack    
     SearchEntry * firstEntry = makeSearchEntry(pStart, startDir, 0);
     stackPush(firstEntry);
+    walksFound_.reserve(MAX_WALKS);
+    stack_.reserve( (size_t) maxDistance);
 }
 
 SearchEntry * DFSearch::makeSearchEntry(const Vertex * pNode, EdgeDir dir, int pos)
 {
-    SearchEntry * pEntry = new SearchEntry(pNode, dir, pos);
-
+    SearchEntry * pEntry = new(pAllocator_->alloc()) SearchEntry(pNode, dir, pos);
     // Set the edges using only the allowable edges
-    EdgePtrVec edges = pNode->getEdges(dir);
     const EdgePtrVec::const_iterator aeB = allowableEdges_.begin();
     const EdgePtrVec::const_iterator aeE = allowableEdges_.end();
-    for(EdgePtrVec::const_iterator iter = edges.begin();
-        iter != edges.end();
-        iter++)
+    const EdgePtrVec::const_iterator eE = pNode->getEdgesEnd();
+    EdgePtrVec::const_iterator iter = pNode->getEdgesBegin();
+    pEntry->edges.reserve(eE - iter);
+    for( ; iter != eE; iter++)
     {
         Edge * pEdge = *iter;
+        if(pEdge->getDir() != dir) continue;
         if(binary_search(aeB, aeE, pEdge))
             pEntry->edges.push_back(pEdge);
     }
@@ -65,7 +71,9 @@ void DFSearch::stackPop()
     assert(iter != curNodes_.end());
     curNodes_.erase(iter);
 
-    delete pCurEntry;
+    // Delete the current entry
+    pCurEntry->~SearchEntry();
+    pAllocator_->dealloc(pCurEntry);
 }
 
 // Make a walk from the stack
