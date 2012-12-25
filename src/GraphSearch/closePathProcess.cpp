@@ -130,6 +130,7 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     }
 
     pSearchNodeAllocator_->reset();
+    pDFSAllocator_->reset();
     return result;
 };
 

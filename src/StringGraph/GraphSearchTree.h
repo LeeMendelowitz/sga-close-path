@@ -99,7 +99,7 @@ class GraphSearchParams
 
              << "selfPrune: " << selfPrune << "\n"
              << "enforceAllowedEdges: " << enforceAllowedEdges << "\n"
-             << "pAllowedEdges->size(): " << ( pAllowedEdges ? pAllowedEdges->size() : 0 )
+             << "pAllowedEdges->size(): " << ( pAllowedEdges ? pAllowedEdges->size() : 0 ) << "\n"
              << "pNodeAllocatr: " << pNodeAllocator << std::endl;
     }
 };

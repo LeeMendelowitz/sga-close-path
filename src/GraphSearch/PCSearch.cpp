@@ -196,8 +196,7 @@ bool PCSearch::findWalksOneSidedBFS(StringGraph * pGraph, SGSearchParams params,
     sgParams.goalOriented = true;
     sgParams.minDistanceEnforced = true;
     sgParams.maxDistanceEnforced = true;
-    SGWalkVector subgraphWalks;
-    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, subgraphWalks);
+    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, outWalks);
     return searchComplete;
 }
 
