@@ -36,7 +36,8 @@ class SimpleAllocator
         {
             if(m_pPoolList.empty() || m_pPoolList.back()->isFull())
             {
-                // new storage must be allocated m_pPoolList.push_back(new StorageType);
+                // new storage must be allocated
+                m_pPoolList.push_back(new StorageType);
             }
 
             // allocate from the last pool
