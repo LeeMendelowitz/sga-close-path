@@ -77,7 +77,7 @@ void ScaffoldSearch::findVariantWalks(ScaffoldVertex* pX,
         {
             assert(pCollapsedVertex != NULL);
             ScaffoldWalkBuilder builder(outWalks);
-            searchTree.buildWalksContainingVertex(pCollapsedVertex, builder);
+            searchTree.buildWalksContainingVertex(pCollapsedVertex, &builder);
             delete pAllocator;
             return;           
         }
@@ -135,7 +135,7 @@ void ScaffoldSearch::findPrimaryWalks(ScaffoldVertex* pX,
     {
         // Extract the walks from the graph as a vector of edges
         ScaffoldWalkBuilder builder(outWalks);
-        searchTree.buildWalksToGoal(builder);
+        searchTree.buildWalksToGoal(&builder);
     }
    
    delete pAllocator;

@@ -23,9 +23,9 @@ class CloseBundleResult
         overlapTooLarge(false),
         numClosures(0) {};
 
-    void setWalks(const SGWalkVector& walksIn)
+    void swapWalks(SGWalkVector& walksIn)
     {
-        walks = walksIn;
+        walks.swap(walksIn);
         numClosures = walks.size();
     }
 
@@ -160,7 +160,8 @@ void BundleManager::closeBundles(float maxStd, bool exhaustive, bool removeEdges
 void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive, CloseBundleResult& res)
 {
 
-    res = CloseBundleResult(b);
+    res.reset();
+    res.bundle = b;
 
     Vertex * pX = pGraph_->getVertex(b->vertex1ID);
     Vertex * pY = pGraph_->getVertex(b->vertex2ID);
@@ -204,13 +205,11 @@ void BundleManager::closeBundle(const Bundle * b, float maxStd, bool exhaustive,
     assert(params.minDistance >= 0);
 
     // Find paths and save results
-    SGWalkVector walks;
-    bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, walks);
-    res.setWalks(walks);
+    bool foundAll = PCSearch::findWalks(pGraph_, params, exhaustive, res.walks);
     res.tooRepetative = !foundAll;
 
     #if BUNDLEMANAGER_DEBUG > 0
-    cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << walks.size() << " walks: \n";
+    cout << "Search " << (foundAll ? "completed" : "aborted") << ". Found " << res.walks.size() << " walks: \n";
     #endif
 }
 

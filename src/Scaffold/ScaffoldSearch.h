@@ -12,6 +12,7 @@
 #include "GraphSearchTree.h"
 #include "ScaffoldWalk.h"
 #include "ScaffoldGraph.h"
+#include "WalkBuilder.h"
 
 //
 struct ScaffoldDistanceFunction
@@ -28,7 +29,7 @@ typedef GraphSearchTree<ScaffoldVertex, ScaffoldEdge, ScaffoldDistanceFunction> 
 typedef GraphSearchParams<ScaffoldVertex, ScaffoldEdge> ScaffoldSearchParams;
 
 //
-struct ScaffoldWalkBuilder
+class ScaffoldWalkBuilder : public WalkBuilder<ScaffoldVertex, ScaffoldEdge>
 {
     public:
         ScaffoldWalkBuilder(ScaffoldWalkVector& outWalks);

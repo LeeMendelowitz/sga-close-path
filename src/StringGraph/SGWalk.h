@@ -45,6 +45,7 @@ class SGWalk
         SGWalk& operator=(const SGWalk& other);
 
         void addEdge(Edge* pEdge);
+        void setEdges(EdgePtrVec& edgeVec); // uses swap to efficiently set the edges.
         void popLast();
         void setFinished(bool b);
         bool isFinished() const;

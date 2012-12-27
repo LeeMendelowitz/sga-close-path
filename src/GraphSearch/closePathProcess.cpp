@@ -27,7 +27,10 @@ ClosePathProcess::ClosePathProcess(StringGraph * pGraph, float numStd, int maxGa
     checkOverlap_(checkOverlap)
     { 
         pSearchNodeAllocator_ = new SGSearchNodeAllocator;    
+        pSearchNodeAllocator_->makePool();
+
         pDFSAllocator_ = new DFSAllocator;
+        pDFSAllocator_->makePool();
     };
 
 ClosePathProcess::~ClosePathProcess()
@@ -141,9 +144,8 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
 bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result)
 {
     // Do one sided BFS from pX to pY
-    SGWalkVector walks;
-    bool foundAll = PCSearch::findWalksOneSidedBFS(pGraph_, params, true, walks);
-    bool noPaths = walks.empty();
+    bool foundAll = PCSearch::findWalksOneSidedBFS(pGraph_, params, true, result.walks);
+    bool noPaths = result.walks.empty();
     bool tooRepetitive = !foundAll;
 
     // We expect regions that are tooRepetitive to have noPaths.
@@ -158,12 +160,10 @@ bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result
     // We expect a relatively small fraction of the bundle searches to fall into this tooRepetitive category.
     if (tooRepetitive && useDFS_)
     {
-        foundAll = PCSearch::findWalksDFS(pGraph_, params, true, walks, result.shortestPath);
-        noPaths = walks.empty();
+        foundAll = PCSearch::findWalksDFS(pGraph_, params, true, result.walks, result.shortestPath);
         tooRepetitive = !foundAll;
     }
 
-    result.setWalks(walks);
     result.tooRepetitive = tooRepetitive;
     
     return !tooRepetitive;

@@ -1521,11 +1521,12 @@ EdgePtrVec getPathEdges3(const Vertex * pX, EdgeDir dX, const Vertex * pY, EdgeD
     shortestDistance = maxDistanceX + 1;
     bool foundY = false;
     const EdgePtrVec::const_iterator E = pY->getEdgesEnd();
+    const EDistanceMap::const_iterator xDistMapE = xDistMap.end();
     for(EdgePtrVec::const_iterator iter = pY->getEdgesBegin(); iter != E; iter ++)
     {
         if ((*iter)->getDir() != dY) continue;
         EDistanceMap::const_iterator eiter = xDistMap.find((*iter)->getTwin());
-        if (eiter != xDistMap.end())
+        if (eiter != xDistMapE)
         {
             foundY = true;
             if (eiter->second < shortestDistance)

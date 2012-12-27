@@ -55,9 +55,10 @@ SGWalk::SGWalk(const EdgePtrVec& edgeVec, bool bIndexWalk) : m_extensionDistance
     // The start vector is the start vertex of the first edge
     Edge* first = edgeVec.front();
     m_pStartVertex = first->getStart();
-
+    m_edges.reserve(edgeVec.size());
+    const EdgePtrVec::const_iterator E = edgeVec.end();
     for(EdgePtrVec::const_iterator iter = edgeVec.begin();
-                                   iter != edgeVec.end();
+                                   iter != E;
                                    ++iter)
     {
         addEdge(*iter);
@@ -93,6 +94,32 @@ void SGWalk::addEdge(Edge* pEdge)
     // Add the vertex ID to the index if necessary
     if(m_pWalkIndex != NULL)
         m_pWalkIndex->insert(m_edges.back()->getEndID());
+}
+
+//
+void SGWalk::setEdges(EdgePtrVec& edges)
+{
+    assert(!edges.empty());
+    m_edges.clear();
+    m_edges.swap(edges);
+
+    // The start vector is the start vertex of the first edge
+    const Edge* first = m_edges.front();
+    m_pStartVertex = first->getStart();
+
+    m_extensionDistance = 0;
+    const EdgePtrVec::const_iterator E = m_edges.end();
+    for(EdgePtrVec::const_iterator iter = m_edges.begin();
+        iter != E;
+        iter++)
+    {
+        const Edge * pEdge = *iter;
+        m_extensionDistance += pEdge->getSeqLen();
+
+        // Add the vertex ID to the index if necessary
+        if (m_pWalkIndex != NULL)
+            m_pWalkIndex->insert(pEdge->getEndID());
+    }
 }
 
 //

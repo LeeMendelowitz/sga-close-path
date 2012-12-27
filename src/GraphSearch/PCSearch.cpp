@@ -20,6 +20,7 @@ SGWalk convertWalk(const StringGraph * pGraph, const SGWalk& walkIn);
 // Return true if the search completed, else return false
 bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhaustive, SGWalkVector& outWalks)
 {
+    outWalks.clear();
     ///////////////////////////////////////////////////
     // DEBUG
     #if PCSEARCH_DEBUG > 0
@@ -80,12 +81,7 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
     sgParams.goalOriented = true;
     sgParams.minDistanceEnforced = true;
     sgParams.maxDistanceEnforced = true;
-    SGWalkVector subgraphWalks;
-    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, subgraphWalks);
-
-    // Convert the subgraph walks to walks on the original graph
-    for(size_t i=0; i < subgraphWalks.size(); i++)
-        outWalks.push_back( convertWalk(pGraph, subgraphWalks[i]) );
+    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, outWalks);
 
     delete pSubgraph;
     return searchComplete;
@@ -98,6 +94,7 @@ bool PCSearch::findWalks(StringGraph * pGraph, SGSearchParams params, bool exhau
 // Return true if the search completed, else return false
 bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exhaustive, SGWalkVector& outWalks)
 {
+    outWalks.clear();
     ///////////////////////////////////////////////////
     // DEBUG
     #if PCSEARCH_DEBUG > 0
@@ -144,13 +141,7 @@ bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exha
     sgParams.maxDistanceEnforced = true;
     sgParams.enforceAllowedEdges = true;
     sgParams.pAllowedEdges = &allowedEdges;
-    SGWalkVector subgraphWalks;
-    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, subgraphWalks);
-
-    // Convert the subgraph walks to walks on the original graph
-    for(size_t i=0; i < subgraphWalks.size(); i++)
-        outWalks.push_back( convertWalk(pGraph, subgraphWalks[i]) );
-
+    bool searchComplete = SGSearch::findWalks(sgParams, exhaustive, outWalks);
     return searchComplete;
 }
 
@@ -161,6 +152,8 @@ bool PCSearch::findWalks2(StringGraph * pGraph, SGSearchParams params, bool exha
 // Return true if the search completed, else return false
 bool PCSearch::findWalksOneSidedBFS(StringGraph * pGraph, SGSearchParams params, bool exhaustive, SGWalkVector& outWalks)
 {
+    outWalks.clear();
+
     ///////////////////////////////////////////////////
     // DEBUG
     #if PCSEARCH_DEBUG > 0
@@ -210,6 +203,9 @@ bool PCSearch::findWalksOneSidedBFS(StringGraph * pGraph, SGSearchParams params,
 // Return true if the search completed, else return false
 bool PCSearch::findWalksDFS(StringGraph * pGraph, SGSearchParams params, bool exhaustive, SGWalkVector& outWalks, int& shortestDistance)
 {
+
+    outWalks.clear();
+
     ///////////////////////////////////////////////////
     // DEBUG
     #if PCSEARCH_DEBUG > 0

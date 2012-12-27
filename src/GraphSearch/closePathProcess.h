@@ -77,12 +77,19 @@ class ClosePathResult
         foundOverlap(false),
         shortestPath(0),
         usedFixedInterval(false)
-        {};
+        {
+            
+        };
 
-    void setWalks(const SGWalkVector& walksIn)
+    void reset()
     {
-        walks = walksIn;
-    }
+        tooRepetitive = false;
+        overlapTooLarge = false;
+        foundOverlap = false;
+        shortestPath = 0;
+        usedFixedInterval = false;
+        walks.clear();
+    };
 
     const Bundle * bundle;
     bool tooRepetitive; // Closure failed due to graph too repetitive

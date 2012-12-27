@@ -86,7 +86,7 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
     {
         // Extract the walks from the graph as a vector of edges
         SGWalkBuilder builder(outWalks, false);
-        searchTree.buildWalksToGoal(builder);
+        searchTree.buildWalksToGoal(&builder);
     }
 
     delete pAllocator;
@@ -127,7 +127,7 @@ bool SGSearch::findWalks(const SGSearchParams& params, bool exhaustive, SGWalkVe
     {
         // Extract the walks from the graph as a vector of edges
         SGWalkBuilder builder(outWalks, false);
-        searchTree.buildWalksToGoal(builder);
+        searchTree.buildWalksToGoal(&builder);
         #if SGSEARCH_DEBUG > 0
         std::cout << "SGSearch: Made walks:" << outWalks.size() <<  std::endl;
         #endif
@@ -269,7 +269,7 @@ void SGSearch::findCollapsedWalks(Vertex* pX, EdgeDir initialDir,
             // If this is the case, we truncate all walks so they end at pCollapsedVertex and return 
             // all the non-redundant walks in outWalks
             SGWalkBuilder builder(outWalks, true);
-            searchTree.buildWalksContainingVertex(pCollapsedVertex, builder);
+            searchTree.buildWalksContainingVertex(pCollapsedVertex, &builder);
             delete pAllocator;
             return;
         }

@@ -70,6 +70,13 @@ class SimpleAllocator : public Allocator
             m_pPoolList.resize(1);
         }
 
+        // If the poolList is empty, add an empty pool
+        void makePool()
+        {
+            if(m_pPoolList.empty())
+                m_pPoolList.push_back(new StorageType);
+        }
+
     private:
 
         StorageList m_pPoolList;

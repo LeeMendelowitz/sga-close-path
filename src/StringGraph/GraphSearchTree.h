@@ -15,6 +15,7 @@
 
 #include "Bigraph.h"
 #include "SGWalk.h"
+#include "WalkBuilder.h"
 #include "Allocator.h"
 #include <deque>
 #include <queue>
@@ -133,6 +134,7 @@ class GraphSearchNode
         GraphSearchNode* getParent() const { return m_pParent; }
         VERTEX* getVertex() const { return m_pVertex; }
         int64_t getDistance() const { return m_distance; }
+        int getDepth() const { return m_depth; }
         EDGE* getEdgeFromParent() const { return m_pEdgeFromParent; }
         int getNumChildren() const { return m_numChildren; }
         bool isGoal() const { return m_isGoal; } 
@@ -146,6 +148,7 @@ class GraphSearchNode
         GraphSearchNode* m_pParent;
         EDGE* m_pEdgeFromParent;
         int m_numChildren;
+        int m_depth;
         int64_t m_distance;
         bool m_isGoal; // True if this node is a goal vertex
 
@@ -159,6 +162,7 @@ class GraphSearchTree
     typedef GraphSearchParams<VERTEX, EDGE> _SearchParams;
     typedef typename _SearchNode::GraphSearchNodePtrDeque _SearchNodePtrDeque;
     typedef typename std::set<_SearchNode*> _SearchNodePtrSet;
+    typedef WalkBuilder<VERTEX, EDGE> BUILDER;
     typedef std::vector<EDGE*> WALK; // list of edges defines a walk through the graph
     typedef std::vector<WALK> WALKVector; // vector of walks
     
@@ -190,16 +194,13 @@ class GraphSearchTree
         bool hasSearchConverged(VERTEX*& pConvergedVertex);
 
         // build walks to a given vertex
-        template<typename BUILDER>
-        void buildWalksContainingVertex(VERTEX* pTarget, BUILDER& walkBuilder);
+        void buildWalksContainingVertex(VERTEX* pTarget, BUILDER * pWalkBuilder);
 
         // Construct walks representing every path from the start node
-        template<typename BUILDER>
-        void buildWalksToAllLeaves(BUILDER& walkBuilder);
+        void buildWalksToAllLeaves(BUILDER * pWalkBuilder);
 
         // Construct walks representing every path from the start vertex to the goal vertex
-        template<typename BUILDER>
-        void buildWalksToGoal(BUILDER& walkBuilder);
+        void buildWalksToGoal(BUILDER * pWalkBuilder);
                 
         // Expand all nodes in the queue a single time
         // Returns false if the search has stopped
@@ -218,8 +219,7 @@ class GraphSearchTree
         bool searchBranchForVertex(_SearchNode* pNode, VERTEX* pX, _SearchNode*& pFoundNode) const;
 
         // Build the walks from the root to the leaves in the queue
-        template<typename BUILDER>
-        void _buildWalksToLeaves(const _SearchNodePtrDeque& queue, BUILDER& walkBuilder);
+        void _buildWalksToLeaves(const _SearchNodePtrDeque& queue, BUILDER * pWalkBuilder);
 
         //
         void addEdgesFromBranch(_SearchNode* pNode, WALK& outEdges);
@@ -281,11 +281,13 @@ GraphSearchNode<VERTEX,EDGE,DISTANCE>::GraphSearchNode(VERTEX* pVertex,
     {
         // this is the root node with distance 0
         m_distance = 0;
+        m_depth = 0;
     }
     else
     {
         assert(m_pEdgeFromParent != NULL);
         m_distance = m_pParent->m_distance + distance;
+        m_depth = m_pParent->m_depth + 1;
     }
 }
 
@@ -726,28 +728,25 @@ bool GraphSearchTree<VERTEX,EDGE,DISTANCE>::hasSearchConverged(VERTEX*& pConverg
 
 // Construct walks representing every path from the start node
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksToAllLeaves(BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksToAllLeaves(BUILDER * pWalkBuilder)
 {
     // Construct a queue with all leaf nodes in it
     _SearchNodePtrDeque completeLeafNodes;
     _makeFullLeafQueue(completeLeafNodes);
 
-    _buildWalksToLeaves(completeLeafNodes, walkBuilder);
+    _buildWalksToLeaves(completeLeafNodes, pWalkBuilder);
 }
 
 // Construct walks representing every path from the start vertex to the goal vertex
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksToGoal(BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksToGoal(BUILDER * pWalkBuilder)
 {
-    _buildWalksToLeaves(m_goalQueue, walkBuilder);
+    _buildWalksToLeaves(m_goalQueue, pWalkBuilder);
 }
 
 // Build all the walks that contain pTarget.
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksContainingVertex(VERTEX* pTarget, BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksContainingVertex(VERTEX* pTarget, BUILDER * pWalkBuilder)
 {
     _SearchNodePtrDeque completeLeafNodes;
     _makeFullLeafQueue(completeLeafNodes);
@@ -771,16 +770,16 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE>::buildWalksContainingVertex(VERTEX* p
     // Construct all the walks to the found leaves
     completeLeafNodes.clear();
     completeLeafNodes.insert(completeLeafNodes.end(), leafSet.begin(), leafSet.end());
-    _buildWalksToLeaves(completeLeafNodes, walkBuilder);
+    _buildWalksToLeaves(completeLeafNodes, pWalkBuilder);
 }
 
 // Main function for constructing a vector of walks from a set of leaves
 template<typename VERTEX, typename EDGE, typename DISTANCE>
-template<typename BUILDER>
-void GraphSearchTree<VERTEX,EDGE,DISTANCE>::_buildWalksToLeaves(const _SearchNodePtrDeque& queue, BUILDER& walkBuilder)
+void GraphSearchTree<VERTEX,EDGE,DISTANCE>::_buildWalksToLeaves(const _SearchNodePtrDeque& queue, BUILDER * pWalkBuilder)
 {
+    const typename _SearchNodePtrDeque::const_iterator E = queue.end();
     for(typename _SearchNodePtrDeque::const_iterator iter = queue.begin();
-                                                     iter != queue.end();
+                                                     iter != E;
                                                      ++iter)
     {
 
@@ -789,10 +788,10 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE>::_buildWalksToLeaves(const _SearchNod
         addEdgesFromBranch(*iter, currWalk);
 
         // Reverse the walk and write it to the output structure
-        walkBuilder.startNewWalk(m_pRootNode->getVertex());
+        pWalkBuilder->startNewWalk(m_pRootNode->getVertex());
         for(typename WALK::reverse_iterator iter = currWalk.rbegin(); iter != currWalk.rend(); ++iter)
-            walkBuilder.addEdge(*iter);
-        walkBuilder.finishCurrentWalk();
+            pWalkBuilder->addEdge(*iter);
+        pWalkBuilder->finishCurrentWalk();
     }
 }
 
@@ -821,10 +820,14 @@ template<typename VERTEX, typename EDGE, typename DISTANCE>
 void GraphSearchTree<VERTEX,EDGE,DISTANCE>::addEdgesFromBranch(_SearchNode* pNode, WALK& outEdges)
 {
     // Terminate the recursion at the root node and dont add an edge
-    if(pNode->getParent() != NULL)
+    _SearchNode* pCurNode = pNode;
+    _SearchNode* pParent = pNode->getParent();
+    outEdges.reserve(pCurNode->getDepth() + 1);
+    while (pParent != NULL)
     {
-        outEdges.push_back(pNode->getEdgeFromParent());
-        return addEdgesFromBranch(pNode->getParent(), outEdges);
+        outEdges.push_back(pCurNode->getEdgeFromParent());
+        pCurNode = pParent;
+        pParent = pCurNode->getParent();
     }
 }
 

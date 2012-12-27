@@ -13,6 +13,7 @@
 #include "Bigraph.h"
 #include "SGWalk.h"
 #include "GraphSearchTree.h"
+#include "WalkBuilder.h"
 #include <deque>
 
 // Returns the extension distance indicated
@@ -31,7 +32,7 @@ typedef GraphSearchParams<Vertex, Edge> SGSearchParams;
 typedef GraphSearchTree<Vertex, Edge, SGDistanceFunction> SGSearchTree;
 
 //
-struct SGWalkBuilder
+class SGWalkBuilder : public WalkBuilder<Vertex, Edge>
 {
     public:
         SGWalkBuilder(SGWalkVector& outWalks, bool bIndexWalk);
