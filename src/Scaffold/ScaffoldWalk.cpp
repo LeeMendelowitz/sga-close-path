@@ -18,6 +18,13 @@ void ScaffoldWalk::addEdge(ScaffoldEdge* pEdge)
     m_edges.push_back(pEdge);
 }
 
+void ScaffoldWalk::setEdges(ScaffoldEdgePtrVector& edgeVec)
+{
+    if (edgeVec.empty()) return;
+    m_edges.swap(edgeVec);
+    m_pStartVertex = m_edges.front()->getStart();
+}
+
 //
 int64_t ScaffoldWalk::getGapSum() const
 {

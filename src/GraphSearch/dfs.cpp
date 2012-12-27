@@ -126,7 +126,8 @@ bool DFSearch::stepOnce()
             if (nextStart < minDistance_) continue;
             EdgePtrVec curEdges;
             gatherEdges(curEdges);
-            walksFound_.push_back(SGWalk(curEdges));
+            walksFound_.push_back(SGWalk(NULL));
+            walksFound_.back().setEdges(curEdges);
             tookStep = true;
             break;
         }

@@ -18,6 +18,8 @@
 typedef SimpleAllocator<DFS::SearchEntry> DFSAllocator;
 typedef SimpleAllocator<SGSearchNode> SGSearchNodeAllocator;
 
+const size_t INIT_WALKS = 64; // Number of walks to reserve in a result
+
 // Class for an item of work for sga close-path
 // This simply wraps a pointer to a Bundle
 struct ClosePathWorkItem
@@ -70,6 +72,7 @@ class ClosePathWorkItemGenerator
 class ClosePathResult
 {
     public:
+    ClosePathResult() {};
     ClosePathResult(const Bundle * b) :
         bundle(b),
         tooRepetitive(false),
@@ -78,7 +81,7 @@ class ClosePathResult
         shortestPath(0),
         usedFixedInterval(false)
         {
-            
+            walks.reserve(INIT_WALKS);
         };
 
     void reset()
@@ -89,7 +92,21 @@ class ClosePathResult
         shortestPath = 0;
         usedFixedInterval = false;
         walks.clear();
+        walks.reserve(INIT_WALKS);
     };
+
+    // Note: This is like a copy constructor, except it uses
+    // swap to steal the walks from the input result.
+    void copyAttributesFrom(ClosePathResult& res)
+    {
+        bundle = res.bundle;
+        tooRepetitive = res.tooRepetitive;
+        overlapTooLarge = res.overlapTooLarge;
+        foundOverlap = res.foundOverlap;
+        shortestPath = res.shortestPath;
+        usedFixedInterval = res.usedFixedInterval;
+        walks.swap(res.walks);
+    }
 
     const Bundle * bundle;
     bool tooRepetitive; // Closure failed due to graph too repetitive
@@ -109,7 +126,7 @@ class ClosePathProcess
     public:
     ClosePathProcess(StringGraph * pGraph, float numStd, int maxGap, int maxOL, int fixedIntervalWidth, bool useDFS, bool checkOverlap);
     ~ClosePathProcess();
-    ClosePathResult process(const ClosePathWorkItem& item);
+    void process(const ClosePathWorkItem& item, ClosePathResult& result);
 
     private:
 

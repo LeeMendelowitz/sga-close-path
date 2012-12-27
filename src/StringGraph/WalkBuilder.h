@@ -24,7 +24,9 @@ class WalkBuilder
     virtual void finishCurrentWalk() = 0;
 
     // Build the walk in one shot using edges from the edgeVec
-    //virtual void setEdges(_EdgePtrVec& edgeVec) = 0;
+    // Note: This function allows modification of _EdgePtrVec
+    // This allows edgeVec.swap() to be used, for efficiency.
+    virtual void buildWalkFromEdges(_EdgePtrVec& edgeVec) = 0;
 };
 
 #endif

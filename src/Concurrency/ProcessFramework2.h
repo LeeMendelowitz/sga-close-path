@@ -271,8 +271,9 @@ void ProcessorThread<Input, Output, Processor>::doWork()
     data_.outputItems.reserve(numItems);
     for (size_t j = 0; j < numItems; j++)
     {
-        Output output = pProcessor_->process(data_.inputItems[j]);
-        data_.outputItems.push_back(output);
+        data_.outputItems.push_back(Output());
+        Output& output = data_.outputItems.back();
+        pProcessor_->process(data_.inputItems[j], output);
         numWorked_++;
     }
 }
@@ -310,8 +311,8 @@ class ThreadScheduler
         // are still items to consume from the generator
         while(generator.generate(workItem))
         {
-            Output output = pProcessor->process(workItem);
-            
+            Output output;
+            pProcessor->process(workItem, output);
             pPostProcessor->process(workItem, output);
             if(generator.getNumConsumed() % reportInterval_ == 0)
                 printf("[sga %s] Processed %zu items (%lfs elapsed)\n", name_.c_str(), generator.getNumConsumed(), timer.getElapsedWallTime());
@@ -453,14 +454,15 @@ class ThreadScheduler
                 if (!pWorker->isReady()) continue;
 
 
-                #if PROCESS_DEBUG > 0
-                std::cout << "Sending " << data.inputItems.size() << " items to thread " << i << std::endl;
-                #endif
 
                 // Create data to exchange with the thread
                 ProcData data;
                 data.inputItems.swap(inputDataQueue.front());
                 inputDataQueue.pop_front();
+
+                #if PROCESS_DEBUG > 0
+                std::cout << "Sending " << data.inputItems.size() << " items to thread " << i << std::endl;
+                #endif
 
                 // Exchange data with the worker.
                 pWorker->exchangeData(data);

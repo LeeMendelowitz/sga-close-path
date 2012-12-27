@@ -41,6 +41,7 @@ class ScaffoldWalkBuilder : public WalkBuilder<ScaffoldVertex, ScaffoldEdge>
         void startNewWalk(ScaffoldVertex* pStartVertex);
         void addEdge(ScaffoldEdge* pEdge);
         void finishCurrentWalk();
+        void buildWalkFromEdges(ScaffoldEdgePtrVector& edgeVec);
 
     private:
         ScaffoldWalkVector& m_outWalks;

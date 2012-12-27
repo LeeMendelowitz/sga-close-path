@@ -34,7 +34,8 @@ SGWalkBuilder::~SGWalkBuilder()
 //
 void SGWalkBuilder::startNewWalk(Vertex* pStartVertex)
 {
-    m_pCurrWalk = new SGWalk(pStartVertex, m_bIndexWalk);
+    m_outWalks.push_back(SGWalk(pStartVertex, m_bIndexWalk));
+    m_pCurrWalk = &m_outWalks.back();
 }
 
 //
@@ -46,9 +47,15 @@ void SGWalkBuilder::addEdge(Edge* pEdge)
 //
 void SGWalkBuilder::finishCurrentWalk()
 {
-    m_outWalks.push_back(*m_pCurrWalk);
-    delete m_pCurrWalk;
     m_pCurrWalk = NULL;
+}
+
+//
+void SGWalkBuilder::buildWalkFromEdges(EdgePtrVec& edgeVec)
+{
+    if (edgeVec.empty()) return;
+    m_outWalks.push_back(SGWalk(NULL, m_bIndexWalk)); // Add empty walk
+    m_outWalks.back().setEdges(edgeVec); // Set the edges in the walk
 }
 
 // Find all the walks between pX and pY that are within maxDistance

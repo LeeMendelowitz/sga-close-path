@@ -21,6 +21,7 @@ class ScaffoldWalk
     public:
         ScaffoldWalk(ScaffoldVertex* pStartVertex);
         void addEdge(ScaffoldEdge* pEdge);
+        void setEdges(ScaffoldEdgePtrVector& edgeVec); // use swap to efficiently set the edges
 
         // Find the index of the first instance of pvertex in the walk
         // if pvertex is not found, returns -1

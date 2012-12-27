@@ -32,6 +32,7 @@ struct WorkItem
 
 struct Result
 {
+    Result() {};
     Result(int val) : val_(val) {};
     int val_;
 };
@@ -149,9 +150,9 @@ class VectorProcessorAlloc
 {
     public:
     VectorProcessorAlloc() { };
-    Result process(WorkItem& item)
+    void process(WorkItem& item, Result& result)
     {
-        Result res(0);
+        result = Result(0);
 
         // Create a new vector of significant size.
         // This should require some memory allocation
@@ -163,14 +164,14 @@ class VectorProcessorAlloc
             int * p = new int;
             *p = i;
             myVec.push_back(p);
-            res.val_ += i;
+            result.val_ += i;
         }
 
         for (size_t i = 0; i < N; i++)
         {
             delete myVec[i];
         }
-        return res;
+        return;
     }
 };
 

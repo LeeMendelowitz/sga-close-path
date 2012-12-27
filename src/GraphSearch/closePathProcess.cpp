@@ -40,7 +40,7 @@ ClosePathProcess::~ClosePathProcess()
 };
 
 // Given the work item, find the paths which close the bundle
-ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
+void ClosePathProcess::process(const ClosePathWorkItem& item, ClosePathResult& result)
 {
 
     Bundle * b = item.b_;
@@ -62,8 +62,6 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     params.pNodeAllocator = pSearchNodeAllocator_;
     params.pDFSAllocator = pDFSAllocator_;
 
-
-
     // Determine the upper and lower bounds for the graph search
     // First, use +/- N*b->std to set the interval
     int minStdGap, maxStdGap; // Gap bounds determined by standard deviation estimate
@@ -75,18 +73,11 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
     ClosePathResult result1(b);
     result1.overlapTooLarge =  (maxStdGap < 0) && (maxStdGap <= max(-lX, -maxOL_));
     if (!result1.overlapTooLarge)
+    {
         findWalks(params, result1);
+    }
 
-    // Being here means either that:
-    // 1. No path existed for the initial interval (and the graph was not too repetitive).
-    // 2. No path was found because the graph was too repetitive.
-    // 3. The overlap for the initial interval was too large.
-
-    // We proceed with case 1 only if the fixed interval is larger than the initial iterval.
-    // We process with case 2 only if the fixed interval is smaller than the initial interval.
-    // We will try case 3 no matter what.
-
-    // Second, use the fixed interval size: +/- fixedIntervalWidth_
+    // Second, use the fixed interval size: +/- fixedIntervalWidth_ (if necessary)
     int minFixedGap, maxFixedGap; // Gap bounds determined by fixed interval
     maxFixedGap = min((int) (b->gap + fixedIntervalWidth_), maxGap_);
     minFixedGap = max((int) (b->gap - fixedIntervalWidth_), -maxOL_);
@@ -116,25 +107,27 @@ ClosePathResult ClosePathProcess::process(const ClosePathWorkItem& item)
         }
     }
 
-    ClosePathResult result = (useFixedIntervalResult ? result2 : result1);
+    ClosePathResult& myResult = (useFixedIntervalResult ? result2 : result1);
 
     // Check for a sequence overlap if there is sufficient link evidence and if no path was found.
-    bool checkOverlap = checkOverlap_ && (result.walks.size() == 0 ) && (result.bundle->n >= 2);
-    result.overlap.match.numDiff = 0;
+    bool checkOverlap = checkOverlap_ && (myResult.walks.size() == 0 ) && (myResult.bundle->n >= 2);
+    myResult.overlap.match.numDiff = 0;
     if (checkOverlap)
     {
         Overlap overlap;
-        bool foundOverlap = overlapFinder_.findOverlap(result.bundle, pGraph_, overlap);
+        bool foundOverlap = overlapFinder_.findOverlap(myResult.bundle, pGraph_, overlap);
         if (foundOverlap)
         {
-            result.foundOverlap = true;
-            result.overlap = overlap;
+            myResult.foundOverlap = true;
+            myResult.overlap = overlap;
         }
     }
 
+    // Set all attributes of the result to be returned
+    result.copyAttributesFrom(myResult);
+
     pSearchNodeAllocator_->reset();
     pDFSAllocator_->reset();
-    return result;
 };
 
 

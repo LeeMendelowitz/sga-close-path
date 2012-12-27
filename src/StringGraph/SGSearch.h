@@ -44,6 +44,7 @@ class SGWalkBuilder : public WalkBuilder<Vertex, Edge>
         void startNewWalk(Vertex* pStartVertex);
         void addEdge(Edge* pEdge);
         void finishCurrentWalk();
+        void buildWalkFromEdges(EdgePtrVec& edgeVec);
 
     private:
         SGWalkVector& m_outWalks;

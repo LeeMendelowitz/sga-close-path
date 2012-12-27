@@ -30,7 +30,8 @@ ScaffoldWalkBuilder::~ScaffoldWalkBuilder()
 //
 void ScaffoldWalkBuilder::startNewWalk(ScaffoldVertex* pStartVertex)
 {
-    m_pCurrWalk = new ScaffoldWalk(pStartVertex);
+    m_outWalks.push_back(ScaffoldWalk(pStartVertex));
+    m_pCurrWalk = &m_outWalks.back();
 }
 
 //
@@ -42,9 +43,14 @@ void ScaffoldWalkBuilder::addEdge(ScaffoldEdge* pEdge)
 //
 void ScaffoldWalkBuilder::finishCurrentWalk()
 {
-    m_outWalks.push_back(*m_pCurrWalk);
-    delete m_pCurrWalk;
     m_pCurrWalk = NULL;
+}
+
+//
+void ScaffoldWalkBuilder::buildWalkFromEdges(ScaffoldEdgePtrVector& edgeVec)
+{
+    m_outWalks.push_back(ScaffoldWalk(NULL));
+    m_outWalks.back().setEdges(edgeVec);
 }
 
 //

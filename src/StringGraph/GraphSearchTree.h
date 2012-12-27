@@ -783,15 +783,19 @@ void GraphSearchTree<VERTEX,EDGE,DISTANCE>::_buildWalksToLeaves(const _SearchNod
                                                      ++iter)
     {
 
-        // Recursively travel the tree from the leaf to the root collecting the edges in the vector
         WALK currWalk;
         addEdgesFromBranch(*iter, currWalk);
 
         // Reverse the walk and write it to the output structure
+        reverse(currWalk.begin(), currWalk.end());
+        pWalkBuilder->buildWalkFromEdges(currWalk);
+
+        /*
         pWalkBuilder->startNewWalk(m_pRootNode->getVertex());
         for(typename WALK::reverse_iterator iter = currWalk.rbegin(); iter != currWalk.rend(); ++iter)
             pWalkBuilder->addEdge(*iter);
         pWalkBuilder->finishCurrentWalk();
+        */
     }
 }
 
