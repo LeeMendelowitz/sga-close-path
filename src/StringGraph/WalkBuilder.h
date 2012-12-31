@@ -14,7 +14,8 @@ class WalkBuilder
 
     public:
 
-    virtual ~WalkBuilder() {}
+    WalkBuilder() {}; 
+    virtual ~WalkBuilder() {};
 
     // These three functions must be provided by the builder object
     // the generic graph code calls these to describe the walks through

@@ -68,8 +68,6 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
 {
 
     SGSearchParams params(pX, pY, initialDir, maxDistance);
-    SGSearchNodeAllocator * pAllocator = new SGSearchNodeAllocator;
-    params.pNodeAllocator = pAllocator;
     params.nodeLimit = maxNodes;
 
     ///////////////////////////////////////////////////
@@ -95,8 +93,7 @@ bool SGSearch::findWalks(Vertex* pX, Vertex* pY, EdgeDir initialDir,
         SGWalkBuilder builder(outWalks, false);
         searchTree.buildWalksToGoal(&builder);
     }
-
-    delete pAllocator;
+    
     return !searchTree.wasSearchAborted();
 }
 
@@ -250,10 +247,8 @@ void SGSearch::findCollapsedWalks(Vertex* pX, EdgeDir initialDir,
                                   int maxDistance, size_t maxNodes, 
                                   SGWalkVector& outWalks)
 {
-    SGSearchNodeAllocator * pAllocator = new SGSearchNodeAllocator;
     SGSearchParams params(pX, NULL, initialDir, maxDistance);
     params.nodeLimit = maxNodes;
-    params.pNodeAllocator = pAllocator;
     SGSearchTree searchTree(params);
 
     // Iteravively perform the BFS using the search tree. After each step
@@ -277,14 +272,12 @@ void SGSearch::findCollapsedWalks(Vertex* pX, EdgeDir initialDir,
             // all the non-redundant walks in outWalks
             SGWalkBuilder builder(outWalks, true);
             searchTree.buildWalksContainingVertex(pCollapsedVertex, &builder);
-            delete pAllocator;
             return;
         }
     }
 
     // no collapsed walk found, return empty set
     outWalks.clear();
-    delete pAllocator;
 }
 
 // Count the number of reads that span the junction described by edge XY

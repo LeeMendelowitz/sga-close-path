@@ -17,6 +17,7 @@
 #include "SGWalk.h"
 #include "WalkBuilder.h"
 #include "Allocator.h"
+#include "SimpleAllocator.h"
 #include <deque>
 #include <queue>
 #include <iostream>
@@ -101,7 +102,7 @@ class GraphSearchParams
              << "selfPrune: " << selfPrune << "\n"
              << "enforceAllowedEdges: " << enforceAllowedEdges << "\n"
              << "pAllowedEdges->size(): " << ( pAllowedEdges ? pAllowedEdges->size() : 0 ) << "\n"
-             << "pNodeAllocatr: " << pNodeAllocator << std::endl;
+             << "pNodeAllocator: " << pNodeAllocator << std::endl;
     }
 };
 
@@ -175,7 +176,7 @@ class GraphSearchTree
     public:
 
         GraphSearchTree(const _SearchParams& params);
-
+        
         ~GraphSearchTree();
 
         // Find connected components in the graph
@@ -261,6 +262,7 @@ class GraphSearchTree
 
         // Allocator for GrachSearchNodes
         Allocator * m_pNodeAllocator;
+        bool m_ownAllocator;
 };
 
 //
@@ -363,10 +365,18 @@ int GraphSearchNode<VERTEX,EDGE,DISTANCE>::createChildren(Allocator * pAllocator
 template<typename VERTEX, typename EDGE, typename DISTANCE>
 GraphSearchTree<VERTEX,EDGE,DISTANCE>::GraphSearchTree(const _SearchParams& params) :
     m_searchParams(params),
-    m_searchAborted(false)
+    m_searchAborted(false),
+    m_ownAllocator(false)
 {
 
     m_pNodeAllocator = params.pNodeAllocator;
+
+    // If no allocator was provided, create a node allocator and take ownership of it.
+    if (m_pNodeAllocator == NULL)
+    {
+        m_pNodeAllocator = new SimpleAllocator<_SearchNode>;
+        m_ownAllocator = true;
+    }
 
     // Create the root node of the search tree
     m_pRootNode = new(m_pNodeAllocator->alloc()) _SearchNode(m_searchParams.pStartVertex,
@@ -403,15 +413,15 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE>::~GraphSearchTree()
 
     size_t totalDeleted = 0;
     size_t totalNodes = m_totalNodes;
+    const typename _SearchNodePtrDeque::iterator E = completeLeafNodes.end();
     for(typename _SearchNodePtrDeque::iterator iter = completeLeafNodes.begin(); 
-                                               iter != completeLeafNodes.end();
+                                               iter != E;
                                                ++iter)    
     {
         _SearchNode* pCurr = *iter;
 
-        VertexID vId = pCurr->getVertex()->getID();
-
         #if GRAPHDELETE_DEBUG > 0
+        VertexID vId = pCurr->getVertex()->getID();
         std::cout << "Deleting from leaf: " <<  vId  << endl;
         #endif 
 
@@ -426,6 +436,12 @@ GraphSearchTree<VERTEX,EDGE,DISTANCE>::~GraphSearchTree()
     }
     assert(totalDeleted == totalNodes);
     assert(m_totalNodes == 0);
+
+    // Delete the node allocator only if the GraphSearchTree has ownership of it
+    if (m_ownAllocator)
+    {
+        delete m_pNodeAllocator;
+    }
 }
 
 // Delete the leaf node pCurr. Delete any of its parents that are childless.
@@ -456,7 +472,6 @@ size_t GraphSearchTree<VERTEX,EDGE,DISTANCE>::deleteFromLeaf(_SearchNode * pCurr
                       << " parent: " << ( pNext ? pNext->getVertex()->getID() : "NULL" ) << std::endl;
             #endif 
 
-            //delete pCurr; // decrements pNext's child count
             pCurr->destroy(m_pNodeAllocator); // decrements pNext's child count
             pCurr = NULL;
             totalDeleted += 1;
