@@ -42,6 +42,29 @@ bool SGOverlapWriterVisitor::visit(StringGraph* /*pGraph*/, Vertex* pVertex)
 }
 
 //
+// SGOverlapWriterVisitor - write the node length and the number of overlaps to a file
+//
+bool SGNodeSummaryVisitor::visit(StringGraph* /*pGraph*/, Vertex* pVertex)
+{
+    EdgePtrVec edges = pVertex->getEdges();
+
+    size_t sense = 0;
+    size_t antisense = 0;
+    for(size_t i = 0; i < edges.size(); ++i)
+    {
+        if (edges[i]->getDir() == ED_SENSE)
+            sense++;
+        else
+            antisense++;
+    }
+    m_fileHandle << pVertex->getID() << "\t"
+                 << pVertex->getSeqLen() << "\t"
+                 << sense << "\t"
+                 << antisense << "\n";
+    return false;
+}
+
+//
 // SGTransRedVisitor - Perform a transitive reduction about this vertex
 // This uses Myers' algorithm (2005, The fragment assembly string graph)
 // Precondition: the edge list is sorted by length (ascending)

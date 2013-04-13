@@ -38,6 +38,7 @@
 #include "metagenome.h"
 #include "variant-detectability.h"
 #include "close-path.h"
+#include "graphStats.h"
 
 #define PROGRAM_BIN "sga"
 #define AUTHOR "Jared Simpson"
@@ -165,6 +166,8 @@ int main(int argc, char** argv)
             variantDetectabilityMain(argc - 1, argv + 1);
         else if(command == "close-path")
             closePathMain(argc - 1, argv + 1);
+        else if(command == "graphStats")
+            graphStatsMain(argc - 1, argv + 1);
         else
         {
             std::cerr << "Unrecognized command: " << command << "\n";
