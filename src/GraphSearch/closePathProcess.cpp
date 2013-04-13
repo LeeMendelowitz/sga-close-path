@@ -386,8 +386,14 @@ void ClosePathPostProcess::writeResultToStats(const ClosePathResult & res)
     statsFile_ << "\n";
 }
 
+// Due to changes in the bundle file format, we do not read in the 
+// d1List and d2List, and so we cannot compute d1Max and d2Max
 void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
 {
+    std::cerr << "NOT IMPLEMENTED!" << std::endl;
+    assert(false);
+
+    /*
     const Bundle * b = res.bundle;
 
     // We must trim the entire sequence of the walk.
@@ -422,6 +428,7 @@ void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
             fastaFileUnique_ << oss.str();
         }
     }
+    */
 }
 
 void ClosePathPostProcess::writeResultToWalks(const ClosePathResult & res)

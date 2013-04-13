@@ -43,17 +43,17 @@ Bundle::Bundle(const string& line)
         iss >> n;
 
         // Read d fields
-        string d1Field, d2Field;
-        iss >> d1Field >> d2Field;
-        assert(!iss.fail());
+        //string d1Field, d2Field;
+        //iss >> d1Field >> d2Field;
+        //assert(!iss.fail());
         dir1 = (v1End == 'E') ? ED_SENSE : ED_ANTISENSE;
         dir2 = (v2End == 'E') ? ED_SENSE : ED_ANTISENSE; 
 
         // Parse d fields
-        d1List = readDField(d1Field);
-        d2List = readDField(d2Field);
-        assert(d1List.size() == (size_t) n);
-        assert(d2List.size() == (size_t) n);
+        //d1List = readDField(d1Field);
+        //d2List = readDField(d2Field);
+        //assert(d1List.size() == (size_t) n);
+        //assert(d2List.size() == (size_t) n);
 }
 
 BundleVec readBundles(const std::string& bundleFileName)

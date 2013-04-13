@@ -28,8 +28,8 @@ class Bundle
     // |------------> X             <--------------| Y
     //        |-->    r1                 <---| r2
     //        |<--->| d1            |<------>| d2
-    std::vector<int> d1List;
-    std::vector<int> d2List;
+    //std::vector<int> d1List;
+    //std::vector<int> d2List;
 
     // Get a string representation of the bundle
     std::string toString() const;

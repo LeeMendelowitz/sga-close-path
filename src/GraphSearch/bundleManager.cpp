@@ -1,3 +1,5 @@
+//NOTE: THIS FILE IS CURRENTLY UNUSED
+
 #include <string>
 #include <iostream>
 #include <fstream>

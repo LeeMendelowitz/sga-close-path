@@ -1,3 +1,4 @@
+// NOTE: THIS FILE IS CURRENTLY UNUSED
 // BundleManager
 //  - Reads bundles from a file and owns the Bundle objects
 //  - Calls PCSearch algorithm to find path closures
