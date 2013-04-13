@@ -69,6 +69,7 @@ static const char *SGA_USAGE_MESSAGE =
 "           convert-beetl   convert an index file constructed with BEETL into SGA's format\n"
 "\n\nExperimental commands:\n"
 "           graph-diff      find and report strings that differ between two graphs\n"
+"           graph-stats     \n"
 "           gen-ssa         generate a sampled suffix array for the given set of reads\n"
 "           correct-long    correct long reads\n"
 "           stats           print useful statistics about the read set\n"
@@ -166,7 +167,7 @@ int main(int argc, char** argv)
             variantDetectabilityMain(argc - 1, argv + 1);
         else if(command == "close-path")
             closePathMain(argc - 1, argv + 1);
-        else if(command == "graphStats")
+        else if(command == "graph-stats")
             graphStatsMain(argc - 1, argv + 1);
         else
         {

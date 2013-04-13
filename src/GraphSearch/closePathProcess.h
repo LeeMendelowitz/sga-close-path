@@ -35,37 +35,57 @@ class ClosePathWorkItemGenerator
 {
     public:
 
-    ClosePathWorkItemGenerator( BundleReader * bReader, float minStd = 0.0) : 
+    ClosePathWorkItemGenerator( BundleReader * bReader, float minStd, int minLinks) : 
        bReader_(bReader),
        minStd_(minStd),
-       numConsumed_(0)
+       minLinks_(minLinks),
+       numConsumed_(0),
+       numSkipped_(0)
     { };
 
     bool generate(ClosePathWorkItem& out)
     {
         Bundle * b = NULL;
-        bool isValid = bReader_->getNextBundle(b);
-        if (isValid)
+        bool isValid = false;
+        while (true)
         {
+            if (!bReader_->getNextBundle(b))
+            {
+                // Reached end of file
+                isValid = false;
+                break;
+            }
+
+            // If the bundle does not have the required number of links, skip it
+            if (b->n < minLinks_)
+            {
+                numSkipped_++;
+                continue;
+            }
+
             // Adjust the bundles std estimate if it is less than minStd
             if (b->std < minStd_)
+            {
                 b->std = minStd_;
+            }
+
             out = ClosePathWorkItem(b);
             numConsumed_++;
-            return true;
+            isValid = true;
+            break;
         }
-        else
-        {
-            return false;
-        }
+
+        return isValid;
     }
 
     inline size_t getNumConsumed() const { return numConsumed_; }
 
     private:
     BundleReader * bReader_;
-    float minStd_;
+    const float minStd_;
+    const int minLinks_;
     size_t numConsumed_;
+    size_t numSkipped_;
 };
 
 

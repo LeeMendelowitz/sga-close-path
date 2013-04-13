@@ -41,6 +41,7 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      -v, --verbose                    display verbose output\n"
 "      -t, --threads=NUM                use NUM threads to find path closures\n"
 "      -o, --output=NAME                use output prefix NAME. Defaults to bundle filename prefix.\n"
+"      -n, --minLinks=N               only use bundles with at least N links.\n"
 "\n\nInterval Options:\n"
 "      -s, maxNumStd=FLOAT              maximum number of standard deviations allowed in path length deviation. (Default 3.0)\n"
 "      --minStd=FLOAT                   minimum standard deviation to use for a bundle. All bundle standard deviations will\n"
@@ -64,6 +65,7 @@ namespace opt
     static unsigned int verbose = 0;
     static int numThreads = 1;
     static std::string outputPfx;
+    static int minLinks = -1;
 
     // Interval options
     static float maxNumStd = 3.0;
@@ -96,6 +98,7 @@ static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
     { "threads",       required_argument, NULL, 't'},
     { "output",       required_argument, NULL, 'o' },
+    { "minLinks",       required_argument, NULL, 'n' },
     { "minOverlap",       required_argument, NULL, 'm' },
     { "maxNumStd",        required_argument, NULL, 's' },
     { "minStd",        required_argument, NULL, OPT_MINSTD},
@@ -172,7 +175,7 @@ int closePathMain(int argc, char** argv)
         //ClosePathProcessFramework processFramework(ssProcessName.str(), bufferSize, reportInterval);
         ClosePathThreadScheduler processFramework(ssProcessName.str(), bufferSize, reportInterval);
         BundleReader* bundleReader = new BundleReader(opt::bundleFile);
-        WorkGenerator* workGenerator = new WorkGenerator(bundleReader);
+        WorkGenerator* workGenerator = new WorkGenerator(bundleReader, opt::minStd, opt::minLinks);
 
         std::ostringstream ssOutputPfx;
         ssOutputPfx << opt::outputPfx << ".round" << roundNum;
@@ -243,6 +246,7 @@ void parseClosePathOptions(int argc, char** argv)
         switch (c) 
         {
             case 'm': arg >> opt::minOverlap; break;
+            case 'n': arg >> opt::minLinks; break;
             case 's': arg >> opt::maxNumStd; break;
             case 'o': arg >> opt::outputPfx; break;
             case 't': arg >> opt::numThreads; break;
@@ -335,6 +339,7 @@ void printOptions()
     {
         std::cerr << "Verbose: " << opt::verbose << "\n"
                   << "Threads: " << opt::numThreads << "\n"
+                  << "MinLinks: " << opt::minLinks << "\n"
                   << "MinOverlap: " << opt::minOverlap << "\n"
                   << "MaxNumStd: " << opt::maxNumStd << "\n"
                   << "findOverlaps: " << opt::findOverlaps << "\n"
