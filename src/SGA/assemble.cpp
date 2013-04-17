@@ -63,6 +63,7 @@ namespace opt
     static std::string outContigsFile;
     static std::string outVariantsFile;
     static std::string outGraphFile;
+    static std::string outSimplificationFile;
 
     static unsigned int minOverlap;
     static bool bEdgeStats = false;
@@ -147,6 +148,8 @@ void assemble()
     SGContainRemoveVisitor containVisit;
     SGValidateStructureVisitor validationVisit;
 
+    std::ofstream simpFile(opt::outSimplificationFile.c_str());
+
     // Pre-assembly graph stats
     std::cout << "[Stats] Input graph:\n";
     pGraph->visit(statsVisit);    
@@ -169,7 +172,7 @@ void assemble()
 
     // Compact together unbranched chains of vertices
     std::cout << "[Stats] After Compacting unbranched chains of vertices:\n";
-    pGraph->simplify();
+    pGraph->simplify(&simpFile);
     pGraph->visit(statsVisit);    
     
     if(opt::bValidate)
@@ -216,7 +219,7 @@ void assemble()
 
     // Peform another round of simplification
     std::cout << "[Stats] After Compacting unbranched chains of vertices (round 2):\n";
-    pGraph->simplify();
+    pGraph->simplify(&simpFile);
     pGraph->visit(statsVisit);    
     
     if(opt::numBubbleRounds > 0)
@@ -226,7 +229,7 @@ void assemble()
         int numSmooth = opt::numBubbleRounds;
         while(numSmooth-- > 0)
             pGraph->visit(smoothingVisit);
-        pGraph->simplify();
+        pGraph->simplify(&simpFile);
     }
     
     pGraph->renameVertices("contig-");
@@ -242,6 +245,7 @@ void assemble()
     pGraph->visit(av);
 
     pGraph->writeASQG(opt::outGraphFile);
+    simpFile.close();
 
     delete pGraph;
 }
@@ -292,6 +296,7 @@ void parseAssembleOptions(int argc, char** argv)
     opt::outContigsFile = prefix + "-contigs.fa";
     opt::outVariantsFile = prefix + "-variants.fa";
     opt::outGraphFile = prefix + "-graph.asqg.gz";
+    opt::outSimplificationFile = prefix + "-simplifications.log";
 
     if (argc - optind < 1) 
     {
