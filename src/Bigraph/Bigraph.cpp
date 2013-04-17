@@ -276,7 +276,7 @@ void Bigraph::simplify(EdgeDir dir, std::ostream* pOut)
                     if (pOut != NULL)
                     {
                         std::ostream& os = *pOut;
-                        os << "Taking edge in compression: " << *pSingle << "\n";
+                        os << "Taking edge in compression: " << pSingle->getOverlap() << "\n";
                     }
                 }
             }
