@@ -271,13 +271,13 @@ void Bigraph::simplify(EdgeDir dir, std::ostream* pOut)
                 Vertex* pV2 = pSingle->getEnd();
                 if(pV2->countEdges(pTwin->getDir()) == 1)
                 {
-                    merge(iter->second, pSingle);
-                    graph_changed = true;
                     if (pOut != NULL)
                     {
                         std::ostream& os = *pOut;
                         os << "Taking edge in compression: " << pSingle->getOverlap() << "\n";
                     }
+                    merge(iter->second, pSingle);
+                    graph_changed = true;
                 }
             }
 
