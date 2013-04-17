@@ -163,7 +163,8 @@ bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result
 }
 
 
-ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, float numStd, int maxGap, bool writeSubgraphs) :
+ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx,
+                                           float numStd, int maxGap, bool writeSubgraphs) :
     pGraph_(pGraph),
     outputPfx_(outputPfx),
     numStd_(numStd),
@@ -187,7 +188,7 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     statusFile_.open((outputPfx_ + ".status").c_str());
     statsFile_.open((outputPfx_ + ".stats").c_str());
     //fastaFile_.open((outputPfx_ + ".fasta").c_str());
-    //fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
+    fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
     //walksFile_.open((outputPfx_ + ".walks").c_str());
     edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
 
@@ -203,7 +204,7 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         // Write to the output files
         writeResultToStatus(result);
         writeResultToStats(result);
-    //    writeResultToFasta(result);
+        writeResultToFasta(result);
      //   writeResultToWalks(result);
         edgeTracker_.processResult(result);
 
@@ -320,7 +321,7 @@ ClosePathPostProcess::~ClosePathPostProcess()
     statusFile_.close();
     statsFile_.close();
     //fastaFile_.close();
-    //fastaFileUnique_.close();
+    fastaFileUnique_.close();
     //walksFile_.close();
     edgeCovFile_.close();
 }
@@ -390,24 +391,18 @@ void ClosePathPostProcess::writeResultToStats(const ClosePathResult & res)
 // d1List and d2List, and so we cannot compute d1Max and d2Max
 void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
 {
-    std::cerr << "NOT IMPLEMENTED!" << std::endl;
-    assert(false);
-
-    /*
     const Bundle * b = res.bundle;
 
     // We must trim the entire sequence of the walk.
     // Use the read locations within the bundle to determine the trim points.
-    size_t d1Max = (size_t) *max_element(b->d1List.begin(), b->d1List.end());
-    size_t d2Max = (size_t) *max_element(b->d2List.begin(), b->d2List.end());
     Vertex * pX = pGraph_->getVertex(b->vertex1ID);
     Vertex * pY = pGraph_->getVertex(b->vertex2ID);
     size_t lX = pX->getSeqLen();
     size_t lY = pY->getSeqLen();
-    assert(d1Max <= lX);
-    assert(d2Max <= lY);
-    size_t trimLeft = lX - d1Max;
-    size_t trimRight = lY - d2Max;
+    assert(b->d1max <= lX);
+    assert(b->d2max <= lY);
+    size_t trimLeft = lX - b->d1max;
+    size_t trimRight = lY - b->d2max;
 
     // Write the sequence of each closure to FASTA file.
     size_t numWalks = res.walks.size();
@@ -422,13 +417,12 @@ void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
         oss << ">" << b->id << "-" << i << " " << seqClosureL << "\n"
            << seqClosure << "\n";
 
-        fastaFile_ << oss.str();
+        //fastaFile_ << oss.str();
         if (numWalks == 1)
         {
             fastaFileUnique_ << oss.str();
         }
     }
-    */
 }
 
 void ClosePathPostProcess::writeResultToWalks(const ClosePathResult & res)

@@ -41,6 +41,8 @@ Bundle::Bundle(const string& line)
         iss >> gap;
         iss >> std;
         iss >> n;
+        iss >> d1max;
+        iss >> d2max;
 
         // Read d fields
         //string d1Field, d2Field;

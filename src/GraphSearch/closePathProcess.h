@@ -190,6 +190,7 @@ class ClosePathPostProcess
         float numStd_;
         int maxGap_;
         bool writeSubgraphs_; // write subgraphs for repetitive items
+        bool simplifyGraph_; // simplify the graph by using read pairs with unique closure
         std::ofstream statusFile_;
         std::ofstream statsFile_;
         std::ofstream fastaFile_;

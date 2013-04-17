@@ -30,6 +30,8 @@ class Bundle
     //        |<--->| d1            |<------>| d2
     //std::vector<int> d1List;
     //std::vector<int> d2List;
+    int d1max; // max value for d1 for read pair in bundle
+    int d2max; // max value for d2 for read pair in bundle
 
     // Get a string representation of the bundle
     std::string toString() const;
