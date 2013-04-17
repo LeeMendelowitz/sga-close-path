@@ -399,8 +399,8 @@ void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
     Vertex * pY = pGraph_->getVertex(b->vertex2ID);
     size_t lX = pX->getSeqLen();
     size_t lY = pY->getSeqLen();
-    assert(b->d1max <= lX);
-    assert(b->d2max <= lY);
+    assert(b->d1max <= (int) lX);
+    assert(b->d2max <= (int) lY);
     size_t trimLeft = lX - b->d1max;
     size_t trimRight = lY - b->d2max;
 
@@ -414,9 +414,11 @@ void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
         string seqClosure = seq.substr(trimLeft, lClosure);
         size_t seqClosureL = seqClosure.size();
         ostringstream oss;
-        oss << ">" << b->id << "-" << i << " " << seqClosureL << "\n"
-           << seqClosure << "\n";
-
+        oss << ">" << b->id << "-" << i
+            << " " << seqClosureL
+            << " " << b->d1max
+            << " " << b->d2max << "\n";
+        oss << seqClosure << "\n";
         //fastaFile_ << oss.str();
         if (numWalks == 1)
         {
