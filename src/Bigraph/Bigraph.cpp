@@ -241,15 +241,15 @@ int Bigraph::sweepEdges(GraphColor c)
 }
 
 //    Simplify the graph by compacting singular edges
-void Bigraph::simplify()
+void Bigraph::simplify(std::ostream* pOut)
 {
     assert(!hasContainment());
-    simplify(ED_SENSE);
-    simplify(ED_ANTISENSE);
+    simplify(ED_SENSE, pOut);
+    simplify(ED_ANTISENSE, pOut);
 }
 
 // Simplify the graph by compacting edges in the given direction
-void Bigraph::simplify(EdgeDir dir)
+void Bigraph::simplify(EdgeDir dir, std::ostream* pOut)
 {
     bool graph_changed = true;
     while(graph_changed)
@@ -273,6 +273,11 @@ void Bigraph::simplify(EdgeDir dir)
                 {
                     merge(iter->second, pSingle);
                     graph_changed = true;
+                    if (pOut != NULL)
+                    {
+                        std::ostream& os = *pOut;
+                        os << "Taking edge in compression: " << *pSingle << "\n";
+                    }
                 }
             }
 

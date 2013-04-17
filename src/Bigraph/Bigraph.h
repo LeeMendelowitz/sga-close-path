@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <vector>
 #include <map>
+#include <iostream>
 #include "GraphCommon.h"
 #include "Vertex.h"
 #include "Edge.h"
@@ -80,7 +81,7 @@ class Bigraph
         void renameVertices(const std::string& prefix = "");
 
         // Simplify the graph by removing transitive edges
-        void simplify();
+        void simplify(std::ostream *pOut = NULL);
 
         // Validate that the graph is sane
         void validate() const;
@@ -182,7 +183,7 @@ class Bigraph
     private:
         
         // Simplify the graph by compacting edges in the given direction
-        void simplify(EdgeDir dir);
+        void simplify(EdgeDir dir, std::ostream *pOut = NULL);
 
         void followLinear(VertexID id, EdgeDir dir, Path& outPath);
 
