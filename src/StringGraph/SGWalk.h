@@ -103,7 +103,7 @@ class SGWalk
         void printWithOL(std::ostream& os) const;
         void printSimple() const;
 
-    private:
+    protected:
         
         Vertex* m_pStartVertex;
         EdgePtrVec m_edges;
