@@ -70,8 +70,8 @@ bool SGNodeSummaryVisitor::visit(StringGraph* /*pGraph*/, Vertex* pVertex)
                  << pVertex->getSeqLen() << "\t"
                  << sense << "\t"
                  << antisense << "\t"
-                 << bEdgeStr.str() << "\t"
-                 << eEdgeStr.str()
+                 << eEdgeStr.str() << "\t"
+                 << bEdgeStr.str() 
                  << "\n";
 
     return false;
