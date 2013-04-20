@@ -74,6 +74,7 @@ void Closure::colorInteriorEdges(GraphColor c) const
          i++)
     {
         (*i)->setColor(c);
+        (*i)->getTwin()->setColor(c);
     }
 }
 
@@ -206,6 +207,7 @@ void ClosureDB::addClosurePaths(StringGraph* pGraph)
     // Erase edges interior to a closure
     size_t numEdgesRemoved = pGraph->sweepEdges(GC_RED);
     pGraph->setColors(GC_WHITE);
+    pGraph->validate();
 
     // Get the unique list of interior vertices
     sort(iv.begin(), iv.end());
@@ -225,6 +227,7 @@ void ClosureDB::addClosurePaths(StringGraph* pGraph)
             numVertRemoved++;
         }
     }
+    pGraph->validate();
 
     #if DEBUG > 0
     cout << "Added " << nonContained_.size() << " closure paths to the graph as new nodes.\n"
