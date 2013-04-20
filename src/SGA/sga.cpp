@@ -38,7 +38,7 @@
 #include "metagenome.h"
 #include "variant-detectability.h"
 #include "close-path.h"
-#include "graphStats.h"
+#include "graph-stats.h"
 
 #define PROGRAM_BIN "sga"
 #define AUTHOR "Jared Simpson"
