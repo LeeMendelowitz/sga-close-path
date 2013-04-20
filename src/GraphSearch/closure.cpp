@@ -246,7 +246,7 @@ void ClosureDB::addClosurePath(StringGraph* pGraph, const Closure& c, VertexPtrV
     bool leftIsRc = (lefte->getDir() == ED_ANTISENSE);
     size_t leftv_len = leftv->getSeqLen();
 
-    bool rightIsRc = (righte->getTwin()->getDir() == ED_ANTISENSE);
+    bool rightIsRc = (righte->getTwin()->getDir() == ED_SENSE);
     size_t rightv_len = rightv->getSeqLen();
 
     // Construct left overlap
@@ -273,10 +273,15 @@ void ClosureDB::addClosurePath(StringGraph* pGraph, const Closure& c, VertexPtrV
     SeqCoord walkv_rightcoord(walkSeq.size()-rightOL, walkSeq.size()-1, walkSeq.size());
     if (leftIsRc) leftv_coord.flip();
     if (rightIsRc) rightv_coord.flip();
+    cout << "-------------------------------------\n";
     cout << "leftv: " << leftv_coord << endl;
     cout << "walkv_leftcoord: " << walkv_leftcoord << endl;
     cout << "rightv_coord:" << rightv_coord << endl;
     cout << "walkv_rightcoord:" << rightv_coord << endl;
+    cout << "leftv ol seq: " << leftv_coord.getSubstring(leftv->getStr()) << endl;
+    cout << "walkv ol seq: " << walkv_leftcoord.getSubstring(walkSeq) << endl;
+    cout << "rightv ol seq: " << rightv_coord.getSubstring(rightv->getStr()) << endl;
+    cout << "walkv ol seq: " << walkv_rightcoord.getSubstring(walkSeq) << endl;
     assert(leftv_coord.length() == walkv_leftcoord.length());
     assert(rightv_coord.length() == walkv_rightcoord.length());
 
