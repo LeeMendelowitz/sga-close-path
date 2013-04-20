@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "Util.h"
-#include "graphStats.h"
+#include "graph-stats.h"
 #include "SGUtil.h"
 #include "SGAlgorithms.h"
 #include "SGPairedAlgorithms.h"
@@ -102,7 +102,7 @@ void graphStats()
     SGGraphStatsVisitor statsVisit;
     SGEdgeStatsVisitor edgeStatsVisit;
 
-    SGNodeSummaryVisitor nodeSummaryVisit(opt::prefix + ".nodeSummary.txt");
+    SGNodeSummaryVisitor nodeSummaryVisit(opt::prefix + ".nodes");
 
     SGContainRemoveVisitor containVisit;
     SGValidateStructureVisitor validationVisit;

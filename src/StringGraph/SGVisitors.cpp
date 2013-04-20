@@ -50,18 +50,41 @@ bool SGNodeSummaryVisitor::visit(StringGraph* /*pGraph*/, Vertex* pVertex)
 
     size_t sense = 0;
     size_t antisense = 0;
+    std::ostringstream bEdgeStr, eEdgeStr;
     for(size_t i = 0; i < edges.size(); ++i)
     {
         if (edges[i]->getDir() == ED_SENSE)
+        {
             sense++;
+            writeEdge(edges[i], eEdgeStr);
+            eEdgeStr << ";";
+        }
         else
+        {
             antisense++;
+            writeEdge(edges[i], bEdgeStr);
+            bEdgeStr << ";";
+        }
     }
     m_fileHandle << pVertex->getID() << "\t"
                  << pVertex->getSeqLen() << "\t"
                  << sense << "\t"
-                 << antisense << "\n";
+                 << antisense << "\t"
+                 << bEdgeStr.str() << "\t"
+                 << eEdgeStr.str()
+                 << "\n";
+
     return false;
+}
+
+void SGNodeSummaryVisitor::writeEdge(const Edge* pEdge, std::ostream& os)
+{
+    // Write the target node id, target end, target length, and edge OL
+    Vertex* v = pEdge->getEnd();
+    os << v->getID() << ","
+       << ((pEdge->getTwin()->getDir() == ED_SENSE) ? "E" : "B") << ","
+       << pEdge->getOverlap().getOverlapLength(0) << ","
+       << v->getSeqLen();
 }
 
 //

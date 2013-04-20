@@ -56,6 +56,8 @@ struct SGNodeSummaryVisitor
     bool visit(StringGraph* pGraph, Vertex* pVertex);
     void postvisit(StringGraph* /*pGraph*/) {}
 
+    void writeEdge(const Edge* pEdge, std::ostream& os);
+
     // data
     std::ofstream m_fileHandle;
 };
