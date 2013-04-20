@@ -64,6 +64,7 @@ class EdgeTracker
 
     public:
     void processResult(const ClosePathResult& res);
+    void reset() {edgeCov_.clear();};
 
     // Set the color of edges for which the critera is true.
     // Criteria should have the operator()(EdgeCov) function defined

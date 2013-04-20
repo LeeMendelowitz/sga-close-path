@@ -12,6 +12,7 @@
 #include "SGWalk.h"
 #include "SGSearch.h"
 #include "dfs.h"
+#include "closure.h"
 #include "SimpleAllocator.h"
 
 
@@ -183,6 +184,7 @@ class ClosePathPostProcess
     template <class T>
     void removeEdges(T criteria);
     size_t getNumProcessed() const { return numBundlesProcessed_; }
+    void addClosuresToGraph(); // Add closures to the graph as nodes
 
     private:
         StringGraph * pGraph_;
@@ -199,6 +201,7 @@ class ClosePathPostProcess
         std::ofstream edgeCovFile_;
         EdgeTracker edgeTracker_;
         EdgePtrVec edgesToAdd_;
+        ClosureDB closureDB_;
 
         // Summary of closures
         int numBundlesProcessed_;

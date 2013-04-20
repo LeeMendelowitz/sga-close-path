@@ -207,6 +207,7 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         writeResultToFasta(result);
      //   writeResultToWalks(result);
         edgeTracker_.processResult(result);
+        closureDB_.process(result);
 
         numBundlesProcessed_++;
         numReadPairsProcessed_ += result.bundle->n;
@@ -304,6 +305,13 @@ void ClosePathPostProcess::writeSubgraphToFile(const ClosePathWorkItem& item)
     delete pSubgraph;
 }
 
+// Note: This function will modify pGraph_
+void ClosePathPostProcess::addClosuresToGraph()
+{
+    closureDB_.filterContainments();
+    closureDB_.addClosurePaths(pGraph_);
+}
+
 
 // Write edge coverage statistics to file.
 // Remove uncovered edges from graph
@@ -312,7 +320,6 @@ ClosePathPostProcess::~ClosePathPostProcess()
 
     // Write edge coverage statistics to file
     edgeTracker_.writeCoverageStats(edgeCovFile_);
-
 
     // Write summary to standard out
     printSummary(std::cout);
@@ -425,6 +432,7 @@ void ClosePathPostProcess::writeResultToFasta(const ClosePathResult & res)
             fastaFileUnique_ << oss.str();
         }
     }
+
 }
 
 void ClosePathPostProcess::writeResultToWalks(const ClosePathResult & res)

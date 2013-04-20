@@ -221,6 +221,18 @@ int closePathMain(int argc, char** argv)
             std::cout << "Added " << edgesAdded << " edges to the graph.\n";
             std::cout << "Graph stats after round " << roundNum << " pruning:\n";
             pGraph->stats();
+
+        }
+
+        if (roundNum == numRounds)
+        {
+            // This is the last round. Add the unique closures to the graph as nodes.
+            std::cout << "Before adding closures:\n";
+            pGraph->stats();
+            postProcessor->addClosuresToGraph();
+            std::cout << "After adding closures:\n";
+            pGraph->stats();
+            pGraph->writeASQG(opt::outputPfx + ".final.asqg.gz");
         }
 
         delete bundleReader;

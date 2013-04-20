@@ -1,6 +1,10 @@
 #include <algorithm>
-#include "simplify.h"
 #include <iostream>
+#include <string>
+
+#include "closure.h"
+#include "closePathProcess.h"
+#include "SGAlgorithms.h"
 
 #define DEBUG 1
 
@@ -62,12 +66,57 @@ bool Closure::contains(const Closure& other) const
     return false;
 }
 
+void Closure::colorInteriorEdges(GraphColor c) const
+{
+    const EdgePtrVec::const_iterator E = this->m_edges.end();
+    for (EdgePtrVec::const_iterator i = this->m_edges.begin();
+         i != E;
+         i++)
+    {
+        (*i)->setColor(c);
+    }
+}
+
+// Add vertices on the interior of the walk to pVec
+void Closure::getInteriorVertices(VertexPtrVec * pVec) const
+{
+    const EdgePtrVec::const_iterator E = this->m_edges.end()-1;
+    for(EdgePtrVec::const_iterator iter = m_edges.begin(); iter != E; ++iter)
+        pVec->push_back((*iter)->getEnd());
+}
+
+
+// Compute the sequence of the closure
+// Only include the last d1max of the first vertex's sequence,
+// and the first d2max of the last vertex's sequence.
+string Closure::computeSeq() const
+{
+    string walkSeq = this->getString(SGWT_START_TO_END);
+
+    Vertex * pX = this->getStartVertex();
+    Vertex * pY = this->getLastVertex();
+    size_t lX = pX->getSeqLen();
+    size_t lY = pY->getSeqLen();
+    assert(this->d1max_ <= (int) lX);
+    assert(this->d2max_ <= (int) lY);
+
+    //Only include the last d1max_ bp of the first vertex
+    size_t trimLeft = lX - this->d1max_;
+    //Only include the first d2max bp of the last vertex
+    size_t trimRight = lY - this->d2max_;
+
+    int lClosure = walkSeq.size() - trimLeft - trimRight;
+    assert(lClosure >= 0);
+    string seqClosure = walkSeq.substr(trimLeft, lClosure);
+    return seqClosure;
+}
+
 // Store the closure for the ClosePathResult if it is unique
 void ClosureDB::process(const ClosePathResult& res)
 {
     if (res.walks.size() != 1)
         return;
-    Closure c(res.walks[0], res.bundle->d1max, res.bundle->d2max);
+    Closure c(res.bundle->id, res.walks[0], res.bundle->d1max, res.bundle->d2max);
     nonContained_.push_back(c);
 }
 
@@ -90,6 +139,16 @@ void ClosureDB::filterContainments()
         {
             if ((*b).contains(c1))
             {
+                /*
+                #if DEBUG > 0
+                cout << "*******************\n";
+                cout << "CONTAINMENT: " << (*b).id_ << "\n";
+                (*b).printWithOL(cout);
+                cout << "\n";
+                (*i).printWithOL(cout);
+                cout << "\n";
+                #endif
+                */
                 isContained= true;
                 break;
             }
@@ -104,12 +163,138 @@ void ClosureDB::filterContainments()
             nonContained.push_back(c1);
         }
     }
+
     nonContained_ = nonContained;
 
     #if DEBUG > 0
     cout << "Marked " << contained_.size() << " as contained.\n"
          << "Marked " << nonContained_.size() << " as non contained.\n"
          << endl;
-
     #endif
+}
+
+void ClosureDB::addClosurePaths(StringGraph* pGraph)
+{
+
+    // Iterate over the closures and add these paths to the graph as new nodes
+    // Remove the closure edges from the graph
+    // If any interior vertices are now islands, remove them from the graph
+    pGraph->setColors(GC_WHITE);
+    VertexPtrVec iv; // interior vertices
+
+    {
+    const ClosureVec::const_iterator E = nonContained_.end();
+    for(ClosureVec::const_iterator iter = nonContained_.begin();
+        iter != E;
+        iter++)
+    {
+        // This will modify the graph and color interior edges of a closure red
+        addClosurePath(pGraph, *iter, &iv);
+    } 
+    }
+
+    // Erase edges interior to a closure
+    size_t numEdgesRemoved = pGraph->sweepEdges(GC_RED);
+    pGraph->setColors(GC_WHITE);
+
+    // Get the unique list of interior vertices
+    sort(iv.begin(), iv.end());
+    iv.erase(unique(iv.begin(), iv.end()), iv.end());
+
+    // Remove vertices which are interior to a closure which are now islands.
+    size_t numVertRemoved = 0;
+    const VertexPtrVec::const_iterator E = iv.end();
+    for(VertexPtrVec::const_iterator iter = iv.begin();
+        iter != E;
+        iter++)
+    {
+        Vertex * pVertex = *iter;
+        if (pVertex->countEdges()==0)
+        {
+            pGraph->removeIslandVertex(pVertex);
+            numVertRemoved++;
+        }
+    }
+
+    #if DEBUG > 0
+    cout << "Added " << nonContained_.size() << " closure paths to the graph as new nodes.\n"
+         << "Removed " << numEdgesRemoved << " interior closure edges.\n"
+         << "Removed " << numVertRemoved << " interior vertices which became islands.\n";
+    #endif
+}
+
+
+// Add the sequence of the closure path to the graph as a new node,
+// with a single edge on either side.
+// Delete edges within the path.
+void ClosureDB::addClosurePath(StringGraph* pGraph, const Closure& c, VertexPtrVec* pInteriorVertices)
+{
+    // Create a vertex for the path
+    string walkSeq = c.computeSeq();
+    string walkId = c.id_;
+
+    // Add the overlaps for the vertex to the graph
+    Vertex* leftv = c.getStartVertex();
+    Edge* lefte = c.getFirstEdge();
+    Vertex* rightv = c.getLastVertex();
+    Edge* righte = c.getLastEdge();
+    
+    // Sanity checks
+    assert(lefte->getStart() == leftv);
+    assert(righte->getEnd() == rightv);
+
+    bool leftIsRc = (lefte->getDir() == ED_ANTISENSE);
+    size_t leftv_len = leftv->getSeqLen();
+
+    bool rightIsRc = (righte->getTwin()->getDir() == ED_ANTISENSE);
+    size_t rightv_len = rightv->getSeqLen();
+
+    // Construct left overlap
+    //cout << "s: " << leftv_len - c.d1max_ << " e: " << leftv_len-1 << " l: " << leftv_len << endl;
+
+    // To avoid containment of the left or right node, trim the walkSequence by one base on either side if necessary.
+    int leftOL = c.d1max_;
+    int rightOL = c.d2max_;
+    if (leftOL == (int) leftv_len)
+    {
+        leftOL--;
+        walkSeq = walkSeq.substr(1,walkSeq.size()-1);
+    }
+    if (rightOL == (int) rightv_len)
+    {
+        rightOL--;
+        walkSeq = walkSeq.substr(0,walkSeq.size()-1);
+    }
+
+    // Construct the coordinates of the overlaps
+    SeqCoord leftv_coord(leftv_len - leftOL, leftv_len-1, leftv_len);
+    SeqCoord walkv_leftcoord(0, leftOL-1, walkSeq.size());
+    SeqCoord rightv_coord(0, rightOL-1, rightv_len);
+    SeqCoord walkv_rightcoord(walkSeq.size()-rightOL, walkSeq.size()-1, walkSeq.size());
+    if (leftIsRc) leftv_coord.flip();
+    if (rightIsRc) rightv_coord.flip();
+    cout << "leftv: " << leftv_coord << endl;
+    cout << "walkv_leftcoord: " << walkv_leftcoord << endl;
+    cout << "rightv_coord:" << rightv_coord << endl;
+    cout << "walkv_rightcoord:" << rightv_coord << endl;
+    assert(leftv_coord.length() == walkv_leftcoord.length());
+    assert(rightv_coord.length() == walkv_rightcoord.length());
+
+    // Construct overlaps
+    Overlap oleft(walkId, walkv_leftcoord, leftv->getID(), leftv_coord, leftIsRc, 0);  
+    Overlap oright(walkId, walkv_rightcoord, rightv->getID(), rightv_coord, rightIsRc, 0);
+
+    // Add vertex and edges to graph
+    Vertex* walkv = new(pGraph->getVertexAllocator()) Vertex(walkId, walkSeq);
+    pGraph->addVertex(walkv);
+    Edge * newEdge = SGAlgorithms::createEdgesFromOverlap(pGraph, oleft, false);
+    assert(newEdge != NULL);
+    newEdge = SGAlgorithms::createEdgesFromOverlap(pGraph, oright, false);
+    assert(newEdge != NULL);
+
+    // Mark edges interior to the closure for deletion
+    c.colorInteriorEdges(GC_RED);
+
+    // Add interior vertices to pInteriorVertices
+    c.getInteriorVertices(pInteriorVertices);
 }
