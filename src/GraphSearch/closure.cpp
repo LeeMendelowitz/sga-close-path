@@ -93,6 +93,16 @@ string Closure::computeSeq() const
 {
     string walkSeq = this->getString(SGWT_START_TO_END);
 
+    // Note that the walkSeq always has the starting vertex's sequence
+    // oriented forward. If the edge out of the first vertex is ED_ANTISENSE,
+    // then the first vertex sequence comes at the end of the walkSeq.
+    // We would like the walk sequence ordered precisely as given by the m_edges
+    // vector.
+    // Take the reverse complement of the walk sequence if necessary.
+    if (this->m_edges[0]->getDir() == ED_ANTISENSE)
+        walkSeq = reverseComplement(walkSeq);
+
+
     Vertex * pX = this->getStartVertex();
     Vertex * pY = this->getLastVertex();
     size_t lX = pX->getSeqLen();
@@ -267,27 +277,33 @@ void ClosureDB::addClosurePath(StringGraph* pGraph, const Closure& c, VertexPtrV
     }
 
     // Construct the coordinates of the overlaps
-    SeqCoord leftv_coord(leftv_len - leftOL, leftv_len-1, leftv_len);
-    SeqCoord walkv_leftcoord(0, leftOL-1, walkSeq.size());
-    SeqCoord rightv_coord(0, rightOL-1, rightv_len);
-    SeqCoord walkv_rightcoord(walkSeq.size()-rightOL, walkSeq.size()-1, walkSeq.size());
-    if (leftIsRc) leftv_coord.flip();
-    if (rightIsRc) rightv_coord.flip();
+    SeqCoord lc(leftv_len - leftOL, leftv_len-1, leftv_len);
+    SeqCoord wlc(0, leftOL-1, walkSeq.size());
+    SeqCoord rc(0, rightOL-1, rightv_len);
+    SeqCoord wrc(walkSeq.size()-rightOL, walkSeq.size()-1, walkSeq.size());
+    if (leftIsRc) lc.flip();
+    if (rightIsRc) rc.flip();
+    std::string leftOlSeq = lc.getSubstring(leftv->getStr());
+    std::string rightOlSeq = rc.getSubstring(rightv->getStr());
+    if (leftIsRc) leftOlSeq = reverseComplement(leftOlSeq);
+    if (rightIsRc) rightOlSeq = reverseComplement(rightOlSeq);
     cout << "-------------------------------------\n";
-    cout << "leftv: " << leftv_coord << endl;
-    cout << "walkv_leftcoord: " << walkv_leftcoord << endl;
-    cout << "rightv_coord:" << rightv_coord << endl;
-    cout << "walkv_rightcoord:" << rightv_coord << endl;
-    cout << "leftv ol seq: " << leftv_coord.getSubstring(leftv->getStr()) << endl;
-    cout << "walkv ol seq: " << walkv_leftcoord.getSubstring(walkSeq) << endl;
-    cout << "rightv ol seq: " << rightv_coord.getSubstring(rightv->getStr()) << endl;
-    cout << "walkv ol seq: " << walkv_rightcoord.getSubstring(walkSeq) << endl;
-    assert(leftv_coord.length() == walkv_leftcoord.length());
-    assert(rightv_coord.length() == walkv_rightcoord.length());
+    cout << "left:          " << lc << endl;
+    cout << "walk_left:     " << wlc << endl;
+    cout << "right:         " << rc << endl;
+    cout << "walk_right:    " << wrc << endl;
+    cout << "leftv ol seq:  " << leftOlSeq << endl;
+    cout << "walkv ol seq:  " << wlc.getSubstring(walkSeq) << endl;
+    cout << "rightv ol seq: " << rightOlSeq << endl;
+    cout << "walkv ol seq:  " << wrc.getSubstring(walkSeq) << endl;
+    assert(lc.length() == wlc.length());
+    assert(rc.length() == wrc.length());
+    assert(leftOlSeq == wlc.getSubstring(walkSeq));
+    assert(rightOlSeq == wrc.getSubstring(walkSeq));
 
     // Construct overlaps
-    Overlap oleft(walkId, walkv_leftcoord, leftv->getID(), leftv_coord, leftIsRc, 0);  
-    Overlap oright(walkId, walkv_rightcoord, rightv->getID(), rightv_coord, rightIsRc, 0);
+    Overlap oleft(walkId, wlc, leftv->getID(), lc, leftIsRc, 0);  
+    Overlap oright(walkId, wrc, rightv->getID(), rc, rightIsRc, 0);
 
     // Add vertex and edges to graph
     Vertex* walkv = new(pGraph->getVertexAllocator()) Vertex(walkId, walkSeq);

@@ -185,6 +185,9 @@ void SGWalk::truncate(const VertexID& id)
 }
 
 // Construct the extension string corresponding to the path
+// The string produced always has the starting vertex oriented in the forward direction.
+// If m_edges[0]->getDir() == ED_ANTISENSE, then the start vertex's sequence comes in forward orientation
+// in at the end of the walk's string.
 std::string SGWalk::getString(SGWalkType type, SGWalkVertexPlacementVector* pPlacementVector) const
 {
     std::string out;
