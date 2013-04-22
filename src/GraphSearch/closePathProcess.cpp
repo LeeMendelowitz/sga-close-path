@@ -189,7 +189,7 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     statsFile_.open((outputPfx_ + ".stats").c_str());
     //fastaFile_.open((outputPfx_ + ".fasta").c_str());
     fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
-    //walksFile_.open((outputPfx_ + ".walks").c_str());
+    walksFile_.open((outputPfx_ + ".walks").c_str());
     edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
 
     // Write file headers
@@ -205,7 +205,7 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         writeResultToStatus(result);
         writeResultToStats(result);
         writeResultToFasta(result);
-     //   writeResultToWalks(result);
+        writeResultToWalks(result);
         edgeTracker_.processResult(result);
         closureDB_.process(result);
 
@@ -329,7 +329,7 @@ ClosePathPostProcess::~ClosePathPostProcess()
     statsFile_.close();
     //fastaFile_.close();
     fastaFileUnique_.close();
-    //walksFile_.close();
+    walksFile_.close();
     edgeCovFile_.close();
 }
 
