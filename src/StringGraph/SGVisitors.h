@@ -48,7 +48,16 @@ struct SGOverlapWriterVisitor
 // Visit each node and write the length and the number of overlaps to a file
 struct SGNodeSummaryVisitor
 {
-    SGNodeSummaryVisitor(std::string filename) : m_fileHandle(filename.c_str()) {}
+    SGNodeSummaryVisitor(std::string filename) : m_fileHandle(filename.c_str())
+    {
+        //Write header
+        m_fileHandle << "vertex" << "\t"
+                     << "len" << "\t"
+                     << "E" << "\t"
+                     << "B" << "\t"
+                     << "EList" << "\t"
+                     << "BList" << "\n";
+    }
     ~SGNodeSummaryVisitor() { m_fileHandle.close(); }
 
     // functions
@@ -283,11 +292,12 @@ struct SGGraphStatsVisitor
     bool visit(StringGraph* pGraph, Vertex* pVertex);
     void postvisit(StringGraph*);
 
-    int num_terminal;
-    int num_island;
-    int num_monobranch;
-    int num_dibranch;
-    int num_simple;
+    int num_terminal; // Zero edges on one side
+    int num_island; // Zero edges on both side
+    int num_monobranch; // Branch on one side
+    int num_dibranch; // Branch on both sides
+    int num_simple; // Either end has degree one
+    int num_verySimple; // Degree one on both sides
     int num_edges;
     int num_vertex;
     size_t sum_edgeLen;

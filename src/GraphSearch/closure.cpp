@@ -84,6 +84,26 @@ void Closure::colorInteriorEdges(GraphColor c) const
     }
 }
 
+// Return true if this closure includes a decision node in its interior
+// A decision node has degree > 1 on at least one end
+bool Closure::isDecisionClosure() const
+{
+    if (this->m_edges.size() < 2)
+        return false;
+
+    // Skip the last edge in closure so we only explore the interior vertices
+    const EdgePtrVec::const_iterator E = this->m_edges.end()-1;
+    for(EdgePtrVec::const_iterator iter = m_edges.begin(); iter != E; ++iter)
+    {
+        const Vertex * v = (*iter)->getEnd();
+        if ( (v->countEdges(ED_SENSE) > 1) || (v->countEdges(ED_ANTISENSE) > 1) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Add vertices on the interior of the walk to pVec
 void Closure::getInteriorVertices(VertexPtrVec * pVec) const
 {
@@ -187,6 +207,38 @@ void ClosureDB::process(const ClosePathResult& res)
         return;
     Closure * c = new Closure(res.bundle->id, res.walks[0], res.bundle->d1max, res.bundle->d2max);
     nonContained_.push_back(c);
+}
+
+void ClosureDB::writeDecisionClosures(std::ostream& os, bool writeContained) const
+{
+    ClosurePtrVec::const_iterator iter = nonContained_.begin();
+    for(; iter != nonContained_.end(); iter++)
+    {
+        const Closure * c = *iter;
+        if (!c->isDecisionClosure())
+            continue;
+        os << c->id_ << "\t"
+           << "NumEdges:" << c->getNumEdges() << "\t"
+           << "Gap:" << c->getEndToStartDistance() << "\t";
+        c->printWithOL(os);
+        os << "\n";
+    }
+
+    if (writeContained)
+    {
+        ClosurePtrVec::const_iterator iter = contained_.begin();
+        for(; iter != contained_.end(); iter++)
+        {
+            const Closure * c = *iter;
+            if (!c->isDecisionClosure())
+                continue;
+            os << c->id_ << "\t"
+               << "NumEdges:" << c->getNumEdges() << "\t"
+               << "Gap:" << c->getEndToStartDistance() << "\t";
+            c->printWithOL(os);
+            os << "\n";
+        }
+    }
 }
 
 

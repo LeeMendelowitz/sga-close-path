@@ -191,6 +191,7 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
     walksFile_.open((outputPfx_ + ".walks").c_str());
     edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
+    decisionWalksFile_.open((outputPfx_ + ".decisionWalks").c_str());
 
     // Write file headers
     writeStatsHeader();
@@ -327,6 +328,9 @@ ClosePathPostProcess::~ClosePathPostProcess()
     // Write edge coverage statistics to file
     edgeTracker_.writeCoverageStats(edgeCovFile_);
 
+    // Write decision walks to file
+    closureDB_.writeDecisionClosures(decisionWalksFile_, true);
+
     // Write summary to standard out
     printSummary(std::cout);
 
@@ -336,6 +340,7 @@ ClosePathPostProcess::~ClosePathPostProcess()
     //fastaFile_.close();
     fastaFileUnique_.close();
     walksFile_.close();
+    decisionWalksFile_.close();
     edgeCovFile_.close();
 }
 

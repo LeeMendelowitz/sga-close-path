@@ -72,13 +72,31 @@ void EdgeTracker::processResult(const ClosePathResult& res)
 
 void EdgeTracker::writeCoverageStats(ostream& os)
 {
+
+    // Write Header
+
+    os << "edge" << "\t"
+       << "overlap" << "\t"
+       << "node1L" << "\t"
+       << "node2L" << "\t"
+       << "bundleCov" << "\t"
+       << "uniqueBundleCov" << "\t"
+       << "uniqueReadCov" << "\t"
+       << "readScore" << "\n";
+
     EdgeCovMap::const_iterator i = edgeCov_.begin();
     EdgeCovMap::const_iterator ie = edgeCov_.end();
     for(; i != ie; i++)
     {
         const Edge* pEdge = (i->first);
+        const Vertex* v1 = pEdge->getStart();
+        const Vertex* v2 = pEdge->getEnd();
         const EdgeCov& cov = i->second;
         string edgeStr = pEdge->getStartID() + "." + pEdge->getEndID();
-        os << edgeStr << "\t" << cov << "\n";
+        os << edgeStr << "\t"
+           << pEdge->getMatchLength() << "\t"
+           << v1->getSeqLen() << "\t"
+           << v2->getSeqLen() << "\t"
+           << cov << "\n";
     }
 };

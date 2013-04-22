@@ -112,7 +112,7 @@ class Vertex
         Edge* getLongestOverlapEdge(EdgeDir dir) const;
 
         size_t countEdges() const;
-        size_t countEdges(EdgeDir dir);
+        size_t countEdges(EdgeDir dir) const;
 
         // Calculate the difference in overlap lengths between
         // the longest and second longest edge

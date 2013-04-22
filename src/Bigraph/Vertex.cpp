@@ -554,7 +554,7 @@ size_t Vertex::countEdges() const
 }
 
 //
-size_t Vertex::countEdges(EdgeDir dir)
+size_t Vertex::countEdges(EdgeDir dir) const
 {
     EdgePtrVec ev = getEdges(dir);
     return ev.size();

@@ -197,6 +197,7 @@ class ClosePathPostProcess
         std::ofstream statusFile_;
         std::ofstream statsFile_;
         std::ofstream fastaFile_;
+        std::ofstream decisionWalksFile_;
         std::ofstream fastaFileUnique_;
         std::ofstream walksFile_;
         std::ofstream edgeCovFile_;

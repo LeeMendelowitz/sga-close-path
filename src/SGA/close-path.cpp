@@ -52,6 +52,7 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "\n\nMiscellaneous Options:\n"
 "      --numRounds=NUM                  Perform NUM rounds of edge pruning.\n"
 "      --writeSubgraph                  Write out the subgraph for any repetitive region.\n"
+"      --minEdgeCov=FLOAT               Minimum required read coverage to keep an edge. (Default: 1.0)\n"
 "      --noRemoveEdges                  Do not remove low coverage edges after path search.\n"
 "      --useDFS                         Use a bounded DFS in cases where one sided BFS yields too many paths.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
@@ -70,6 +71,7 @@ namespace opt
     // Interval options
     static float maxNumStd = 3.0;
     static float minStd = 0.0;
+    static float minEdgeCov = 1.0;
     static int intervalWidth = 50;
     static int maxOL = 150;
     static int maxGap = 200;
@@ -92,7 +94,7 @@ namespace opt
 static const char* shortopts = "vm:s:t:p:o:";
 
 enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES, OPT_MAXOL, OPT_MAXGAP, OPT_INTERVALWIDTH,
-       OPT_USEDFS};
+       OPT_USEDFS, OPT_MINEDGECOV};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
@@ -104,6 +106,7 @@ static const struct option longopts[] = {
     { "minStd",        required_argument, NULL, OPT_MINSTD},
     { "numRounds",    required_argument, NULL, OPT_NUMROUNDS}, 
     { "writeSubgraph", no_argument, NULL, OPT_WRITESUBGRAPH},
+    { "minEdgeCov", required_argument, NULL, OPT_MINEDGECOV},
     { "noRemoveEdges", no_argument, NULL, OPT_NOREMOVEEDGES},
     { "useDFS", no_argument, NULL, OPT_USEDFS},
     { "maxOL", required_argument, NULL, OPT_MAXOL},
@@ -151,9 +154,10 @@ int closePathMain(int argc, char** argv)
     //ClosePathProcessFramework processFramework("close-path", bufferSize, reportInterval);
     ClosePathThreadScheduler  threadScheduler("close-path", bufferSize, reportInterval);
 
+    // Edge coverage requirement
     std::vector<EdgeCovCriteria> covCriteria;
     for (int i=0; i < opt::numRounds; i++)
-        covCriteria.push_back(EdgeCovCriteria(0,0,0,1.0)); // Require 1 read pair to cover each edge
+        covCriteria.push_back(EdgeCovCriteria(0,0,0,opt::minEdgeCov));
 
     //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0));  // Require 1 unique bundle closure
     //covCriteria.push_back(EdgeCovCriteria(0,1,0,0.0)); 
@@ -230,7 +234,7 @@ int closePathMain(int argc, char** argv)
             std::cout << "Before adding closures:\n";
             pGraph->stats();
             postProcessor->overlapClosures();
-            postProcessor->addClosuresToGraph();
+            //postProcessor->addClosuresToGraph();
             std::cout << "After adding closures:\n";
             pGraph->stats();
             pGraph->writeASQG(opt::outputPfx + ".final.asqg.gz");
@@ -273,6 +277,7 @@ void parseClosePathOptions(int argc, char** argv)
             case OPT_MAXGAP: arg >> opt::maxGap; break;
             case OPT_INTERVALWIDTH: arg >> opt::intervalWidth; break;
             case OPT_USEDFS: opt::useDFS = true; break;
+            case OPT_MINEDGECOV: arg >> opt::minEdgeCov; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -310,6 +315,12 @@ void parseClosePathOptions(int argc, char** argv)
     if (opt::maxOL < 0)
     {
         std::cerr << SUBPROGRAM ": maxOL must be positive\n";
+        die = true;
+    }
+
+    if (opt::minEdgeCov < 0)
+    {
+        std::cerr << SUBPROGRAM ": minEdgeCov must be non-negative\n";
         die = true;
     }
 
@@ -358,6 +369,7 @@ void printOptions()
                   << "findOverlaps: " << opt::findOverlaps << "\n"
                   << "MinStd: " << opt::minStd << "\n"
                   << "maxOL: " << opt::maxOL << "\n"
+                  << "minEdgeCov: " << opt::minEdgeCov << "\n"
                   << "maxGap: " << opt::maxGap << "\n"
                   << "intervalWidth: " << opt::intervalWidth << "\n"
                   << "useDFS: " << opt::useDFS << "\n"

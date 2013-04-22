@@ -26,6 +26,9 @@ class Closure : public SGWalk
         return getNumEdges() < other.getNumEdges();
     };
 
+    // Return true if the closure includes a decision node in its interior
+    bool isDecisionClosure() const;
+
     bool sfxOverlap(size_t startInd, const Closure& other, bool otherIsReverse);
     bool pfxOverlap(size_t endInd, const Closure& other, bool otherIsReverse);
 
@@ -92,6 +95,8 @@ class ClosureDB
     // Apply closures to the graph
     void addClosurePaths(StringGraph* pGraph);
     void addClosurePath(StringGraph* pGraph, const Closure& c, VertexPtrVec* pInteriorVertices);
+
+    void writeDecisionClosures(std::ostream& os, bool writeContained=false) const;
 
     private:
     ClosurePtrVec nonContained_;

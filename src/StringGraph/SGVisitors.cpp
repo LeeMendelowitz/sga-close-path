@@ -1449,6 +1449,7 @@ void SGGraphStatsVisitor::previsit(StringGraph* /*pGraph*/)
     num_monobranch = 0;
     num_dibranch = 0;
     num_simple = 0;
+    num_verySimple = 0;
     num_edges = 0;
     num_vertex = 0;
     sum_edgeLen = 0;
@@ -1477,6 +1478,9 @@ bool SGGraphStatsVisitor::visit(StringGraph* /*pGraph*/, Vertex* pVertex)
     if(s_count == 1 || as_count == 1)
         ++num_simple;
 
+    if(s_count == 1 && as_count == 1)
+        ++num_verySimple;
+
     num_edges += (s_count + as_count);
     ++num_vertex;
 
@@ -1490,10 +1494,10 @@ bool SGGraphStatsVisitor::visit(StringGraph* /*pGraph*/, Vertex* pVertex)
 //
 void SGGraphStatsVisitor::postvisit(StringGraph* /*pGraph*/)
 {
-    printf("Vertices: %d (%d bp) Edges: %d Islands: %d Tips: %d Monobranch: %d Dibranch: %d Simple: %d\n", num_vertex, sum_vertexLen,
+    printf("Vertices: %d (%d bp) Edges: %d Islands: %d Tips: %d Monobranch: %d Dibranch: %d Simple: %d VerySimple: %d\n", num_vertex, sum_vertexLen,
                                                                                                    num_edges, 
                                                                                                    num_island, num_terminal,
-                                                                                                   num_monobranch, num_dibranch, num_simple);
+                                                                                                   num_monobranch, num_dibranch, num_simple, num_verySimple);
 }
 
 //
