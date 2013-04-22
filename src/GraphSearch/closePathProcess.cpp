@@ -312,6 +312,12 @@ void ClosePathPostProcess::addClosuresToGraph()
     closureDB_.addClosurePaths(pGraph_);
 }
 
+void ClosePathPostProcess::overlapClosures()
+{
+    closureDB_.filterContainments();
+    closureDB_.findClosureOverlaps();
+}
+
 
 // Write edge coverage statistics to file.
 // Remove uncovered edges from graph
