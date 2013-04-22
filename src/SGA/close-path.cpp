@@ -229,6 +229,7 @@ int closePathMain(int argc, char** argv)
             // This is the last round. Add the unique closures to the graph as nodes.
             std::cout << "Before adding closures:\n";
             pGraph->stats();
+            postProcessor->overlapClosures();
             postProcessor->addClosuresToGraph();
             std::cout << "After adding closures:\n";
             pGraph->stats();

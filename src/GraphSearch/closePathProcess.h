@@ -185,6 +185,7 @@ class ClosePathPostProcess
     void removeEdges(T criteria);
     size_t getNumProcessed() const { return numBundlesProcessed_; }
     void addClosuresToGraph(); // Add closures to the graph as nodes
+    void overlapClosures();
 
     private:
         StringGraph * pGraph_;

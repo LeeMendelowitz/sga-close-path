@@ -25,6 +25,12 @@ EdgePtrVec reverse(const EdgePtrVec& vec)
     return vecOut;
 }
 
+inline bool twinEqual(const Edge* e1, const Edge* e2)
+{
+    return (e1 == e2->getTwin());
+}
+
+
 // Return true if vec1 contains vec2 as a subsequence
 template< class T >
 bool contains(const vector<T>& vec1, const vector<T>& vec2)
@@ -86,6 +92,58 @@ void Closure::getInteriorVertices(VertexPtrVec * pVec) const
         pVec->push_back((*iter)->getEnd());
 }
 
+bool Closure::sfxOverlap(size_t startInd, const Closure& other, bool otherIsReverse)
+{
+
+    assert(startInd < m_edges.size());
+    size_t n = m_edges.size() - startInd;
+    if (n > other.m_edges.size())
+        return false;
+
+    EdgePtrVec::const_iterator s = m_edges.begin() + startInd;
+    EdgePtrVec::const_iterator e = m_edges.end();
+    if (otherIsReverse)
+    {
+        //     <--------- other
+        // |--------> this
+        // Check if the reverse complement of other (i.e. reverse twin path) is equal to this
+        return equal(s, e, other.m_edges.rbegin(), twinEqual);
+    }
+    else
+    {
+        //        |-------------> other
+        // |-------------> this
+        return equal(s, e, other.m_edges.begin());
+    }
+}
+
+
+// endInd is exclusive, zero based
+bool Closure::pfxOverlap(size_t endInd, const Closure& other, bool otherIsReverse)
+{
+    assert(endInd > 0);
+    assert(endInd <= m_edges.size());
+
+    size_t n = endInd;
+    if (n > other.m_edges.size())
+        return false;
+
+    EdgePtrVec::const_iterator s = m_edges.begin();
+    EdgePtrVec::const_iterator e = s + n;
+    if (otherIsReverse)
+    {
+        // other  <--------|
+        //           |-----------------> this
+        return equal(s, e, other.m_edges.rend() - n, twinEqual);
+    }
+    else
+    {
+        // other |---------->
+        // this      |----------->
+        return equal(s, e, other.m_edges.end()-n);
+    }
+}
+
 
 // Compute the sequence of the closure
 // Only include the last d1max of the first vertex's sequence,
@@ -127,28 +185,34 @@ void ClosureDB::process(const ClosePathResult& res)
 {
     if (res.walks.size() != 1)
         return;
-    Closure c(res.bundle->id, res.walks[0], res.bundle->d1max, res.bundle->d2max);
+    Closure * c = new Closure(res.bundle->id, res.walks[0], res.bundle->d1max, res.bundle->d2max);
     nonContained_.push_back(c);
+}
+
+
+bool closureVecCmp(const Closure* p1, const Closure* p2)
+{
+    return ((*p1) < (*p2));
 }
 
 void ClosureDB::filterContainments()
 {
     // Sort the Closures in ascending order of the number of edges
     // in the walks
-    sort(nonContained_.begin(), nonContained_.end());
+    sort(nonContained_.begin(), nonContained_.end(), closureVecCmp);
     contained_.clear();
-    ClosureVec nonContained;
+    ClosurePtrVec nonContained;
 
     // Remove closures which are contained in others 
-    ClosureVec::const_iterator i = nonContained_.begin();
-    const ClosureVec::const_iterator e = nonContained_.end();
+    ClosurePtrVec::const_iterator i = nonContained_.begin();
+    const ClosurePtrVec::const_iterator e = nonContained_.end();
     for (; i != e; i++)
     {
         bool isContained = false;
-        const Closure& c1 = *i;
-        for (ClosureVec::const_iterator b = i + 1; b != e; b++)
+        Closure * c1 = *i;
+        for (ClosurePtrVec::const_iterator b = i + 1; b != e; b++)
         {
-            if ((*b).contains(c1))
+            if ((*b)->contains(*c1))
             {
                 /*
                 #if DEBUG > 0
@@ -194,13 +258,13 @@ void ClosureDB::addClosurePaths(StringGraph* pGraph)
     VertexPtrVec iv; // interior vertices
 
     {
-    const ClosureVec::const_iterator E = nonContained_.end();
-    for(ClosureVec::const_iterator iter = nonContained_.begin();
+    const ClosurePtrVec::const_iterator E = nonContained_.end();
+    for(ClosurePtrVec::const_iterator iter = nonContained_.begin();
         iter != E;
         iter++)
     {
         // This will modify the graph and color interior edges of a closure red
-        addClosurePath(pGraph, *iter, &iv);
+        addClosurePath(pGraph, **iter, &iv);
     } 
     }
 
@@ -234,6 +298,28 @@ void ClosureDB::addClosurePaths(StringGraph* pGraph)
          << "Removed " << numEdgesRemoved << " interior closure edges.\n"
          << "Removed " << numVertRemoved << " interior vertices which became islands.\n";
     #endif
+}
+
+ClosureDB::~ClosureDB()
+{
+
+    // Destroy all contained and non-conained Closure instance
+    for(ClosurePtrVec::iterator iter = contained_.begin();
+        iter != contained_.end();
+        iter++)
+    {
+        delete *iter;
+    }
+    contained_.clear();
+
+    for(ClosurePtrVec::iterator iter = nonContained_.begin();
+        iter != nonContained_.end();
+        iter++)
+    {
+        delete *iter;
+    }
+    nonContained_.clear();
+
 }
 
 
@@ -321,4 +407,113 @@ void ClosureDB::addClosurePath(StringGraph* pGraph, const Closure& c, VertexPtrV
 
     // Add interior vertices to pInteriorVertices
     c.getInteriorVertices(pInteriorVertices);
+}
+
+
+void ClosureDB::indexClosures()
+{
+    firstEdgeMap_.clear();
+    lastEdgeMap_.clear();
+    const ClosurePtrVec::const_iterator E = nonContained_.end();
+    for (ClosurePtrVec::const_iterator i = nonContained_.begin();
+         i != E;
+         i++)
+    {
+        const Closure * c = *i;
+        const Edge * firstEdge = c->getFirstEdge();
+        const Edge * lastEdge = c->getLastEdge();
+        firstEdgeMap_.insert(EdgeClosureMap::value_type(firstEdge, c));
+        lastEdgeMap_.insert(EdgeClosureMap::value_type(lastEdge, c));
+    }
+}
+
+void ClosureDB::findClosureOverlaps()
+{
+    cout << "Finding closure overlaps" << endl;
+    indexClosures();
+    typedef pair<EdgeClosureMap::iterator, EdgeClosureMap::iterator> IterRange;
+    const ClosurePtrVec::const_iterator E = nonContained_.end();
+    for (ClosurePtrVec::const_iterator i = nonContained_.begin();
+         i != E;
+         i++)
+    {
+        Closure * c = *i;
+
+        const size_t numEdges = c->m_edges.size();
+        IterRange ret;
+        int olSize;
+
+        for (size_t ind = 0; ind < numEdges; ind++)
+        {
+
+            const Edge* e = c->m_edges[ind];
+            const Edge* e_twin = e->getTwin();
+
+            // Case 1: suffix overlap, other forward
+            // this: -------->
+            // other:    --------->
+            ret = firstEdgeMap_.equal_range(e);
+            for(EdgeClosureMap::iterator iter = ret.first; iter != ret.second; iter++)
+            {
+                const Closure * other = iter->second;
+                if ((c > other) || (c==other && ind==0)) continue;
+                if(c->sfxOverlap(ind, *other, false))
+                {
+                    cout << "Found sfx overlap! Other is forward.\n";
+                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+                }
+
+                //overlaps_.push_back(Overlap(c, ind, numEdges, other, 0, numEdges - ind)
+            }
+
+            // Case 2: suffix overlap, other reverse
+            // this: -------->
+            // other:    <--------
+            ret = lastEdgeMap_.equal_range(e_twin);
+            for(EdgeClosureMap::iterator iter = ret.first; iter != ret.second; iter++)
+            {
+                const Closure * other = iter->second;
+                if (c > other) continue;
+                if(c->sfxOverlap(ind, *other, true))
+                {
+                    cout << "Found sfx overlap! Other is reverse.\n"; 
+                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+                }
+            }
+
+            // Case 3: prefix overlap, other forward
+            // this:      -------->
+            // other: ------->
+            ret = lastEdgeMap_.equal_range(e);
+            for(EdgeClosureMap::iterator iter = ret.first; iter != ret.second; iter++)
+            {
+                const Closure * other = iter->second;
+                if ((c > other) || (c==other && ind==numEdges-1)) continue;
+                if(c->pfxOverlap(ind+1, *other, false))
+                {
+                    cout << "Found pfx overlap! Other is forward.\n"; 
+                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+                }
+            }
+
+            // Case 4: prefix overlap, other reverse
+            // this:      -------->
+            // other: <-------
+            ret = firstEdgeMap_.equal_range(e_twin);
+            for(EdgeClosureMap::iterator iter = ret.first; iter != ret.second; iter++)
+            {
+                const Closure * other = iter->second;
+                if (c > other) continue;
+                if(c->pfxOverlap(ind+1, *other, true))
+                {
+                    cout << "Found pfx overlap! Other is reverse.\n"; 
+                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+                }
+            }
+        }
+    }
 }
