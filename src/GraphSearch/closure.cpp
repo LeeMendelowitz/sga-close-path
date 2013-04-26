@@ -107,6 +107,8 @@ bool Closure::isDecisionClosure() const
 // Add vertices on the interior of the walk to pVec
 void Closure::getInteriorVertices(VertexPtrVec * pVec) const
 {
+    if (this->m_edges.empty())
+        return;
     const EdgePtrVec::const_iterator E = this->m_edges.end()-1;
     for(EdgePtrVec::const_iterator iter = m_edges.begin(); iter != E; ++iter)
         pVec->push_back((*iter)->getEnd());
@@ -170,17 +172,7 @@ bool Closure::pfxOverlap(size_t endInd, const Closure& other, bool otherIsRevers
 // and the first d2max of the last vertex's sequence.
 string Closure::computeSeq() const
 {
-    string walkSeq = this->getString(SGWT_START_TO_END);
-
-    // Note that the walkSeq always has the starting vertex's sequence
-    // oriented forward. If the edge out of the first vertex is ED_ANTISENSE,
-    // then the first vertex sequence comes at the end of the walkSeq.
-    // We would like the walk sequence ordered precisely as given by the m_edges
-    // vector.
-    // Take the reverse complement of the walk sequence if necessary.
-    if (this->m_edges[0]->getDir() == ED_ANTISENSE)
-        walkSeq = reverseComplement(walkSeq);
-
+    string walkSeq = this->computeFullSeq();
 
     Vertex * pX = this->getStartVertex();
     Vertex * pY = this->getLastVertex();
@@ -198,6 +190,22 @@ string Closure::computeSeq() const
     assert(lClosure >= 0);
     string seqClosure = walkSeq.substr(trimLeft, lClosure);
     return seqClosure;
+}
+
+// Compute the full sequence of the closure
+string Closure::computeFullSeq() const
+{
+    string walkSeq = this->getString(SGWT_START_TO_END);
+
+    // Note that the walkSeq always has the starting vertex's sequence
+    // oriented forward. If the edge out of the first vertex is ED_ANTISENSE,
+    // then the first vertex sequence comes at the end of the walkSeq.
+    // We would like the walk sequence ordered precisely as given by the m_edges
+    // vector.
+    // Take the reverse complement of the walk sequence if necessary.
+    if (this->m_edges[0]->getDir() == ED_ANTISENSE)
+        walkSeq = reverseComplement(walkSeq);
+    return walkSeq;
 }
 
 // Store the closure for the ClosePathResult if it is unique
@@ -511,9 +519,9 @@ void ClosureDB::findClosureOverlaps()
                 if ((c > other) || (c==other && ind==0)) continue;
                 if(c->sfxOverlap(ind, *other, false))
                 {
-                    cout << "Found sfx overlap! Other is forward.\n";
-                    cout << "this: "; c->printWithOL(cout); cout << "\n";
-                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+//                    cout << "Found sfx overlap! Other is forward.\n";
+//                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+//                    cout << "other: "; other->printWithOL(cout); cout << "\n";
                 }
 
                 //overlaps_.push_back(Overlap(c, ind, numEdges, other, 0, numEdges - ind)
@@ -529,9 +537,9 @@ void ClosureDB::findClosureOverlaps()
                 if (c > other) continue;
                 if(c->sfxOverlap(ind, *other, true))
                 {
-                    cout << "Found sfx overlap! Other is reverse.\n"; 
-                    cout << "this: "; c->printWithOL(cout); cout << "\n";
-                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+//                    cout << "Found sfx overlap! Other is reverse.\n"; 
+//                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+//                    cout << "other: "; other->printWithOL(cout); cout << "\n";
                 }
             }
 
@@ -545,9 +553,9 @@ void ClosureDB::findClosureOverlaps()
                 if ((c > other) || (c==other && ind==numEdges-1)) continue;
                 if(c->pfxOverlap(ind+1, *other, false))
                 {
-                    cout << "Found pfx overlap! Other is forward.\n"; 
-                    cout << "this: "; c->printWithOL(cout); cout << "\n";
-                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+//                    cout << "Found pfx overlap! Other is forward.\n"; 
+//                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+//                    cout << "other: "; other->printWithOL(cout); cout << "\n";
                 }
             }
 
@@ -561,11 +569,143 @@ void ClosureDB::findClosureOverlaps()
                 if (c > other) continue;
                 if(c->pfxOverlap(ind+1, *other, true))
                 {
-                    cout << "Found pfx overlap! Other is reverse.\n"; 
-                    cout << "this: "; c->printWithOL(cout); cout << "\n";
-                    cout << "other: "; other->printWithOL(cout); cout << "\n";
+//                    cout << "Found pfx overlap! Other is reverse.\n"; 
+//                    cout << "this: "; c->printWithOL(cout); cout << "\n";
+//                    cout << "other: "; other->printWithOL(cout); cout << "\n";
                 }
             }
         }
     }
+}
+
+
+void ClosureAlgorithms::addClosuresToGraph(StringGraph * pGraph, const ClosureVec& closures)
+{
+
+    VertexPtrVec interiorNodes;
+
+    for (ClosureVec::const_iterator iter = closures.begin();
+         iter != closures.end();
+         iter++)
+    {
+        const Closure& closure = *iter;
+        closure.getInteriorVertices(&interiorNodes);
+        ClosureAlgorithms::addClosureToGraph(pGraph, closure);
+    }
+
+
+    // Remove any marked edges/vertices
+    // Any removed edges are those which are removed through graph remodeling or are interior to a closure
+    // Any removed ndoes are those which are the starting/vertex node of a closure
+    size_t numVertRemoved = pGraph->sweepVertices(GC_RED);
+    size_t numEdgesRemoved = pGraph->sweepEdges(GC_RED);
+
+    
+    // If interior nodes became islands, remove them.
+    // UPDATE: BE MORE AGRESSIVE AND REMOVE ANY INTERIOR VERTICES FROM THE GRAPH
+    for (VertexPtrVec::const_iterator iter = interiorNodes.begin();
+         iter != interiorNodes.end();
+         iter++)
+    {
+//        if ((*iter)->countEdges() == 0)
+//        {
+//            pGraph->removeIslandVertex(*iter);
+//            numVertRemoved++;
+//        }
+        (*iter)->setColor(GC_RED);
+    }
+    numVertRemoved += pGraph->sweepVertices(GC_RED);
+
+    cout << "Added closures to the graph\n"
+         << "Removed " << numVertRemoved << " vertices\n"
+         << "Removed " << numEdgesRemoved << " edges" << endl;
+}
+
+void ClosureAlgorithms::addClosureToGraph(StringGraph * pGraph, const Closure& c)
+{
+
+    if (c.getNumEdges() == 0)
+        return;
+
+    // Create a vertex for the path
+    string walkSeq = c.computeFullSeq();
+    size_t walklen = walkSeq.size();
+    string walkId = c.id_;
+
+    // Add vertex and edges to graph
+    Vertex* walkv = new(pGraph->getVertexAllocator()) Vertex(walkId, walkSeq);
+    pGraph->addVertex(walkv);
+
+    // Add the overlaps for the vertex to the graph
+    Vertex* leftv = c.getStartVertex();
+    Edge* lefte = c.getFirstEdge();
+    Vertex* rightv = c.getLastVertex();
+    Edge* righte = c.getLastEdge();
+    
+    // Sanity checks
+    assert(lefte->getStart() == leftv);
+    assert(righte->getEnd() == rightv);
+
+    // Remodel edges at the prefix of the walk
+    EdgePtrVec edgesToFix = leftv->getEdges(!lefte->getDir());
+    for (EdgePtrVec::iterator iter = edgesToFix.begin();
+    iter != edgesToFix.end();
+    iter++)
+    {
+        Edge * e = *iter; // original edge out of leftv
+        Vertex * v_other = e->getEnd();
+        Edge * etwin = e->getTwin(); // original edge from v_other
+        bool otherIsRC = (etwin->getDir() == ED_ANTISENSE);
+
+        // Create the overlap with the prefix of the walk
+        SeqCoord other_coord = etwin->getMatchCoord();
+        SeqCoord orig_coord = e->getMatchCoord();
+        int matchLen = orig_coord.length();
+        SeqCoord walk_coord = SeqCoord(0, matchLen-1, walklen);
+        assert(other_coord.length() == walk_coord.length());
+
+        // Add the new edge
+        Overlap new_ovl(walkId, walk_coord, v_other->getID(), other_coord, otherIsRC, 0);
+        Edge * newEdge = SGAlgorithms::createEdgesFromOverlap(pGraph, new_ovl, false);
+        assert(newEdge != NULL);
+
+        // Mark the old edges for removal
+        e->setColor(GC_RED);
+        etwin->setColor(GC_RED);
+    }
+
+    // Remodel edges at the suffix of walk
+    edgesToFix = rightv->getEdges(!righte->getDir());
+    for (EdgePtrVec::iterator iter = edgesToFix.begin();
+    iter != edgesToFix.end();
+    iter++)
+    {
+        Edge * e = *iter; // original edge out of rightv
+        Vertex * v_other = e->getEnd();
+        Edge * etwin = e->getTwin(); // original edge from v_other
+        bool otherIsRC = (etwin->getDir() == ED_SENSE);
+
+        // Create the overlap with the prefix of the walk
+        SeqCoord other_coord = etwin->getMatchCoord();
+        SeqCoord orig_coord = e->getMatchCoord();
+        int matchLen = orig_coord.length();
+        SeqCoord walk_coord = SeqCoord(walklen-matchLen, walklen-1, walklen);
+        assert(other_coord.length() == walk_coord.length());
+
+        // Add the new edge
+        Overlap new_ovl(walkId, walk_coord, v_other->getID(), other_coord, otherIsRC, 0);
+        Edge * newEdge = SGAlgorithms::createEdgesFromOverlap(pGraph, new_ovl, false);
+        assert(newEdge != NULL);
+
+        // Mark the old edges for removal
+        e->setColor(GC_RED);
+        etwin->setColor(GC_RED);
+    }
+
+    // Mark edges interior to the closure for deletion
+    c.colorInteriorEdges(GC_RED);
+
+    // Mark the first and last vertex of the walk for removal
+    leftv->setColor(GC_RED);
+    rightv->setColor(GC_RED);
 }

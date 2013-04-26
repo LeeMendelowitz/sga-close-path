@@ -20,7 +20,7 @@ class Allocator
         virtual void* alloc() = 0;
 
         // Deallocate memory
-        virtual void dealloc(void *) = 0;
+        virtual void dealloc(void *) {};
 
         // Reset the allocator
         virtual void reset() = 0;

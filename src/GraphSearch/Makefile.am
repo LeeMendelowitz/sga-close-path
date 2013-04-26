@@ -22,5 +22,7 @@ libgraphsearch_a_SOURCES = \
    closePathProcess.h closePathProcess.cpp \
    overlapFinder.h overlapFinder.cpp \
    closure.h closure.cpp \
-   dfs.h dfs.cpp
+   dfs.h dfs.cpp \
+   contigMerger.h contigMerger.cpp \
+   astatReader.h astatReader.cpp
 #   bundleManager.h bundleManager.cpp

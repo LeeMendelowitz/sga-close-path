@@ -13,6 +13,7 @@
 
 #include "GraphCommon.h"
 #include "Edge.h"
+#include <vector>
 
 enum ScaffoldLinkType
 {
@@ -21,6 +22,7 @@ enum ScaffoldLinkType
     SLT_INFERRED,
     SLT_NOTYPE
 };
+
 
 class ScaffoldLink
 {
@@ -52,5 +54,7 @@ class ScaffoldLink
         ScaffoldLinkType type;
         EdgeData edgeData; // dir/comp member
 };
+
+typedef std::vector<ScaffoldLink> ScaffoldLinkVec;
 
 #endif

@@ -45,8 +45,9 @@ class SimpleAllocator : public Allocator
             return m_pPoolList.back()->alloc();
         }
 
-        void dealloc(void* /*ptr*/)
+        void dealloc(void* ptr)
         {
+            return;
             // deallocation not tracked in this strategy
         }
 

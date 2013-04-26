@@ -163,6 +163,9 @@ class ScaffoldRecord
         void addLink(const ScaffoldLink& link);
         size_t getNumComponents() const;
 
+        const std::string& getRoot() const {return m_rootID;};
+        const ScaffoldLinkVec& getLinks() const {return m_links;};
+
         // Generate a sequence string representing the constructed scaffold
         std::string generateString(const ResolveParams& params, StringVector& ids) const;
 
@@ -183,10 +186,8 @@ class ScaffoldRecord
 
     private:
         
-        typedef std::vector<ScaffoldLink> LinkVector;
-        
         std::string m_rootID;
-        LinkVector m_links;
+        ScaffoldLinkVec m_links;
         ResolveStats* m_pStats;
 };
 

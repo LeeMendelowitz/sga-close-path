@@ -11,6 +11,7 @@
 #define SCAFFOLDVISITORS_H
 
 #include "ScaffoldGraph.h"
+#include "ScaffoldRecord.h"
 #include "SGUtil.h"
 
 //
@@ -212,6 +213,23 @@ class ScaffoldWriterVisitor
 
     private:
         std::ostream* m_pWriter;
+        std::vector<ScaffoldStats> m_statsVector;
+};
+
+// Collect scaffolds
+class ScaffoldCollectorVisitor
+{
+    public:
+        ScaffoldCollectorVisitor() {};
+        ~ScaffoldCollectorVisitor() {};
+
+        void previsit(ScaffoldGraph* /*pGraph*/);
+        bool visit(ScaffoldGraph* pGraph, ScaffoldVertex* pVertex);
+        void postvisit(ScaffoldGraph* /*pGraph*/);
+        std::vector<ScaffoldRecord> getScaffs() {return m_scaffs;};
+
+    private:
+        std::vector<ScaffoldRecord> m_scaffs;
         std::vector<ScaffoldStats> m_statsVector;
 };
 

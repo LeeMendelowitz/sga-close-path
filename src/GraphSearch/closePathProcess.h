@@ -8,6 +8,7 @@
 #include "bundleReader.h"
 #include "edgeTracker.h"
 #include "overlapFinder.h"
+#include "contigMerger.h"
 #include "SGUtil.h"
 #include "SGWalk.h"
 #include "SGSearch.h"
@@ -174,7 +175,8 @@ class ClosePathProcess
 class ClosePathPostProcess
 {
     public:
-    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, float numStd, int maxGap, bool writeSubgraphs);
+    ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, float numStd, int maxGap, bool writeSubgraphs,
+                         const std::string& astatFile, float astatThreshold, int minSingleCopyLength);
     ~ClosePathPostProcess();
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
@@ -186,6 +188,8 @@ class ClosePathPostProcess
     size_t getNumProcessed() const { return numBundlesProcessed_; }
     void addClosuresToGraph(); // Add closures to the graph as nodes
     void overlapClosures();
+
+    void mergeContigs(); // merge single copy contigs
 
     private:
         StringGraph * pGraph_;
@@ -204,6 +208,7 @@ class ClosePathPostProcess
         EdgeTracker edgeTracker_;
         EdgePtrVec edgesToAdd_;
         ClosureDB closureDB_;
+        ContigMerger* pContigMerger_;
 
         // Summary of closures
         int numBundlesProcessed_;

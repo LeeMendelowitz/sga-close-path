@@ -4,7 +4,7 @@
 // Released under the GPL
 //-----------------------------------------------
 //
-// assemble - convert read overlaps into contigs
+// graph-stats: Output useful information about a string graph.
 //
 #include <iostream>
 #include <fstream>
@@ -27,9 +27,8 @@
 #define SUBPROGRAM "graph-stats"
 static const char *GRAPHSTATS_VERSION_MESSAGE =
 SUBPROGRAM " Version " PACKAGE_VERSION "\n"
-"Written by Jared Simpson.\n"
-"\n"
-"Copyright 2009 Wellcome Trust Sanger Institute\n";
+"Written by Lee Mendelowitz"
+"LMendelo@umiacs.umd.edu";
 
 static const char *GRAPHSTATS_USAGE_MESSAGE =
 "Usage: " PACKAGE_NAME " " SUBPROGRAM " [OPTION] ... ASQGFILE\n"
@@ -39,6 +38,7 @@ static const char *GRAPHSTATS_USAGE_MESSAGE =
 "      --help                           display this help and exit\n"
 "      -o, --out-prefix=NAME            use NAME as the prefix of the output files (output files will be NAME-contigs.fa, etc)\n"
 "      -m, --min-overlap=LEN            only use overlaps of at least LEN. This can be used to filter\n"
+"      -f, --write-fasta                Write the node sequences to a fasta file\n"
 "                                       the overlap set so that the overlap step only needs to be run once.\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
@@ -50,15 +50,17 @@ namespace opt
     static std::string prefix;
     static unsigned int minOverlap;
     static bool bEdgeStats = true;
+    static bool bWriteFasta = false;
     static size_t maxEdges = 128;
 }
 
-static const char* shortopts = "p:o:m:d:g:b:a:c:r:x:l:sv";
+static const char* shortopts = "vfo:m:";
 
-enum { OPT_HELP = 1, OPT_VERSION, OPT_VALIDATE, OPT_EDGESTATS, OPT_EXACT, OPT_MAXINDEL, OPT_TR, OPT_MAXEDGES };
+enum { OPT_HELP = 1, OPT_VERSION, OPT_VALIDATE, OPT_EDGESTATS};
 
 static const struct option longopts[] = {
     { "verbose",               no_argument,       NULL, 'v' },
+    { "write-fasta",           no_argument,       NULL, 'f' },
     { "out-prefix",            required_argument, NULL, 'o' },
     { "min-overlap",           required_argument, NULL, 'm' },
     { "version",               no_argument,       NULL, OPT_VERSION },
@@ -126,6 +128,12 @@ void graphStats()
     }
     std::cout << "done!" << std::endl;
 
+    if (opt::bWriteFasta)
+    {
+        std::string outputFasta = opt::prefix + ".fasta";
+        SGFastaVisitor av(outputFasta);
+        pGraph->visit(av);
+    }
 
     //std::cout << "Validating graph structure\n";
     //pGraph->visit(validationVisit);
@@ -150,6 +158,7 @@ void parseGraphStatsOptions(int argc, char** argv)
         {
             case 'o': arg >> opt::prefix; break;
             case 'm': arg >> opt::minOverlap; break;
+            case 'f': opt::bWriteFasta = true; break;
             case '?': die = true; break;
             case 'v': opt::verbose++; break;
             case OPT_EDGESTATS: opt::bEdgeStats = true; break;

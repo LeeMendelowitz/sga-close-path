@@ -62,10 +62,9 @@ void ScaffoldSearch::findVariantWalks(ScaffoldVertex* pX,
 {
     (void)maxWalks;
     
-    ScaffoldSearchNodeAllocator * pAllocator = new ScaffoldSearchNodeAllocator;
+    //ScaffoldSearchNodeAllocator * pAllocator = new ScaffoldSearchNodeAllocator;
     ScaffoldSearchParams params(pX, NULL, initialDir, maxDistance);
     params.nodeLimit = 10000;
-    params.pNodeAllocator = pAllocator;
     ScaffoldSearchTree searchTree(params);
 
     // Iteravively perform the BFS using the search tree. After each step
@@ -84,7 +83,6 @@ void ScaffoldSearch::findVariantWalks(ScaffoldVertex* pX,
             assert(pCollapsedVertex != NULL);
             ScaffoldWalkBuilder builder(outWalks);
             searchTree.buildWalksContainingVertex(pCollapsedVertex, &builder);
-            delete pAllocator;
             return;           
         }
     }
@@ -93,7 +91,6 @@ void ScaffoldSearch::findVariantWalks(ScaffoldVertex* pX,
 
     // no collapsed walk found, return empty set
     outWalks.clear();
-    delete pAllocator;
 }
 
 int ScaffoldSearch::findCoveringWalk(const ScaffoldWalkVector& allWalks, 
@@ -125,10 +122,10 @@ void ScaffoldSearch::findPrimaryWalks(ScaffoldVertex* pX,
                                       size_t maxNodes, 
                                       ScaffoldWalkVector& outWalks)
 {
-    ScaffoldSearchNodeAllocator * pAllocator = new ScaffoldSearchNodeAllocator;
+    //ScaffoldSearchNodeAllocator * pAllocator = new ScaffoldSearchNodeAllocator;
     ScaffoldSearchParams params(pX, pY, initialDir, maxDistance);
     params.nodeLimit = maxNodes;
-    params.pNodeAllocator = pAllocator;
+    //params.pNodeAllocator = pAllocator;
     ScaffoldSearchTree searchTree(params);
 
     // Iteravively perform the BFS using the search tree.
@@ -144,7 +141,7 @@ void ScaffoldSearch::findPrimaryWalks(ScaffoldVertex* pX,
         searchTree.buildWalksToGoal(&builder);
     }
    
-   delete pAllocator;
+   //delete pAllocator;
 }
 
 //

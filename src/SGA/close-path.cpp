@@ -56,6 +56,9 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      --noRemoveEdges                  Do not remove low coverage edges after path search.\n"
 "      --useDFS                         Use a bounded DFS in cases where one sided BFS yields too many paths.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
+"\n\nContig Merging Options:\n"
+"      --mergeContigs                   Merge single copy contigs if there is a unique bundle between them.\n"
+"      --astat=FILE                     Path to astat file.\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
 //static const char* PROGRAM_IDENT = PACKAGE_NAME "::" SUBPROGRAM;
@@ -85,6 +88,12 @@ namespace opt
     static int minOverlap = 0; // Minimum overlap to use when loading graph
     static bool findOverlaps = false;
     static bool removeEdges = true;
+
+    // Merging Options
+    static bool mergeContigs = false;
+    static std::string astatFile;
+    static float astatThreshold = 20.0;
+    static int singleCopyLenThreshold = 200;
     
     // Required
     static std::string graphFile;
@@ -94,7 +103,7 @@ namespace opt
 static const char* shortopts = "vm:s:t:p:o:";
 
 enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES, OPT_MAXOL, OPT_MAXGAP, OPT_INTERVALWIDTH,
-       OPT_USEDFS, OPT_MINEDGECOV};
+       OPT_USEDFS, OPT_MINEDGECOV, OPT_MERGECONTIGS, OPT_ASTAT};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
@@ -112,6 +121,8 @@ static const struct option longopts[] = {
     { "maxOL", required_argument, NULL, OPT_MAXOL},
     { "maxGap", required_argument, NULL, OPT_MAXGAP},
     { "intervalWidth", required_argument, NULL, OPT_INTERVALWIDTH},
+    { "mergeContigs", no_argument, NULL, OPT_MERGECONTIGS},
+    { "astat", required_argument, NULL, OPT_ASTAT},
     { "help",          no_argument,       NULL, OPT_HELP },
     { "version",       no_argument,       NULL, OPT_VERSION },
     { NULL, 0, NULL, 0 }
@@ -184,7 +195,8 @@ int closePathMain(int argc, char** argv)
         std::ostringstream ssOutputPfx;
         ssOutputPfx << opt::outputPfx << ".round" << roundNum;
         std::string roundOutputPfx = ssOutputPfx.str();
-        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, roundOutputPfx, opt::maxNumStd, opt::maxGap, opt::writeSubgraph);
+        ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, roundOutputPfx, opt::maxNumStd, opt::maxGap, opt::writeSubgraph,
+                                                                       opt::astatFile, opt::astatThreshold, opt::singleCopyLenThreshold);
 
         // Find path closures for all bundles
         if (opt::numThreads <= 1)
@@ -234,6 +246,7 @@ int closePathMain(int argc, char** argv)
             std::cout << "Before adding closures:\n";
             pGraph->stats();
             postProcessor->overlapClosures();
+            if (opt::mergeContigs) postProcessor->mergeContigs();
             //postProcessor->addClosuresToGraph();
             std::cout << "After adding closures:\n";
             pGraph->stats();
@@ -278,6 +291,8 @@ void parseClosePathOptions(int argc, char** argv)
             case OPT_INTERVALWIDTH: arg >> opt::intervalWidth; break;
             case OPT_USEDFS: opt::useDFS = true; break;
             case OPT_MINEDGECOV: arg >> opt::minEdgeCov; break;
+            case OPT_MERGECONTIGS: opt::mergeContigs = true; break;
+            case OPT_ASTAT: arg >> opt::astatFile; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
                 exit(EXIT_SUCCESS);
@@ -293,6 +308,18 @@ void parseClosePathOptions(int argc, char** argv)
             break;
         }
     }
+
+    if(opt::mergeContigs && opt::astatFile.empty())
+    {
+        std::cerr << SUBPROGRAM ": mergeContigs flag set true but astat file missing.\n";
+        die = true;
+    }
+    else if (!opt::mergeContigs && !opt::astatFile.empty())
+    {
+        std::cerr << SUBPROGRAM " warning: Astat file provided by mergeContigs is false.\n";
+        opt::astatFile = "";
+    }
+
 
     // Validate parameters
     if (argc - optind < 2) 
@@ -373,6 +400,8 @@ void printOptions()
                   << "maxGap: " << opt::maxGap << "\n"
                   << "intervalWidth: " << opt::intervalWidth << "\n"
                   << "useDFS: " << opt::useDFS << "\n"
+                  << "mergeContigs: " << opt::mergeContigs << "\n"
+                  << "astatFile: " << opt::astatFile << "\n"
                   << "graphFile: " << opt::graphFile << "\n"
                   << "bundleFile: " << opt::bundleFile << "\n"
                   << "outputPfx: " << opt::outputPfx << "\n"

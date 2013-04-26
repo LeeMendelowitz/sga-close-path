@@ -261,7 +261,4 @@ void parseScaffoldOptions(int argc, char** argv)
     {
         opt::outFile = opt::contigsFile + ".scaf";
     }
-
-    
 }
-

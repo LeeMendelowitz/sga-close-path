@@ -11,6 +11,9 @@
 class ClosePathResult;
 class ClosureDB;
 
+// Reverse an EdgePtrVec (using the edge twins in reverse order)
+EdgePtrVec reverse(const EdgePtrVec& vec);
+
 class Closure : public SGWalk
 {
     public:
@@ -36,6 +39,7 @@ class Closure : public SGWalk
     void getInteriorVertices(VertexPtrVec * pVec) const;
 
     std::string computeSeq() const;
+    std::string computeFullSeq() const;
 
     // Members
     std::string id_;
@@ -45,6 +49,8 @@ class Closure : public SGWalk
     friend class ClosureDB;
 };
 
+typedef std::vector<Closure *> ClosurePtrVec;
+typedef std::vector<Closure> ClosureVec;
 
 class ClosureMapEntry
 {
@@ -74,7 +80,6 @@ class ClosureOverlap
 class ClosureDB
 {
     public:
-    typedef std::vector<Closure *> ClosurePtrVec;
     typedef std::multimap<const Edge *, const Closure *> EdgeClosureMap;
     typedef std::vector<ClosureOverlap> ClosureOvlVec;
 
@@ -105,5 +110,25 @@ class ClosureDB
     EdgeClosureMap lastEdgeMap_; // multimap from last edge in closure to the closure
     ClosureOvlVec overlaps_; // overlaps between closures
 };
+
+namespace ClosureAlgorithms
+{
+
+    // Add a list of closure to the graph.
+    // For each closure:
+    // Replace the closure with a single node.
+    // Modify edges pointing to the first/last node of the closure to point to the new node.
+    // Remove the first/last node of the closure from the graph (Justification: These are presumed to be single copy,
+    //   and so their sequence and overlaps are accounted for by the node created for the closure.)
+    // Remove any interior edges of the closure.
+    // Remove any interior vertexes of the closure if they have become islands.
+    void addClosuresToGraph(StringGraph* pGraph, const ClosureVec& closures);
+
+    // Add a single closure to the graph
+    void addClosureToGraph(StringGraph* pGraph, const Closure& c);
+
+};
+
+
 
 #endif

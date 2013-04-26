@@ -926,3 +926,119 @@ void ScaffoldWriterVisitor::postvisit(ScaffoldGraph*)
     printf("N50 scaffold span: %zu bp\n", spanN50);
     printf("Mean scaffold span: %.0lf bp\n", (double)sumSpan / totalScaffolds);
 }
+
+void ScaffoldCollectorVisitor::previsit(ScaffoldGraph* pGraph)
+{
+    pGraph->setVertexColors(GC_WHITE);
+    m_statsVector.clear();
+    m_scaffs.clear();
+}
+
+//
+bool ScaffoldCollectorVisitor::visit(ScaffoldGraph* /*pGraph*/, ScaffoldVertex* pVertex)
+{
+    if(pVertex->getColor() == GC_RED)
+        return false; //already output
+
+    ScaffoldEdgePtrVector edges = pVertex->getEdges();
+    
+    if(edges.size() <= 1)
+    {
+        // Start of a chain found, traverse it to the other end
+        size_t num_contigs = 0;
+        size_t bases = 0; // number of bases in contigs
+        size_t span = 0; // number of bases plus gaps
+
+        pVertex->setColor(GC_RED);
+    
+        ScaffoldRecord record;
+        record.setRoot(pVertex->getID());
+        
+        bases += pVertex->getSeqLen();
+        span += pVertex->getSeqLen();
+        num_contigs += 1;
+        
+        if(edges.size() == 1)
+        {
+            // Write the linked contigs
+            ScaffoldEdge* pStartEdge = edges[0];
+            ScaffoldEdge* pXY = pStartEdge;
+            while(1)
+            {
+                record.addLink(pXY->getLink());
+                ScaffoldVertex* pY = pXY->getEnd();
+                if(pY->getColor() == GC_RED)
+                    break; // loop found
+
+                pY->setColor(GC_RED);
+                bases += pY->getSeqLen();
+                span += pY->getSeqLen() + pXY->getDistance();
+                num_contigs += 1;
+
+                // get the next direction
+                EdgeDir nextDir = !pXY->getTwin()->getDir();
+                ScaffoldEdgePtrVector nextEdges = pY->getEdges(nextDir);
+                
+                if(nextEdges.size() == 1)
+                    pXY = nextEdges[0];
+                else
+                    break;
+            }
+        }
+        m_scaffs.push_back(record);
+
+        ScaffoldStats stats;
+        stats.numContigs = num_contigs;
+        stats.bases = bases;
+        stats.span = span;
+        m_statsVector.push_back(stats);
+    }
+    return false;
+}
+
+void ScaffoldCollectorVisitor::postvisit(ScaffoldGraph*)
+{
+    size_t totalScaffolds = m_statsVector.size();
+    size_t singleton = 0;
+    size_t sumSpan = 0;
+    size_t sumBases = 0;
+    size_t totalContigs = 0;
+    std::vector<ScaffoldStats>::iterator iter = m_statsVector.begin();
+    for(; iter != m_statsVector.end(); ++iter)
+    {
+        sumSpan += iter->span;
+        sumBases += iter->bases;       
+        totalContigs += iter->numContigs;
+        if(iter->numContigs == 1)
+            ++singleton;
+    }
+
+
+    std::sort(m_statsVector.begin(), m_statsVector.end(), ScaffoldStats::sortSpanDesc);
+
+    size_t targetSpan = sumSpan / 2;
+    size_t spanN50 = -1;
+    size_t maxSpan = 0;
+    size_t runningSum = 0;
+    iter = m_statsVector.begin();
+    for(; iter != m_statsVector.end(); ++iter)
+    {
+        if((size_t)iter->span > maxSpan)
+            maxSpan = iter->span;
+        runningSum += iter->span;
+        if(runningSum > targetSpan)
+        {
+            spanN50 = iter->span;
+            break;
+        }
+    }
+
+    printf("\n======\n");
+    printf("Constructed %zu scaffolds from %zu contigs (%zu singleton scaffolds)\n", totalScaffolds, totalContigs, singleton);
+    printf("Total bases: %.2lfMbp\n", (double)sumBases / 1000000);
+    printf("Total span: %.2lfMbp\n", (double)sumSpan / 1000000);
+    
+    printf("Max scaffold span: %zu bp\n", maxSpan);
+    printf("N50 scaffold span: %zu bp\n", spanN50);
+    printf("Mean scaffold span: %.0lf bp\n", (double)sumSpan / totalScaffolds);
+}

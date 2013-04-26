@@ -164,7 +164,8 @@ bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result
 
 
 ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx,
-                                           float numStd, int maxGap, bool writeSubgraphs) :
+                                           float numStd, int maxGap, bool writeSubgraphs,
+                                           const std::string& astatFile, float astatThreshold, int minSingleCopyLength) :
     pGraph_(pGraph),
     outputPfx_(outputPfx),
     numStd_(numStd),
@@ -193,6 +194,11 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
     decisionWalksFile_.open((outputPfx_ + ".decisionWalks").c_str());
 
+    if (!astatFile.empty())
+    {
+        pContigMerger_ = new ContigMerger(pGraph, astatFile, astatThreshold, minSingleCopyLength);
+    }
+
     // Write file headers
     writeStatsHeader();
     writeStatusHeader();
@@ -207,8 +213,10 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
         writeResultToStats(result);
         writeResultToFasta(result);
         writeResultToWalks(result);
+
         edgeTracker_.processResult(result);
         closureDB_.process(result);
+        if (pContigMerger_ != NULL) pContigMerger_->process(result);
 
         numBundlesProcessed_++;
         numReadPairsProcessed_ += result.bundle->n;
@@ -257,6 +265,12 @@ void ClosePathPostProcess::process(const ClosePathWorkItem& item, const ClosePat
 
         // Delete the bundle object
         delete item.b_;
+}
+
+void ClosePathPostProcess::mergeContigs()
+{
+    if (pContigMerger_ != NULL)
+        pContigMerger_->postProcess();
 }
 
 size_t ClosePathPostProcess::addEdgesToGraph()
@@ -342,6 +356,8 @@ ClosePathPostProcess::~ClosePathPostProcess()
     walksFile_.close();
     decisionWalksFile_.close();
     edgeCovFile_.close();
+
+    if (pContigMerger_ != NULL) delete pContigMerger_;
 }
 
 void ClosePathPostProcess::writeStatusHeader()
