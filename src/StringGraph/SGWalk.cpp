@@ -584,13 +584,23 @@ void SGWalk::print() const
 void SGWalk::printWithOL(std::ostream& os) const
 {
     const Vertex* pLast = m_pStartVertex;
-    for(EdgePtrVec::const_iterator iter = m_edges.begin(); iter != m_edges.end(); ++iter)
+    const EdgePtrVec::const_iterator E = m_edges.end();
+    for(EdgePtrVec::const_iterator iter = m_edges.begin(); iter != E; ++iter)
     {
         //os << *(*iter) << " ";
-        os << (*iter)->getStartID() << "->" << (*iter)->getEndID()
-                  << " (" << (*iter)->getDir() << "," << (*iter)->getComp() << "," << (*iter)->getOverlap().getOverlapLength(0) << ")\t";
+        const Edge* e = *iter;
+        const Edge* etwin = e->getTwin();
+        os << "["
+           << "(" << e->getStartID() << "," << EdgeDirChar[e->getDir()] << "," << e->getStart()->getSeqLen() << "),"
+           << "(" << e->getEndID() << "," << EdgeDirChar[etwin->getDir()] << "," << e->getEnd()->getSeqLen() << "),"
+           << e->getOverlap().getOverlapLength(0)
+           << "]";
         assert((*iter)->getStart() == pLast);
         pLast = (*iter)->getEnd();
+        if (iter != E-1)
+        {
+            os << "\t";
+        }
     }
 }
 

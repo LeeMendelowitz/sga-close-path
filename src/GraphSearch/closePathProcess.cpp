@@ -165,12 +165,14 @@ bool ClosePathProcess::findWalks(SGSearchParams& params, ClosePathResult& result
 
 ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx,
                                            float numStd, int maxGap, bool writeSubgraphs,
-                                           const std::string& astatFile, float astatThreshold, int minSingleCopyLength) :
+                                           const std::string& astatFile, float astatThreshold, int minSingleCopyLength,
+                                           int minLinksMerge, bool removeInteriorNodes) :
     pGraph_(pGraph),
     outputPfx_(outputPfx),
     numStd_(numStd),
     maxGap_(maxGap),
     writeSubgraphs_(writeSubgraphs),
+    pContigMerger_(NULL),
     numBundlesProcessed_(0),
     numBundlesClosedUniquely_(0),
     numBundlesClosed_(0),
@@ -191,12 +193,10 @@ ClosePathPostProcess::ClosePathPostProcess(StringGraph * pGraph, const std::stri
     //fastaFile_.open((outputPfx_ + ".fasta").c_str());
     fastaFileUnique_.open((outputPfx_ + ".unique.fasta").c_str());
     walksFile_.open((outputPfx_ + ".walks").c_str());
-    edgeCovFile_.open((outputPfx_ + ".edgeCov").c_str());
-    decisionWalksFile_.open((outputPfx_ + ".decisionWalks").c_str());
 
     if (!astatFile.empty())
     {
-        pContigMerger_ = new ContigMerger(pGraph, astatFile, astatThreshold, minSingleCopyLength);
+        pContigMerger_ = new ContigMerger(pGraph, outputPfx, astatFile, astatThreshold, minSingleCopyLength, minLinksMerge, removeInteriorNodes);
     }
 
     // Write file headers
@@ -333,20 +333,28 @@ void ClosePathPostProcess::overlapClosures()
     closureDB_.findClosureOverlaps();
 }
 
+void ClosePathPostProcess::writeEdgeCoverage()
+{
+    // Write edge coverage statistics to file
+    ofstream edgeCovFile((outputPfx_ + ".edgeCov").c_str());
+    edgeTracker_.writeCoverageStats(edgeCovFile);
+    edgeCovFile.close();
+}
+
+void ClosePathPostProcess::writeDecisionClosures()
+{
+    // Write decision walks to file
+    string fname = outputPfx_ + ".decisionWalks";
+    ofstream decisionWalksFile(fname.c_str());
+    closureDB_.writeDecisionClosures(decisionWalksFile, true);
+    decisionWalksFile.close();
+}
+
 
 // Write edge coverage statistics to file.
 // Remove uncovered edges from graph
 ClosePathPostProcess::~ClosePathPostProcess()
 {
-
-    // Write edge coverage statistics to file
-    edgeTracker_.writeCoverageStats(edgeCovFile_);
-
-    // Write decision walks to file
-    closureDB_.writeDecisionClosures(decisionWalksFile_, true);
-
-    // Write summary to standard out
-    printSummary(std::cout);
 
     // Close all output files
     statusFile_.close();
@@ -354,8 +362,6 @@ ClosePathPostProcess::~ClosePathPostProcess()
     //fastaFile_.close();
     fastaFileUnique_.close();
     walksFile_.close();
-    decisionWalksFile_.close();
-    edgeCovFile_.close();
 
     if (pContigMerger_ != NULL) delete pContigMerger_;
 }

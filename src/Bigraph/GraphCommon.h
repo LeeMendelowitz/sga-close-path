@@ -22,6 +22,10 @@ enum EdgeDir
         ED_COUNT = 2
 };
 
+// Convert the edge direction to the end of the node which
+// the edge leaves
+extern const char EdgeDirChar[];
+
 // Flag indicating whether the sequences linked by an edge
 // are from the same strand or not.
 // Do not change the values

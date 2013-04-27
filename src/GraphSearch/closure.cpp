@@ -579,7 +579,8 @@ void ClosureDB::findClosureOverlaps()
 }
 
 
-void ClosureAlgorithms::addClosuresToGraph(StringGraph * pGraph, const ClosureVec& closures)
+// Add closures to graph. Mark edges/nodes for removal (but do not remove).
+void ClosureAlgorithms::addClosuresToGraph(StringGraph * pGraph, const ClosureVec& closures, bool removeInteriorNodes)
 {
 
     VertexPtrVec interiorNodes;
@@ -593,32 +594,17 @@ void ClosureAlgorithms::addClosuresToGraph(StringGraph * pGraph, const ClosureVe
         ClosureAlgorithms::addClosureToGraph(pGraph, closure);
     }
 
-
-    // Remove any marked edges/vertices
-    // Any removed edges are those which are removed through graph remodeling or are interior to a closure
-    // Any removed ndoes are those which are the starting/vertex node of a closure
-    size_t numVertRemoved = pGraph->sweepVertices(GC_RED);
-    size_t numEdgesRemoved = pGraph->sweepEdges(GC_RED);
-
-    
     // If interior nodes became islands, remove them.
-    // UPDATE: BE MORE AGRESSIVE AND REMOVE ANY INTERIOR VERTICES FROM THE GRAPH
+    // If removeInteriorNodes is true, remove all interior nodes of the walk.
     for (VertexPtrVec::const_iterator iter = interiorNodes.begin();
          iter != interiorNodes.end();
          iter++)
     {
-//        if ((*iter)->countEdges() == 0)
-//        {
-//            pGraph->removeIslandVertex(*iter);
-//            numVertRemoved++;
-//        }
-        (*iter)->setColor(GC_RED);
+        if (removeInteriorNodes)
+            (*iter)->setColor(GC_RED);
+        else if ((*iter)->countEdges() == 0)
+            (*iter)->setColor(GC_RED);
     }
-    numVertRemoved += pGraph->sweepVertices(GC_RED);
-
-    cout << "Added closures to the graph\n"
-         << "Removed " << numVertRemoved << " vertices\n"
-         << "Removed " << numEdgesRemoved << " edges" << endl;
 }
 
 void ClosureAlgorithms::addClosureToGraph(StringGraph * pGraph, const Closure& c)

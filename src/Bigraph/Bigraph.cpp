@@ -778,3 +778,6 @@ std::string Bigraph::getColorString(GraphColor c)
             return "black";
     }
 }
+// Convert the edge direction to the end of the node which
+// the edge leaves
+const char EdgeDirChar[] = {'E', 'B', 0};

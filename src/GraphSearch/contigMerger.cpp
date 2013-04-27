@@ -46,6 +46,27 @@ std::ostream& operator<<(std::ostream& os, const ClosureDataKey& key)
     return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const ClosureData& data)
+{
+
+    const Bundle& b = data.b_;
+
+    ostringstream walkStr;
+    for (size_t i = 0; i < data.walks_.size(); i++)
+    {
+        walkStr << data.walks_[i].getEndToStartDistance() << ":";
+    }
+
+    os << data.id_ << "," 
+       << "(" << b.vertex1ID << "," << EdgeDirChar[b.dir1] << "," << data.v1_->getSeqLen() << "),"
+       << "(" << b.vertex2ID << "," << EdgeDirChar[b.dir2] << "," << data.v2_->getSeqLen() << "),"
+       << b.n << ","
+       << b.gap << ","
+       << b.std << ","
+       << walkStr.str();
+    return os;
+}
+
 bool ClosureDataKey::operator<(const ClosureDataKey& other) const
 {
     bool lt[4] = {v1_ < other.v1_, v2_ < other.v2_, dir1_ < other.dir1_, dir2_ < other.dir2_};
@@ -60,7 +81,6 @@ bool ClosureDataKey::operator<(const ClosureDataKey& other) const
     }
     return false;
 }
-
 
 // For sorting closures by the the vertexes they close
 bool cmpClosureData(const ClosureData& c1, const ClosureData& c2)
@@ -84,10 +104,15 @@ bool cmpClosureData(const ClosureData& c1, const ClosureData& c2)
     return true;
 }
 
-ContigMerger::ContigMerger(StringGraph* pGraph, const std::string& astatFile, float astatThreshold, int minLength) :
+ContigMerger::ContigMerger(StringGraph* pGraph, const string& outputPfx,
+                           const string& astatFile, float astatThreshold,
+                           int minLength, int minLinksMerge, bool removeInteriorNodes) :
     pGraph_(pGraph),
+    outputPfx_(outputPfx),
     astatThreshold_(astatThreshold),
-    minLength_(minLength)
+    minLength_(minLength),
+    minLinksMerge_(minLinksMerge),
+    removeInteriorNodes_(removeInteriorNodes)
 
 {
 
@@ -115,19 +140,18 @@ ContigMerger::ContigMerger(StringGraph* pGraph, const std::string& astatFile, fl
 void ContigMerger::process(const ClosePathResult& res)
 {
 
-    const int MIN_LINKS = 2;
-
     // Only store results for closures between single copy contigs
     // Do not allow self closures
     if (singleCopy_.count(res.bundle->vertex1ID) == 1 &&
         singleCopy_.count(res.bundle->vertex2ID) == 1 &&
         res.walks.size() == 1 &&
-        res.bundle->n >= MIN_LINKS)
+        res.bundle->n >= minLinksMerge_)
     {
-        ClosureData data(res.bundle->id, res.walks, *res.bundle);
+        const Vertex* v1 = pGraph_->getVertex(res.bundle->vertex1ID);
+        const Vertex* v2 = pGraph_->getVertex(res.bundle->vertex2ID);
+        ClosureData data(res.bundle->id, v1, v2, res.walks, *res.bundle);
         closures_.push_back(data);
         ClosureDataKey key(data);
-        //cout << "Trying to add key: " << key << std::endl;
         assert(closureMap_.count(key)==0);
         closureMap_.insert(ClosureMap::value_type(key, data));
     }
@@ -180,7 +204,7 @@ void ContigMerger::postProcess()
 
     }
 
-    cout << "Found " << closures_.size() << " bundles with closures between single copy contigs.\n";
+    cout << "Found " << closures_.size() << " bundles with unique closures between single copy contigs.\n";
     cout << "Found " << numUnique << " bundles with unique closures between single copy contigs.\n";
     cout << "DONE: CONTIG MERGER\n"
          << "--------------------\n";
@@ -192,7 +216,6 @@ void ContigMerger::postProcess()
 void ContigMerger::applyClosuresToGraph()
 {
     ScaffoldGraph scaffGraph;
-    const int MIN_LINKS = 2;
 
     // Add vertices to the Scaffold Graph
     size_t numVerticedAdded = 0;
@@ -202,7 +225,7 @@ void ContigMerger::applyClosuresToGraph()
         iter++)
     {
         if (iter->walks_.size() != 1) continue;
-        if (iter->b_.n < MIN_LINKS) continue;
+        if (iter->b_.n < minLinksMerge_) continue;
         const Bundle& b = iter->b_;
 
         string v1 = iter->getVertex1();
@@ -257,7 +280,7 @@ void ContigMerger::applyClosuresToGraph()
     scaffGraph.visit(trVisit);
 
     // Check for cycles in the graph
-    ScaffoldAlgorithms::destroyStrictCycles(&scaffGraph, "scaffold.cycles.out");
+    ScaffoldAlgorithms::destroyStrictCycles(&scaffGraph, outputPfx_ + ".scaffold.cycles.out");
     ScaffoldMultiEdgeRemoveVisitor meVisit;
     scaffGraph.visit(meVisit);
     scaffGraph.visit(statsVisit);
@@ -270,7 +293,7 @@ void ContigMerger::applyClosuresToGraph()
     scaffGraph.visit(cutVisitor);
 
     // Write out the scaffolds
-    ScaffoldWriterVisitor writer("myScaffolds.txt");
+    ScaffoldWriterVisitor writer(outputPfx_ + ".scaffs");
     scaffGraph.visit(writer);
 
     ScaffoldCollectorVisitor scaffCollector;
@@ -278,25 +301,55 @@ void ContigMerger::applyClosuresToGraph()
     vector<ScaffoldRecord> scaffs = scaffCollector.getScaffs();
     cout << "Have " << scaffs.size() << " scaffolds\n";
 
-    // Collect each non-singleton scaffold and apply it to the graph
+    // Collect each non-singleton scaffold and apply it to the graph.
     vector<Closure> scaffClosures;
     typedef vector<ScaffoldRecord> ScaffRecVec;
+    string scaffOutFileName = outputPfx_ + ".scaffs.bundles";
+    string scaffClosureOutFileName = outputPfx_ + ".scaffs.closure";
+    ofstream scaffOut(scaffOutFileName.c_str());
+    ofstream scaffClosureOut(scaffClosureOutFileName.c_str());
     const ScaffRecVec::const_iterator iterB = scaffs.begin();
     const ScaffRecVec::const_iterator iterE = scaffs.end();
+    VertexPtrVec interiorNodes;
     for(ScaffRecVec::const_iterator iter = iterB; iter != iterE; iter++)
     {
-        SGWalk walk = scaffoldToWalk(*iter);
         ostringstream scaffId;
         scaffId << "scaffold-" << (iter-iterB);
-        scaffClosures.push_back(Closure(scaffId.str(), walk, 0, 0));
+        Closure closure = scaffoldToClosure(*iter, scaffId.str(), scaffOut, scaffClosureOut);
+        scaffClosures.push_back(closure);
+        closure.getInteriorVertices(&interiorNodes);
+    }
+    scaffOut.close();
+    scaffClosureOut.close();
+
+    // Mark interior single-copy vertices for removal
+    for(VertexPtrVec::const_iterator iter = interiorNodes.begin();
+        iter != interiorNodes.end();
+        iter++)
+    {
+        Vertex* v = *iter;
+        if (singleCopy_.count(v->getID()) > 0)
+        {
+            v->setColor(GC_RED);
+        }
     }
 
     // Apply the closures to the graph
     cout << "Applying " << scaffClosures.size() << " scaffolds to the graph" << endl;
-    ClosureAlgorithms::addClosuresToGraph(pGraph_, scaffClosures);
+    ClosureAlgorithms::addClosuresToGraph(pGraph_, scaffClosures, removeInteriorNodes_);
+
+    // Remove any marked edges/vertices
+    // Any removed edges are those which are removed through graph remodeling or are interior to a closure
+    // Any removed ndoes are those which are the starting/vertex node of a closure
+    size_t numVertRemoved = pGraph_->sweepVertices(GC_RED);
+    size_t numEdgesRemoved = pGraph_->sweepEdges(GC_RED);
+
+    cout << "Added closures to the graph\n"
+         << "Removed " << numVertRemoved << " vertices\n"
+         << "Removed " << numEdgesRemoved << " edges" << endl;
 }
 
-SGWalk ContigMerger::scaffoldToWalk(const ScaffoldRecord& rec)
+Closure ContigMerger::scaffoldToClosure(const ScaffoldRecord& rec, const string& scaffId, ostream& scaffOut, ostream& scaffClosureOut)
 {
     // Each edge in the scaffold graph corresponds to a walk in the 
     // string graph. Find the appropriate walk for each scaffold edge,
@@ -315,20 +368,24 @@ SGWalk ContigMerger::scaffoldToWalk(const ScaffoldRecord& rec)
 //    }
 //    cout << "------------------" << endl;
 
-    for(size_t i = 0; i < links.size(); i++)
+    
+    scaffOut << scaffId << "\t";
+
+    const size_t N = links.size();
+    for(size_t i = 0; i < N; i++)
     {
         const ScaffoldLink& l = links[i];
         string nextId = l.endpointID;
 
         // Get the ClosureData for this ScaffoldLink
         ClosureDataKey key(rootId, l);
-        //cout << "Looking for key: " << key << endl;
         ClosureMap::iterator iter = closureMap_.find(key);
         assert(iter != closureMap_.end());
         const ClosureData& data = iter->second;
         assert(data.walks_.size() == 1);
-
         const SGWalk& walk = data.walks_[0];
+
+        scaffOut << data << (i != N-1 ? "\t" : "");
 
         // Get edges for the walk. Orient the edges so they are from 
         // the rootId to the nextId
@@ -355,13 +412,17 @@ SGWalk ContigMerger::scaffoldToWalk(const ScaffoldRecord& rec)
 
         rootId = nextId;
     }
+   scaffOut << "\n";
 
-    // Check that the scaffold edges are sane
     if (scaffEdges.empty())
     {
-       return SGWalk(pGraph_->getVertex(rec.getRoot()));
+       scaffClosureOut << scaffId << "\t\n";
+       SGWalk walk(pGraph_->getVertex(rec.getRoot()));
+       Closure c(scaffId, walk, 0, 0);
+       return c;
     }
-    assert(scaffEdges.size() > 0);
+
+    // Check that the scaffold edges are sane
     EdgeDir enterDir = scaffEdges[0]->getTwin()->getDir();
     const Vertex* nextV = scaffEdges[0]->getEnd();
     for (EdgePtrVec::const_iterator iter = scaffEdges.begin()+1;
@@ -375,5 +436,10 @@ SGWalk ContigMerger::scaffoldToWalk(const ScaffoldRecord& rec)
         nextV = e->getEnd();
     }
 
-    return SGWalk(scaffEdges);
+    // Write the closure edges to the scaffClosureOut file
+    Closure c(scaffId, scaffEdges, 0, 0);
+    scaffClosureOut << scaffId << "\t";
+    c.printWithOL(scaffClosureOut);
+    scaffClosureOut << "\n";
+    return c;
 }

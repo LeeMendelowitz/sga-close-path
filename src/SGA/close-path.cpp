@@ -56,9 +56,12 @@ static const char *CLOSEPATH_USAGE_MESSAGE =
 "      --noRemoveEdges                  Do not remove low coverage edges after path search.\n"
 "      --useDFS                         Use a bounded DFS in cases where one sided BFS yields too many paths.\n"
 "      -m, minOverlap                   minimum overlap used when loading the ASQG file. (Default: 0 - use all overlaps)\n"
+
 "\n\nContig Merging Options:\n"
 "      --mergeContigs                   Merge single copy contigs if there is a unique bundle between them.\n"
 "      --astat=FILE                     Path to astat file.\n"
+"      --minLinksMerge=INT              Minimum links to use bundles for single copy contig merging.\n"
+"      --removeInteriorNodes            Removal all nodes in interior of merge contig path.\n"
 "\nReport bugs to " PACKAGE_BUGREPORT "\n\n";
 
 //static const char* PROGRAM_IDENT = PACKAGE_NAME "::" SUBPROGRAM;
@@ -94,6 +97,8 @@ namespace opt
     static std::string astatFile;
     static float astatThreshold = 20.0;
     static int singleCopyLenThreshold = 200;
+    static int minLinksMerge = 2;
+    static bool removeInteriorNodes = false;
     
     // Required
     static std::string graphFile;
@@ -103,7 +108,7 @@ namespace opt
 static const char* shortopts = "vm:s:t:p:o:";
 
 enum { OPT_HELP = 1, OPT_VERSION, OPT_MINSTD, OPT_REMOVE_EDGES, OPT_NUMROUNDS, OPT_WRITESUBGRAPH, OPT_NOREMOVEEDGES, OPT_MAXOL, OPT_MAXGAP, OPT_INTERVALWIDTH,
-       OPT_USEDFS, OPT_MINEDGECOV, OPT_MERGECONTIGS, OPT_ASTAT};
+       OPT_USEDFS, OPT_MINEDGECOV, OPT_MERGECONTIGS, OPT_ASTAT, OPT_MINLINKSMERGE, OPT_REMOVEINTERIORNODES};
 
 static const struct option longopts[] = {
     { "verbose",       no_argument,       NULL, 'v' },
@@ -122,6 +127,8 @@ static const struct option longopts[] = {
     { "maxGap", required_argument, NULL, OPT_MAXGAP},
     { "intervalWidth", required_argument, NULL, OPT_INTERVALWIDTH},
     { "mergeContigs", no_argument, NULL, OPT_MERGECONTIGS},
+    { "minLinksMerge", required_argument, NULL, OPT_MINLINKSMERGE},
+    { "removeInteriorNodes", no_argument, NULL, OPT_REMOVEINTERIORNODES},
     { "astat", required_argument, NULL, OPT_ASTAT},
     { "help",          no_argument,       NULL, OPT_HELP },
     { "version",       no_argument,       NULL, OPT_VERSION },
@@ -196,7 +203,8 @@ int closePathMain(int argc, char** argv)
         ssOutputPfx << opt::outputPfx << ".round" << roundNum;
         std::string roundOutputPfx = ssOutputPfx.str();
         ClosePathPostProcess* postProcessor = new ClosePathPostProcess(pGraph, roundOutputPfx, opt::maxNumStd, opt::maxGap, opt::writeSubgraph,
-                                                                       opt::astatFile, opt::astatThreshold, opt::singleCopyLenThreshold);
+                                                                       opt::astatFile, opt::astatThreshold, opt::singleCopyLenThreshold, opt::minLinksMerge,
+                                                                       opt::removeInteriorNodes);
 
         // Find path closures for all bundles
         if (opt::numThreads <= 1)
@@ -224,32 +232,51 @@ int closePathMain(int argc, char** argv)
             }
         }
 
+        postProcessor->writeEdgeCoverage();
+        postProcessor->writeDecisionClosures();
+
         // Remove untrusted edges from the graph, and add missing edges
         if (opt::removeEdges)
         {
+            cout << "Round " << roundNum << ": Before removing edges:\n";
+            pGraph->stats();
             postProcessor->removeEdges(covCriteria[i]);
-            size_t edgesAdded = 0;
-            if (opt::findOverlaps)
-            {
-               edgesAdded = postProcessor->addEdgesToGraph();
-            }
-            pGraph->writeASQG(roundOutputPfx + "-pruned.asqg.gz");
-            std::cout << "Added " << edgesAdded << " edges to the graph.\n";
-            std::cout << "Graph stats after round " << roundNum << " pruning:\n";
+            cout << "Round " << roundNum << ": After removing edges;\n";
             pGraph->stats();
 
-        }
+// Old code to add inexact overlaps to string graph.
+// The current StringGraph implementation does not allow overlaps with indels.
+// Adding edges representing overlaps of different lengths between two nodes will cause
+// problems downstream.
+//            size_t edgesAdded = 0;
+//            if (opt::findOverlaps)
+//            {
+//               edgesAdded = postProcessor->addEdgesToGraph();
+//            }
+//            std::cout << "Added " << edgesAdded << " edges to the graph.\n";
+//            std::cout << "Graph stats after round " << roundNum << " pruning:\n";
+
+            pGraph->writeASQG(roundOutputPfx + "-pruned.asqg.gz");
+        } 
 
         if (roundNum == numRounds)
         {
             // This is the last round. Add the unique closures to the graph as nodes.
-            std::cout << "Before adding closures:\n";
-            pGraph->stats();
-            postProcessor->overlapClosures();
-            if (opt::mergeContigs) postProcessor->mergeContigs();
+            //std::cout << "Before adding closures:\n";
+            //pGraph->stats();
+            //postProcessor->overlapClosures();
             //postProcessor->addClosuresToGraph();
-            std::cout << "After adding closures:\n";
-            pGraph->stats();
+            //std::cout << "After adding closures:\n";
+            //pGraph->stats();
+            
+            if (opt::mergeContigs)
+            {
+                cout << "Before merging contigs:\n";
+                pGraph->stats();
+                postProcessor->mergeContigs();
+                cout << "After merging contigs:\n";
+                pGraph->stats();
+            }
             pGraph->writeASQG(opt::outputPfx + ".final.asqg.gz");
         }
 
@@ -292,6 +319,8 @@ void parseClosePathOptions(int argc, char** argv)
             case OPT_USEDFS: opt::useDFS = true; break;
             case OPT_MINEDGECOV: arg >> opt::minEdgeCov; break;
             case OPT_MERGECONTIGS: opt::mergeContigs = true; break;
+            case OPT_MINLINKSMERGE: arg >> opt::minLinksMerge; break;
+            case OPT_REMOVEINTERIORNODES: opt::removeInteriorNodes = true; break;
             case OPT_ASTAT: arg >> opt::astatFile; break;
             case OPT_HELP:
                 std::cout << CLOSEPATH_USAGE_MESSAGE;
@@ -316,8 +345,14 @@ void parseClosePathOptions(int argc, char** argv)
     }
     else if (!opt::mergeContigs && !opt::astatFile.empty())
     {
-        std::cerr << SUBPROGRAM " warning: Astat file provided by mergeContigs is false.\n";
+        std::cerr << SUBPROGRAM " warning: Ignoring astat file since mergeContigs is false.\n";
         opt::astatFile = "";
+    }
+
+    if (!opt::removeEdges && opt::numRounds > 1)
+    {
+        std::cerr << SUBPROGRAM " warning: edge removal is disabled, so setting numRounds to 1.\n";
+        opt::numRounds = 1;
     }
 
 
@@ -402,6 +437,8 @@ void printOptions()
                   << "useDFS: " << opt::useDFS << "\n"
                   << "mergeContigs: " << opt::mergeContigs << "\n"
                   << "astatFile: " << opt::astatFile << "\n"
+                  << "minLinksMerge: " << opt::minLinksMerge << "\n"
+                  << "removeInteriorNodes: " << opt::removeInteriorNodes << "\n"
                   << "graphFile: " << opt::graphFile << "\n"
                   << "bundleFile: " << opt::bundleFile << "\n"
                   << "outputPfx: " << opt::outputPfx << "\n"

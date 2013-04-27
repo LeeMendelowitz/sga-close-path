@@ -176,7 +176,8 @@ class ClosePathPostProcess
 {
     public:
     ClosePathPostProcess(StringGraph * pGraph, const std::string& outputPfx, float numStd, int maxGap, bool writeSubgraphs,
-                         const std::string& astatFile, float astatThreshold, int minSingleCopyLength);
+                         const std::string& astatFile, float astatThreshold, int minSingleCopyLength, int minLinksMerge,
+                         bool removeInteriorNodes);
     ~ClosePathPostProcess();
     void process(const ClosePathWorkItem& item, const ClosePathResult& result);
     void printSummary(std::ostream& os);
@@ -188,50 +189,51 @@ class ClosePathPostProcess
     size_t getNumProcessed() const { return numBundlesProcessed_; }
     void addClosuresToGraph(); // Add closures to the graph as nodes
     void overlapClosures();
-
     void mergeContigs(); // merge single copy contigs
+    void writeEdgeCoverage();
+    void writeDecisionClosures();
+
+
 
     private:
-        StringGraph * pGraph_;
-        std::string outputPfx_;
-        float numStd_;
-        int maxGap_;
-        bool writeSubgraphs_; // write subgraphs for repetitive items
-        bool simplifyGraph_; // simplify the graph by using read pairs with unique closure
-        std::ofstream statusFile_;
-        std::ofstream statsFile_;
-        std::ofstream fastaFile_;
-        std::ofstream decisionWalksFile_;
-        std::ofstream fastaFileUnique_;
-        std::ofstream walksFile_;
-        std::ofstream edgeCovFile_;
-        EdgeTracker edgeTracker_;
-        EdgePtrVec edgesToAdd_;
-        ClosureDB closureDB_;
-        ContigMerger* pContigMerger_;
+    StringGraph * pGraph_;
+    std::string outputPfx_;
+    float numStd_;
+    int maxGap_;
+    bool writeSubgraphs_; // write subgraphs for repetitive items
+    bool simplifyGraph_; // simplify the graph by using read pairs with unique closure
+    std::ofstream statusFile_;
+    std::ofstream statsFile_;
+    std::ofstream fastaFile_;
+    std::ofstream fastaFileUnique_;
+    std::ofstream walksFile_;
+    EdgeTracker edgeTracker_;
+    EdgePtrVec edgesToAdd_;
+    ClosureDB closureDB_;
+    ContigMerger* pContigMerger_;
 
-        // Summary of closures
-        int numBundlesProcessed_;
-        int numBundlesClosedUniquely_;
-        int numBundlesClosed_;
-        int numBundlesFailedOverlap_;
-        int numBundlesFailedRepetitive_;
-        int numOverlapsFound_;
-        int numReadPairsProcessed_;
-        int numReadPairsClosedUniquely_;
-        int numReadPairsClosed_;
-        int numReadPairsFailedOverlap_;
-        int numReadPairsFailedRepetitive_;
-        int numReadPairsOverlapFound_;
+    // Summary of closures
+    int numBundlesProcessed_;
+    int numBundlesClosedUniquely_;
+    int numBundlesClosed_;
+    int numBundlesFailedOverlap_;
+    int numBundlesFailedRepetitive_;
+    int numOverlapsFound_;
+    int numReadPairsProcessed_;
+    int numReadPairsClosedUniquely_;
+    int numReadPairsClosed_;
+    int numReadPairsFailedOverlap_;
+    int numReadPairsFailedRepetitive_;
+    int numReadPairsOverlapFound_;
 
-        // Write results to files
-        void writeResultToStatus(const ClosePathResult & res);
-        void writeResultToStats(const ClosePathResult & res);
-        void writeResultToFasta(const ClosePathResult & res);
-        void writeResultToWalks(const ClosePathResult & res);
-        void writeStatusHeader();
-        void writeStatsHeader();
-        void writeSubgraphToFile(const ClosePathWorkItem& item); // write the subgraph searched to file
+    // Write results to files
+    void writeResultToStatus(const ClosePathResult & res);
+    void writeResultToStats(const ClosePathResult & res);
+    void writeResultToFasta(const ClosePathResult & res);
+    void writeResultToWalks(const ClosePathResult & res);
+    void writeStatusHeader();
+    void writeStatsHeader();
+    void writeSubgraphToFile(const ClosePathWorkItem& item); // write the subgraph searched to file
 };
 
 template <class T>

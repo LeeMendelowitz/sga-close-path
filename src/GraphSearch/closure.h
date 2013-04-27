@@ -19,6 +19,8 @@ class Closure : public SGWalk
     public:
     Closure(const std::string& id, const SGWalk& w, int d1, int d2) :
         SGWalk(w), id_(id), d1max_(d1), d2max_(d2) { };
+    Closure(const std::string& id, const EdgePtrVec& edges, int d1, int d2) :
+        SGWalk(edges), id_(id), d1max_(d1), d2max_(d2) { };
 
     // Return True if this walk contains the other
     bool contains(const Closure& other) const;
@@ -122,7 +124,7 @@ namespace ClosureAlgorithms
     //   and so their sequence and overlaps are accounted for by the node created for the closure.)
     // Remove any interior edges of the closure.
     // Remove any interior vertexes of the closure if they have become islands.
-    void addClosuresToGraph(StringGraph* pGraph, const ClosureVec& closures);
+    void addClosuresToGraph(StringGraph* pGraph, const ClosureVec& closures, bool removeInteriorNodes);
 
     // Add a single closure to the graph
     void addClosureToGraph(StringGraph* pGraph, const Closure& c);

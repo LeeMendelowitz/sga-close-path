@@ -4,12 +4,14 @@
 #include <set>
 #include <vector>
 #include <map>
+#include <string>
 
 #include "SGUtil.h"
 #include "SGWalk.h"
 #include "ScaffoldRecord.h"
 
 #include "bundle.h"
+#include "closure.h"
 #include "astatReader.h"
 
 
@@ -37,15 +39,19 @@ std::ostream& operator<<(std::ostream& os, const ClosureDataKey& key);
 class ClosureData
 {
     public:
-    ClosureData(const std::string& id, const SGWalkVector& walks, const Bundle& b) :
-        id_(id), b_(b), walks_(walks){ };
+    ClosureData(const std::string& id, const Vertex* v1, const Vertex* v2, const SGWalkVector& walks, const Bundle& b) :
+        id_(id), b_(b), v1_(v1), v2_(v2), walks_(walks){ };
     std::string id_; // bundle id
     Bundle b_;
     SGWalkVector walks_;
+    const Vertex* v1_;
+    const Vertex* v2_;
     const std::string& getVertex1() const {return b_.vertex1ID;}
     const std::string& getVertex2() const {return b_.vertex2ID;}
     ClosureDataKey makeKey() const { return ClosureDataKey(*this); };
 };
+
+std::ostream& operator<<(std::ostream& os, const ClosureData& data);
 
 class ContigMerger
 {
@@ -53,17 +59,21 @@ class ContigMerger
     typedef std::vector<ClosureData> ClosureVec;
     typedef std::map<ClosureDataKey, ClosureData> ClosureMap;
 
-    ContigMerger(StringGraph * pGraph, const std::string& astatFile, float astatThreshold, int minLength);
+    ContigMerger(StringGraph * pGraph, const std::string& astatFile, const std::string& outputPfx, float astatThreshold, int minLength, int minLinksMerge,
+                 bool removeInteriorNodes);
 
     void process(const ClosePathResult& res);
     void postProcess();
     void applyClosuresToGraph();
-    SGWalk scaffoldToWalk(const ScaffoldRecord& rec);
+    Closure scaffoldToClosure(const ScaffoldRecord& rec, const std::string& scaffId, std::ostream& scaffOut, std::ostream& scaffClosureOut);
 
     private:
     StringGraph * pGraph_;
+    const std::string outputPfx_;
     const float astatThreshold_;
     const int minLength_;
+    const int minLinksMerge_;
+    const bool removeInteriorNodes_;
     std::set<std::string> singleCopy_;
     ClosureMap closureMap_;
     ClosureVec closures_;
