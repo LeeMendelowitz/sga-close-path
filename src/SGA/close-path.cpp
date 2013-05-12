@@ -280,6 +280,8 @@ int closePathMain(int argc, char** argv)
             pGraph->writeASQG(opt::outputPfx + ".final.asqg.gz");
         }
 
+        postProcessor->printSummary(std::cout);
+
         delete bundleReader;
         delete workGenerator;
         delete postProcessor;

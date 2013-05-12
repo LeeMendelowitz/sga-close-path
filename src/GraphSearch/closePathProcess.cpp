@@ -70,9 +70,11 @@ void ClosePathProcess::process(const ClosePathWorkItem& item, ClosePathResult& r
     minStdGap = max((int) (b->gap - stdDelta), -maxOL_);
     params.maxDistance = lX + maxStdGap;
     params.minDistance = max(lX + minStdGap,0);
+
     ClosePathResult result1(b);
     result1.overlapTooLarge =  (maxStdGap < 0) && (maxStdGap <= max(-lX, -maxOL_));
-    if (!result1.overlapTooLarge)
+    result1.gapTooLarge = (maxStdGap > 0) && (max(maxStdGap, minStdGap) > maxGap_);
+    if (!result1.overlapTooLarge && !result1.gapTooLarge)
     {
         findWalks(params, result1);
     }
@@ -81,13 +83,15 @@ void ClosePathProcess::process(const ClosePathWorkItem& item, ClosePathResult& r
     int minFixedGap, maxFixedGap; // Gap bounds determined by fixed interval
     maxFixedGap = min((int) (b->gap + fixedIntervalWidth_), maxGap_);
     minFixedGap = max((int) (b->gap - fixedIntervalWidth_), -maxOL_);
+    if (minFixedGap > maxFixedGap) maxFixedGap = minFixedGap;
     bool fixedIntervalIsLarger = (maxFixedGap > maxStdGap);
     params.maxDistance = lX + maxFixedGap;
     params.minDistance = max(lX + minFixedGap,0);
     ClosePathResult result2(b);
-    result2.overlapTooLarge =  (maxFixedGap < 0) && (maxFixedGap <= max(-lX, -maxOL_));
+    result2.overlapTooLarge = (maxFixedGap < 0) && (maxFixedGap <= max(-lX, -maxOL_));
+    result2.gapTooLarge = (maxFixedGap > 0) && (max(maxFixedGap, minFixedGap) > maxGap_);
     bool useFixedIntervalResult = false;
-    if (!result2.overlapTooLarge)
+    if (!result2.overlapTooLarge && !result2.gapTooLarge)
     {
         if (fixedIntervalIsLarger && result1.walks.size()==0 && !result1.tooRepetitive)
         {
@@ -372,6 +376,7 @@ void ClosePathPostProcess::writeStatusHeader()
                 << "\tNumClosures"
                 << "\tTooRepetitive"
                 << "\tOverlapTooLarge"
+                << "\tGapTooLarge"
                 << "\tFoundOverlap"
                 << "\tUsedFixedInterval"
                 << "\n";
@@ -383,6 +388,7 @@ void ClosePathPostProcess::writeResultToStatus(const ClosePathResult & res)
                 << "\t" << res.walks.size()
                 << "\t" << res.tooRepetitive
                 << "\t" << res.overlapTooLarge
+                << "\t" << res.gapTooLarge
                 << "\t" << res.foundOverlap
                 << "\t" << res.usedFixedInterval
                 << "\n";

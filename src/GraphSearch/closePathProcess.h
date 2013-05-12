@@ -99,6 +99,7 @@ class ClosePathResult
         bundle(b),
         tooRepetitive(false),
         overlapTooLarge(false),
+        gapTooLarge(false),
         foundOverlap(false),
         shortestPath(0),
         usedFixedInterval(false)
@@ -110,6 +111,7 @@ class ClosePathResult
     {
         tooRepetitive = false;
         overlapTooLarge = false;
+        gapTooLarge = false;
         foundOverlap = false;
         shortestPath = 0;
         usedFixedInterval = false;
@@ -124,6 +126,7 @@ class ClosePathResult
         bundle = res.bundle;
         tooRepetitive = res.tooRepetitive;
         overlapTooLarge = res.overlapTooLarge;
+        gapTooLarge = res.gapTooLarge;
         foundOverlap = res.foundOverlap;
         shortestPath = res.shortestPath;
         usedFixedInterval = res.usedFixedInterval;
@@ -133,6 +136,7 @@ class ClosePathResult
     const Bundle * bundle;
     bool tooRepetitive; // Closure failed due to graph too repetitive
     bool overlapTooLarge; // Closure failed because bundle implies overlap too large
+    bool gapTooLarge; // Closure failed because the bundle implies too large of a gap
     bool foundOverlap;
     int shortestPath;
     bool usedFixedInterval;
