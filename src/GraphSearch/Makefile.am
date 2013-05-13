@@ -24,5 +24,6 @@ libgraphsearch_a_SOURCES = \
    closure.h closure.cpp \
    dfs.h dfs.cpp \
    contigMerger.h contigMerger.cpp \
-   astatReader.h astatReader.cpp
+   astatReader.h astatReader.cpp \
+   pathCounter.h pathCounter.cpp
 #   bundleManager.h bundleManager.cpp
