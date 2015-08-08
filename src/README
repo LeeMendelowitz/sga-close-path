@@ -8,6 +8,15 @@ find overlaps between sequence reads. The core algorithms are described in this 
 
 http://bioinformatics.oxfordjournals.org/cgi/content/abstract/26/12/i367
 
+This repository has modified SGA v0.9.35 to add the `sga close-path` feature for 
+removing unsupported edges from the string graph using distance estimates generated
+by paired reads.
+
+The source code updates for `sga close-path` can be found in these directories:
+https://github.com/LeeMendelowitz/sga-close-path/blob/close_path/src/SGA/close-path.cpp (main executable)
+https://github.com/LeeMendelowitz/sga-close-path/tree/close_path/src/GraphSearch
+
+
 -------------
 Compiling SGA
 
